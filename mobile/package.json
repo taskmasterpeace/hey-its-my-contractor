@@ -1,0 +1,52 @@
+{
+  "name": "@contractor-platform/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "build": "expo build",
+    "test": "jest",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "expo": "~52.0.0",
+    "expo-router": "~4.0.0",
+    "expo-splash-screen": "~0.29.0",
+    "expo-status-bar": "~2.0.0",
+    "react": "~18.3.1",
+    "react-native": "0.75.4",
+    "react-native-screens": "~4.1.0",
+    "react-native-safe-area-context": "~4.12.0",
+    "@contractor-platform/types": "*",
+    "@supabase/supabase-js": "^2.39.0",
+    "@react-native-async-storage/async-storage": "~2.1.0",
+    "react-native-url-polyfill": "^2.0.0",
+    "@expo/vector-icons": "^14.0.0",
+    "expo-camera": "~16.0.0",
+    "expo-media-library": "~17.0.0",
+    "expo-location": "~18.0.0",
+    "expo-av": "~14.0.0",
+    "expo-file-system": "~18.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@types/react": "~19.0.0",
+    "@types/react-native": "~0.73.0",
+    "typescript": "^5.3.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-expo": "^7.0.0",
+    "jest": "^29.2.1",
+    "jest-expo": "~52.0.0"
+  },
+  "expo": {
+    "install": {
+      "exclude": ["react-native-safe-area-context"]
+    }
+  }
+}

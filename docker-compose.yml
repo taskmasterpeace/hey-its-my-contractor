@@ -1,0 +1,218 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: contractor-postgres
+    environment:
+      POSTGRES_DB: contractor_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: contractor_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./supabase/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./supabase/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    networks:
+      - contractor-network
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    container_name: contractor-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - contractor-network
+
+  # Ory Kratos for authentication
+  kratos-migrate:
+    image: oryd/kratos:v1.0.0
+    container_name: contractor-kratos-migrate
+    environment:
+      - DSN=postgres://postgres:contractor_dev_password@postgres:5432/contractor_platform?sslmode=disable&max_conns=20&max_idle_conns=4
+    volumes:
+      - type: bind
+        source: ./services/auth/kratos
+        target: /etc/config/kratos
+    command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
+    restart: on-failure
+    networks:
+      - contractor-network
+    depends_on:
+      - postgres
+
+  kratos:
+    image: oryd/kratos:v1.0.0
+    container_name: contractor-kratos
+    ports:
+      - "4433:4433" # public
+      - "4434:4434" # admin
+    restart: unless-stopped
+    environment:
+      - DSN=postgres://postgres:contractor_dev_password@postgres:5432/contractor_platform?sslmode=disable&max_conns=20&max_idle_conns=4
+      - LOG_LEVEL=trace
+    command: serve -c /etc/config/kratos/kratos.yml --dev --watch-courier
+    volumes:
+      - type: bind
+        source: ./services/auth/kratos
+        target: /etc/config/kratos
+    networks:
+      - contractor-network
+    depends_on:
+      - kratos-migrate
+
+  # File upload service (tusd)
+  tusd:
+    image: tusproject/tusd:v1.13.0
+    container_name: contractor-tusd
+    ports:
+      - "1080:1080"
+    command: 
+      - "-host=0.0.0.0"
+      - "-port=1080"
+      - "-upload-dir=/srv/tusd-data/files"
+      - "-hooks-dir=/srv/tusd-data/hooks"
+    volumes:
+      - tusd_data:/srv/tusd-data
+    networks:
+      - contractor-network
+
+  # Rocket.Chat MongoDB (required for Rocket.Chat)
+  rocketchat-mongo:
+    image: mongo:6.0
+    container_name: contractor-rocketchat-mongo
+    restart: unless-stopped
+    volumes:
+      - rocketchat_mongo_data:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs0 --storageEngine=wiredTiger
+    networks:
+      - contractor-network
+
+  # MongoDB replica set initialization
+  rocketchat-mongo-init-replica:
+    image: mongo:6.0
+    container_name: contractor-mongo-init-replica
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          mongo rocketchat-mongo/rocketchat --eval \"
+            rs.initiate({
+              _id: 'rs0',
+              members: [ { _id: 0, host: 'localhost:27017' } ]})\" &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 5 secs...\";
+          sleep 5;
+        done; (exit $$s)"
+    depends_on:
+      - rocketchat-mongo
+    networks:
+      - contractor-network
+
+  # Rocket.Chat
+  rocketchat:
+    image: rocketchat/rocket.chat:6.6.0
+    container_name: contractor-rocketchat
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          node main.js &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 5 secs...\";
+          sleep 5;
+        done; (exit $$s)"
+    restart: unless-stopped
+    volumes:
+      - rocketchat_uploads:/app/uploads
+    environment:
+      - PORT=3000
+      - ROOT_URL=http://localhost:3000
+      - MONGO_URL=mongodb://rocketchat-mongo:27017/rocketchat
+      - MONGO_OPLOG_URL=mongodb://rocketchat-mongo:27017/local
+    depends_on:
+      - rocketchat-mongo
+    ports:
+      - "3001:3000"
+    networks:
+      - contractor-network
+
+  # MinIO for S3-compatible storage (alternative to Supabase Storage for local dev)
+  minio:
+    image: minio/minio:latest
+    container_name: contractor-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: contractor_minio
+      MINIO_ROOT_PASSWORD: contractor_minio_password
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - contractor-network
+
+  # Local SMTP server for email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: contractor-mailhog
+    ports:
+      - "1025:1025" # SMTP server
+      - "8025:8025" # Web UI
+    networks:
+      - contractor-network
+
+  # InvoicePlane - MIT Licensed Invoicing System
+  invoiceplane:
+    build:
+      context: ./services/invoicing
+      dockerfile: Dockerfile
+    container_name: contractor-invoiceplane
+    ports:
+      - "8080:80"
+    environment:
+      - IP_URL=http://localhost:8080
+      - MYSQL_HOST=invoiceplane-mysql
+      - MYSQL_DATABASE=invoiceplane
+      - MYSQL_USER=invoiceplane
+      - MYSQL_PASSWORD=invoiceplane_password
+      - REMOVE_INDEXPHP=true
+      - DISABLE_SETUP=false
+    volumes:
+      - invoiceplane_data:/var/www/html
+    networks:
+      - contractor-network
+    depends_on:
+      - invoiceplane-mysql
+
+  # MySQL for InvoicePlane
+  invoiceplane-mysql:
+    image: mysql:8.0
+    container_name: contractor-invoiceplane-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=invoiceplane
+      - MYSQL_USER=invoiceplane
+      - MYSQL_PASSWORD=invoiceplane_password
+    volumes:
+      - invoiceplane_mysql_data:/var/lib/mysql
+    networks:
+      - contractor-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  tusd_data:
+  rocketchat_mongo_data:
+  rocketchat_uploads:
+  minio_data:
+  invoiceplane_data:
+  invoiceplane_mysql_data:
+
+networks:
+  contractor-network:
+    driver: bridge

@@ -1,0 +1,6 @@
+# Hey, It's My Contractor - AAD Generation System
+
+node_modules/
+.next/
+.env.local
+web/public/downloaded-images/
