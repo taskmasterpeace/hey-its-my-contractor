@@ -81,7 +81,7 @@ export function FieldLogForm({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       
-      let audioChunks: Blob[] = [];
+      const audioChunks: Blob[] = [];
       
       mediaRecorder.ondataavailable = (event) => {
         audioChunks.push(event.data);

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ResearchResult } from '@contractor-platform/types';
-import { ExternalLink, Save, Copy, Share2, ThumbsUp, ThumbsDown, Tag, FileText } from 'lucide-react';
+import { ExternalLink, Save, Copy, Share2, ThumbsUp, ThumbsDown } from 'lucide-react';
 
 interface ResearchResultsProps {
   result: ResearchResult;

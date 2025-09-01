@@ -23,14 +23,13 @@ import { WeatherWidget } from '@/components/calendar/WeatherWidget';
 export default function CalendarPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [calendarPlugins, setCalendarPlugins] = useState<any[]>([]);
+  const [calendarPlugins, setCalendarPlugins] = useState<unknown[]>([]);
   
   // Use global calendar state
   const {
     events,
     selectedEvent,
     view,
-    loading,
     createEvent,
     updateEvent: updateEventFromHook,
     deleteEvent: deleteEventFromHook,
@@ -59,7 +58,7 @@ export default function CalendarPage() {
     loadEvents();
   }, [loadEvents]);
 
-  const handleDateSelectLocal = (selectInfo: any) => {
+  const handleDateSelectLocal = (selectInfo: { start: string | Date }) => {
     setSelectedDate(new Date(selectInfo.start));
     setSelectedEvent(null);
     setIsModalOpen(true);
