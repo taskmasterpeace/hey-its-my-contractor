@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     
     // Transform Google results to our format
-    const formattedResults = data.items?.map((item: any, index: number) => {
+    const formattedResults = data.items?.map((item: { link: string; image: { thumbnailLink: string }; title: string; displayLink: string }, index: number) => {
       // Extract retailer from URL
       const url = new URL(item.link);
       const hostname = url.hostname.toLowerCase();
