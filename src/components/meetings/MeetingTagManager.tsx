@@ -10,7 +10,6 @@ import {
   Hash, 
   TrendingUp, 
   Clock,
-  Search,
   ChevronDown,
   Edit,
   Trash2
@@ -294,7 +293,7 @@ export function MeetingTagManager({
                 className="flex items-center w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Create new tag "{searchQuery}"
+                Create new tag &ldquo;{searchQuery}&rdquo;
               </button>
             ) : (
               <div className="space-y-3">
