@@ -64,7 +64,7 @@ export function ResearchResults({ result, onSave, onRelatedQuery }: ResearchResu
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-gray-900 mb-1">Research Results</h3>
-            <p className="text-sm text-gray-600 truncate">"{result.query}"</p>
+            <p className="text-sm text-gray-600 truncate">&ldquo;{result.query}&rdquo;</p>
           </div>
           <div className="flex items-center space-x-2 ml-4">
             <div className={`text-xs font-medium ${confidenceColor}`}>
