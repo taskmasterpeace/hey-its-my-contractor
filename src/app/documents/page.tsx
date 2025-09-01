@@ -1,7 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FolderOpen, Upload, Search, Filter, Grid, List } from 'lucide-react';
+import { Document } from '@contractor-platform/types';
+import { DocumentUpload } from '@/components/documents/DocumentUpload';
+import { DocumentsList } from '@/components/documents/DocumentsList';
+import { DocumentViewer } from '@/components/documents/DocumentViewer';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
