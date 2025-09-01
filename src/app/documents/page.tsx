@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { Document } from '@contractor-platform/types';
+import dynamic from 'next/dynamic';
 import { DocumentsList } from '@/components/documents/DocumentsList';
-import { DocumentViewer } from '@/components/documents/DocumentViewer';
-import { DocumentUpload } from '@/components/documents/DocumentUpload';
+
+// Dynamically import components that use browser APIs
+const DocumentViewer = dynamic(() => import('@/components/documents/DocumentViewer').then(mod => ({ default: mod.DocumentViewer })), { ssr: false });
+const DocumentUpload = dynamic(() => import('@/components/documents/DocumentUpload').then(mod => ({ default: mod.DocumentUpload })), { ssr: false });
 import { FolderOpen, Upload, Search, Filter, Grid, List } from 'lucide-react';
 
 export default function DocumentsPage() {
