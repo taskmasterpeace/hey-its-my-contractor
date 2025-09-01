@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 export const metadata: Metadata = {
   title: 'Hey, It\'s My Contractor',
@@ -13,8 +14,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        {children}
+      <body className="font-sans">
+        <MainLayout>{children}</MainLayout>
       </body>
     </html>
   );
