@@ -248,4 +248,4 @@ npm run lint
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see LICENSE file for details# Framework fix applied Mon, Sep  1, 2025  3:14:01 AM
