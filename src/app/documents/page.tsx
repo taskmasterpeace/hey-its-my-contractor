@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react';
 import { FolderOpen, Upload, Search, Filter, Grid, List } from 'lucide-react';
 import { Document } from '@contractor-platform/types';
-import { DocumentUpload } from '@/components/documents/DocumentUpload';
-import { DocumentsList } from '@/components/documents/DocumentsList';
-import { DocumentViewer } from '@/components/documents/DocumentViewer';
+import dynamic from 'next/dynamic';
+
+// Dynamically import components that use DOM APIs to avoid SSR issues
+const DocumentUpload = dynamic(() => import('@/components/documents/DocumentUpload').then(mod => ({ default: mod.DocumentUpload })), { ssr: false });
+const DocumentsList = dynamic(() => import('@/components/documents/DocumentsList').then(mod => ({ default: mod.DocumentsList })), { ssr: false });
+const DocumentViewer = dynamic(() => import('@/components/documents/DocumentViewer').then(mod => ({ default: mod.DocumentViewer })), { ssr: false });
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
