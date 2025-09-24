@@ -8,7 +8,11 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf .next out"
+    "clean": "rm -rf .next out",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:pull": "drizzle-kit pull",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@contractor-platform/types": "workspace:*",
@@ -23,9 +27,12 @@
     "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "dotenv": "^17.2.2",
+    "drizzle-orm": "^0.44.5",
     "lucide-react": "^0.344.0",
     "next": "^14.2.32",
     "pdfjs-dist": "^4.0.0",
+    "postgres": "^3.4.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-draggable": "^4.5.0",
@@ -44,6 +51,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.16",
+    "drizzle-kit": "^0.31.4",
     "eslint": "^8.0.0",
     "eslint-config-next": "15.5.0",
     "postcss": "^8.4.32",
