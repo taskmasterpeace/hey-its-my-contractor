@@ -20,6 +20,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       imageUrl,
+      fileData,
+      fileName,
+      fileType,
+      fileSize,
       title,
       categoryId,
       categoryName,
@@ -31,30 +35,62 @@ export async function POST(request: NextRequest) {
       metadata = {},
     } = body;
 
-    if (!imageUrl || !title) {
+    if (!title) {
+      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    }
+
+    let imageBuffer: ArrayBuffer;
+    let contentType: string;
+
+    if (fileData) {
+      // Handle uploaded file (base64 data)
+      if (!fileName || !fileType) {
+        return NextResponse.json(
+          { error: "File name and type are required for file uploads" },
+          { status: 400 }
+        );
+      }
+
+      try {
+        // Convert base64 to buffer
+        const binaryString = atob(fileData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        imageBuffer = bytes.buffer;
+        contentType = fileType;
+      } catch (error) {
+        return NextResponse.json(
+          { error: "Invalid file data" },
+          { status: 400 }
+        );
+      }
+    } else if (imageUrl) {
+      // Handle external URL (existing functionality)
+      const imageResponse = await fetch(imageUrl);
+      if (!imageResponse.ok) {
+        throw new Error("Failed to fetch image");
+      }
+
+      imageBuffer = await imageResponse.arrayBuffer();
+      contentType = imageResponse.headers.get("content-type") || "image/jpeg";
+    } else {
       return NextResponse.json(
-        { error: "Image URL and title are required" },
+        { error: "Either image URL or file data is required" },
         { status: 400 }
       );
     }
 
-    // Download the image from the external URL
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      throw new Error("Failed to fetch image");
-    }
-
-    const imageBuffer = await imageResponse.arrayBuffer();
-    const contentType =
-      imageResponse.headers.get("content-type") || "image/jpeg";
-
     // Generate a unique filename
     const timestamp = Date.now();
-    const extension = contentType.split("/")[1] || "jpg";
-    const filename = `${title.replace(
-      /[^a-zA-Z0-9]/g,
-      "_"
-    )}_${timestamp}.${extension}`;
+    const extension = fileName
+      ? fileName.split(".").pop() || contentType.split("/")[1] || "jpg"
+      : contentType.split("/")[1] || "jpg";
+    const baseFileName = fileName
+      ? fileName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9]/g, "_")
+      : title.replace(/[^a-zA-Z0-9]/g, "_");
+    const filename = `${baseFileName}_${timestamp}.${extension}`;
     const storageKey = `user-images/${user.id}/${filename}`;
 
     // Upload to Supabase Storage

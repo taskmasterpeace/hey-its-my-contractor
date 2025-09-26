@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useImagesStore } from "@contractor-platform/utils";
 import type { LibraryImage } from "@contractor-platform/types";
+import { SaveImageDialog, type SaveImageData } from "./SaveImageDialog";
 
 // Image with loading state component
 interface ImageWithLoadingProps {
@@ -136,6 +137,10 @@ export function LibraryView() {
   } = useImagesStore();
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [currentUploadFile, setCurrentUploadFile] = useState<File | null>(null);
+  const [currentUploadUrl, setCurrentUploadUrl] = useState<string>("");
+  const [pendingUploads, setPendingUploads] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load categories and library images on mount
@@ -195,40 +200,120 @@ export function LibraryView() {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
+    const fileArray = Array.from(files);
+
+    // If multiple files, queue them for sequential processing
+    if (fileArray.length > 1) {
+      setPendingUploads(fileArray.slice(1));
+    }
+
+    // Process the first file
+    const firstFile = fileArray[0];
+    const fileUrl = URL.createObjectURL(firstFile);
+
+    setCurrentUploadFile(firstFile);
+    setCurrentUploadUrl(fileUrl);
+    setShowSaveDialog(true);
+
+    // Clear the file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSaveUploadedImage = async (saveData: SaveImageData) => {
+    if (!currentUploadFile || !currentUploadUrl) return;
+
     setIsUploading(true);
-
     try {
-      for (const file of Array.from(files)) {
-        // Create a local URL for the uploaded file
-        const fileUrl = URL.createObjectURL(file);
+      // Convert file to base64 to send to the server
+      const fileBuffer = await currentUploadFile.arrayBuffer();
+      const base64Data = btoa(
+        new Uint8Array(fileBuffer).reduce(
+          (data, byte) => data + String.fromCharCode(byte),
+          ""
+        )
+      );
 
-        // Here you would typically upload to your storage service
-        // For now, we'll just add it to the local state
-        const newLibraryImage: LibraryImage = {
-          id: `upload-${Date.now()}-${Math.random()}`,
-          url: fileUrl,
-          title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
-          source: "User Upload" as any,
-          tags: ["upload", "user-content"],
-          addedDate: new Date().toISOString(),
-        };
+      const response = await fetch("/api/images/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          // Send file data instead of URL
+          fileData: base64Data,
+          fileName: currentUploadFile.name,
+          fileType: currentUploadFile.type,
+          fileSize: currentUploadFile.size,
+          title: saveData.title,
+          categoryId: saveData.categoryId,
+          categoryName: saveData.categoryName,
+          tags: saveData.tags,
+          description: saveData.description,
+          source: "upload",
+          retailer: "custom",
+          metadata: {
+            fileName: currentUploadFile.name,
+            fileSize: currentUploadFile.size,
+            fileType: currentUploadFile.type,
+            uploadedAt: new Date().toISOString(),
+          },
+        }),
+      });
 
-        // You would call your API here to save the image
-        // await saveImageToLibrary(newLibraryImage);
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || "Failed to save image");
       }
 
-      // Clear the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      // Clean up the blob URL
+      URL.revokeObjectURL(currentUploadUrl);
 
-      // Refresh library images
+      // Refresh library images to show the new saved image
       await fetchLibraryImages();
+
+      // Process next file if any pending
+      if (pendingUploads.length > 0) {
+        const nextFile = pendingUploads[0];
+        const nextFileUrl = URL.createObjectURL(nextFile);
+
+        setCurrentUploadFile(nextFile);
+        setCurrentUploadUrl(nextFileUrl);
+        setPendingUploads((prev) => prev.slice(1));
+        // Keep dialog open for next file
+      } else {
+        // No more files, close dialog
+        setShowSaveDialog(false);
+        setCurrentUploadFile(null);
+        setCurrentUploadUrl("");
+      }
+
+      console.log("Image saved successfully:", data.image);
     } catch (error) {
       console.error("Upload failed:", error);
+      alert("Failed to save image. Please try again.");
+      throw error;
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleCancelUpload = () => {
+    // Clean up object URLs
+    if (currentUploadUrl) {
+      URL.revokeObjectURL(currentUploadUrl);
+    }
+    pendingUploads.forEach((file) => {
+      const url = URL.createObjectURL(file);
+      URL.revokeObjectURL(url);
+    });
+
+    setShowSaveDialog(false);
+    setCurrentUploadFile(null);
+    setCurrentUploadUrl("");
+    setPendingUploads([]);
   };
 
   const handleMagicWandClick = (image: LibraryImage) => {
@@ -274,15 +359,9 @@ export function LibraryView() {
     return (
       <div className="space-y-6">
         {/* Library Controls */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Image Library
-            </h2>
-          </div>
-
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           {/* Upload Button */}
-          <div className="mb-6">
+          <div className="mb-4">
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
@@ -332,9 +411,21 @@ export function LibraryView() {
   return (
     <div className="space-y-6">
       {/* Library Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Image Library</h2>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-4">
+          {/* Upload Button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+          >
+            {isUploading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4 mr-2" />
+            )}
+            {isUploading ? "Uploading..." : "Upload Images"}
+          </button>
 
           {/* View Toggle */}
           <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
@@ -359,22 +450,6 @@ export function LibraryView() {
               <Grid3X3 className="w-4 h-4" />
             </button>
           </div>
-        </div>
-
-        {/* Upload Button */}
-        <div className="mb-6">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-          >
-            {isUploading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4 mr-2" />
-            )}
-            {isUploading ? "Uploading..." : "Upload Images"}
-          </button>
         </div>
 
         {/* Category Filters */}
@@ -445,21 +520,7 @@ export function LibraryView() {
       </div>
 
       {/* Images Grid */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {filteredImages.length} image
-            {filteredImages.length !== 1 ? "s" : ""}
-            {selectedFolder !== "all" && (
-              <span className="text-gray-500 ml-1">
-                in{" "}
-                {categories.find((c) => c.id === selectedFolder)?.name ||
-                  selectedFolder}
-              </span>
-            )}
-          </h3>
-        </div>
-
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         {filteredImages.length === 0 ? (
           <div className="text-center py-12">
             <Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -573,6 +634,24 @@ export function LibraryView() {
         className="hidden"
         onChange={handleFileUpload}
       />
+
+      {/* Save Dialog for Uploaded Images */}
+      {currentUploadFile && (
+        <SaveImageDialog
+          isOpen={showSaveDialog}
+          onClose={handleCancelUpload}
+          image={{
+            id: `temp-${Date.now()}`,
+            url: currentUploadUrl,
+            title: currentUploadFile.name.replace(/\.[^/.]+$/, ""),
+            source: "upload",
+            retailer: "custom",
+            originalUrl: currentUploadUrl,
+            thumbnail: currentUploadUrl,
+          }}
+          onSave={handleSaveUploadedImage}
+        />
+      )}
     </div>
   );
 }
