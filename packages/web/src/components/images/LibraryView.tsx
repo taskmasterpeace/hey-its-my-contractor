@@ -12,9 +12,103 @@ import {
   Trash2,
   Plus,
   Loader2,
+  ImageIcon,
 } from "lucide-react";
 import { useImagesStore } from "@contractor-platform/utils";
 import type { LibraryImage } from "@contractor-platform/types";
+
+// Image with loading state component
+interface ImageWithLoadingProps {
+  src: string;
+  alt: string;
+  className?: string;
+  onClick?: () => void;
+  title?: string;
+}
+
+function ImageWithLoading({
+  src,
+  alt,
+  className = "",
+  onClick,
+  title,
+}: ImageWithLoadingProps) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [showError, setShowError] = useState(false);
+
+  // Check if src is valid/ready
+  const isValidSrc =
+    src && src.trim() !== "" && src !== "undefined" && src !== "null";
+
+  const handleImageLoad = () => {
+    setIsLoading(false);
+    setHasError(false);
+    setShowError(false);
+  };
+
+  const handleImageError = () => {
+    setIsLoading(false);
+    setHasError(true);
+    // Only show error after a delay to avoid flashing
+    setTimeout(() => setShowError(true), 2000);
+  };
+
+  // Reset loading state when src changes
+  useEffect(() => {
+    if (isValidSrc) {
+      setIsLoading(true);
+      setHasError(false);
+      setShowError(false);
+    }
+  }, [src, isValidSrc]);
+
+  // If URL is not ready, show loading skeleton
+  if (!isValidSrc) {
+    return (
+      <div
+        className={`${className} bg-gray-200 animate-pulse flex items-center justify-center`}
+        onClick={onClick}
+        title={title}
+      >
+        <ImageIcon className="w-8 h-8 text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`relative ${className}`} onClick={onClick} title={title}>
+      {/* Loading skeleton while image loads */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
+          <ImageIcon className="w-8 h-8 text-gray-400" />
+        </div>
+      )}
+
+      {/* Error state - only show after delay and if not loading */}
+      {showError && hasError && !isLoading && (
+        <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+          <div className="text-center">
+            <ImageIcon className="w-8 h-8 text-gray-300 mx-auto mb-1" />
+            <span className="text-xs text-gray-400">Failed to load</span>
+          </div>
+        </div>
+      )}
+
+      {/* Actual image */}
+      <img
+        src={src}
+        alt={alt}
+        className={`${className} ${
+          isLoading ? "opacity-0" : "opacity-100"
+        } transition-opacity duration-300`}
+        onLoad={handleImageLoad}
+        onError={handleImageError}
+        style={{ display: hasError ? "none" : "block" }}
+      />
+    </div>
+  );
+}
 
 interface Category {
   id: string;
@@ -165,11 +259,72 @@ export function LibraryView() {
     return image.category?.id === selectedFolder;
   });
 
+  // Show loading only when actually loading and no images exist yet
   if (isLoadingLibrary && libraryImages.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
         <div className="text-gray-600">Loading your image library...</div>
+      </div>
+    );
+  }
+
+  // If not loading and no images, show empty state
+  if (!isLoadingLibrary && libraryImages.length === 0) {
+    return (
+      <div className="space-y-6">
+        {/* Library Controls */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Image Library
+            </h2>
+          </div>
+
+          {/* Upload Button */}
+          <div className="mb-6">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+            >
+              {isUploading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              {isUploading ? "Uploading..." : "Upload Images"}
+            </button>
+          </div>
+        </div>
+
+        {/* Empty State */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+          <Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No images yet
+          </h3>
+          <p className="text-gray-500 mb-4">
+            Upload images to start building your library
+          </p>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Upload Images
+          </button>
+        </div>
+
+        {/* Hidden File Input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          multiple
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileUpload}
+        />
       </div>
     );
   }
@@ -343,7 +498,7 @@ export function LibraryView() {
                       libraryView === "large" ? "aspect-[4/5]" : "aspect-square"
                     }`}
                   >
-                    <img
+                    <ImageWithLoading
                       src={image.url}
                       alt={image.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
