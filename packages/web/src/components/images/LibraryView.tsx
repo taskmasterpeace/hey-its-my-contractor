@@ -13,6 +13,7 @@ import {
   Plus,
   Loader2,
   ImageIcon,
+  X,
 } from "lucide-react";
 import { useImagesStore } from "@contractor-platform/utils";
 import type { LibraryImage } from "@contractor-platform/types";
@@ -141,6 +142,8 @@ export function LibraryView() {
   const [currentUploadFile, setCurrentUploadFile] = useState<File | null>(null);
   const [currentUploadUrl, setCurrentUploadUrl] = useState<string>("");
   const [pendingUploads, setPendingUploads] = useState<File[]>([]);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<LibraryImage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load categories and library images on mount
@@ -314,6 +317,11 @@ export function LibraryView() {
     setCurrentUploadFile(null);
     setCurrentUploadUrl("");
     setPendingUploads([]);
+  };
+
+  const handleImageClick = (image: LibraryImage) => {
+    setSelectedImage(image);
+    setShowImageModal(true);
   };
 
   const handleMagicWandClick = (image: LibraryImage) => {
@@ -562,7 +570,8 @@ export function LibraryView() {
                     <ImageWithLoading
                       src={image.url}
                       alt={image.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
+                      onClick={() => handleImageClick(image)}
                     />
                   </div>
 
@@ -651,6 +660,48 @@ export function LibraryView() {
           }}
           onSave={handleSaveUploadedImage}
         />
+      )}
+
+      {/* Image Modal */}
+      {showImageModal && selectedImage && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="relative max-w-5xl max-h-[90vh] w-full h-full flex items-center justify-center">
+            {/* Close Button */}
+            <button
+              onClick={() => setShowImageModal(false)}
+              className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-10"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            {/* Full Size Image */}
+            <img
+              src={selectedImage.url}
+              alt={selectedImage.title}
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={() => setShowImageModal(false)}
+            />
+
+            {/* Image Info */}
+            <div className="absolute bottom-4 left-4 right-4 bg-black/50 text-white p-4 rounded-lg backdrop-blur-sm">
+              <h3 className="text-lg font-semibold mb-2">
+                {selectedImage.title}
+              </h3>
+              {selectedImage.tags && selectedImage.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedImage.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-2 py-1 bg-white/20 rounded-full text-sm"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
