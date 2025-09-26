@@ -25,7 +25,7 @@ export function TabNavigation() {
   ];
 
   return (
-    <div className="flex items-center space-x-1 mb-6 bg-gray-100 rounded-lg p-1 w-fit">
+    <div className="flex items-center space-x-1 mb-6 bg-blue-50 rounded-lg p-1 w-fit">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         return (
