@@ -25,12 +25,19 @@ export async function login(formData: FormData) {
     password: formData.get("password") as string,
   };
 
+  // Get redirectTo parameter to redirect after successful login
+  const redirectTo = (formData.get("redirectTo") as string) || "/";
+
   // Validate input
   const validationResult = loginSchema.safeParse(rawData);
   if (!validationResult.success) {
     const errors = validationResult.error.flatten().fieldErrors;
     const errorMessage = Object.values(errors).flat()[0] || "Invalid input";
-    redirect(`/login?error=${encodeURIComponent(errorMessage)}`);
+    const params = new URLSearchParams({ error: errorMessage });
+    if (redirectTo !== "/") {
+      params.set("redirectTo", redirectTo);
+    }
+    redirect(`/login?${params.toString()}`);
   }
 
   const { data, error } = await supabase.auth.signInWithPassword(
@@ -50,9 +57,13 @@ export async function login(formData: FormData) {
         "Too many login attempts. Please wait a few minutes before trying again.";
     }
 
-    redirect(`/login?error=${encodeURIComponent(errorMessage)}`);
+    const params = new URLSearchParams({ error: errorMessage });
+    if (redirectTo !== "/") {
+      params.set("redirectTo", redirectTo);
+    }
+    redirect(`/login?${params.toString()}`);
   }
 
   revalidatePath("/", "layout");
-  redirect("/account");
+  redirect(redirectTo);
 }

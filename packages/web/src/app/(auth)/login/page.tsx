@@ -6,11 +6,16 @@ import GoogleSignInButton from "./google-signin";
 async function LoginContent({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string; error?: string }>;
+  searchParams: Promise<{
+    message?: string;
+    error?: string;
+    redirectTo?: string;
+  }>;
 }) {
   const resolvedSearchParams = await searchParams;
   const message = resolvedSearchParams.message;
   const error = resolvedSearchParams.error;
+  const redirectTo = resolvedSearchParams.redirectTo || "/";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -98,6 +103,7 @@ async function LoginContent({
         </div>
 
         <form className="mt-6 space-y-6" action={login}>
+          <input type="hidden" name="redirectTo" value={redirectTo} />
           <div className="space-y-4">
             <div>
               <label
@@ -161,7 +167,11 @@ async function LoginContent({
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string; error?: string }>;
+  searchParams: Promise<{
+    message?: string;
+    error?: string;
+    redirectTo?: string;
+  }>;
 }) {
   return (
     <Suspense fallback={<div>Loading...</div>}>

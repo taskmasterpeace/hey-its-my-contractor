@@ -35,16 +35,41 @@ export async function updateSession(request: NextRequest) {
 
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
+  // Define public routes that don't require authentication
+  const publicRoutes = ["/login", "/signup", "/forgot-password", "/error"];
+
+  const isAuthApiRoute = request.nextUrl.pathname.startsWith("/auth/");
+  const isPublicRoute =
+    publicRoutes.includes(request.nextUrl.pathname) || isAuthApiRoute;
+
+  console.log(
+    `Middleware: ${request.nextUrl.pathname}, User: ${
+      user?.id || "none"
+    }, IsPublic: ${isPublicRoute}`
+  );
+
+  // If user is not authenticated and trying to access a protected route
+  if (!user && !isPublicRoute) {
+    console.log(`Redirecting to login from: ${request.nextUrl.pathname}`);
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    // Preserve the original URL to redirect back after login
+    if (request.nextUrl.pathname !== "/") {
+      url.searchParams.set("redirectTo", request.nextUrl.pathname);
+    }
+    return NextResponse.redirect(url);
+  }
+
+  // If user is authenticated and trying to access auth pages, redirect to dashboard
+  if (user && isPublicRoute && !isAuthApiRoute) {
+    console.log(
+      `Authenticated user accessing auth page, redirecting to dashboard`
+    );
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
