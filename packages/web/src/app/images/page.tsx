@@ -64,19 +64,6 @@ export default function ImagesPage() {
   return (
     <div className="min-h-screen bg-white">
       <div className="w-full">
-        {/* Header */}
-        <div className="w-full bg-white border-b border-gray-100 sticky top-0 z-10 backdrop-blur-sm bg-white/95">
-          <div className="px-8 py-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-3 tracking-tight">
-              Images & Design Library
-            </h1>
-            <p className="text-gray-600 text-lg leading-relaxed max-w-2xl">
-              Search for design inspiration, manage your image library, and
-              generate AI-enhanced visuals for your projects
-            </p>
-          </div>
-        </div>
-
         {/* Tab Navigation */}
         <div className="w-full bg-white border-b border-gray-100">
           <div className="px-8">

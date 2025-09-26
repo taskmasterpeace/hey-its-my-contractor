@@ -1,24 +1,24 @@
-'use client';
+"use client";
 
-import { usePathname } from 'next/navigation';
-import Link from 'next/link';
-import { 
-  Home, 
-  Calendar, 
-  FolderOpen, 
-  MessageSquare, 
-  CreditCard, 
-  Users, 
-  Settings, 
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+import {
+  Home,
+  Calendar,
+  FolderOpen,
+  MessageSquare,
+  CreditCard,
+  Users,
+  Settings,
   Bell,
   Search,
   FileText,
-  Image as ImageIcon
-} from 'lucide-react';
-import { NotificationSystem } from '@/components/ui/NotificationSystem';
-import { RoleSwitcher } from '@/components/ui/RoleSwitcher';
-import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
-import { useAppStore } from '@/store';
+  Image as ImageIcon,
+} from "lucide-react";
+import { NotificationSystem } from "@/components/ui/NotificationSystem";
+import { RoleSwitcher } from "@/components/ui/RoleSwitcher";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { useAppStore } from "@/store";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -29,18 +29,17 @@ export function MainLayout({ children }: MainLayoutProps) {
   const notifications = useAppStore((state) => state.notifications);
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Calendar', href: '/calendar', icon: Calendar },
-    { name: 'Projects', href: '/projects', icon: FolderOpen },
-    { name: 'Meetings', href: '/meetings', icon: Users },
-    { name: 'Chat', href: '/chat', icon: MessageSquare },
-    { name: 'Documents', href: '/documents', icon: FolderOpen },
-    { name: 'Images', href: '/images', icon: ImageIcon },
-    { name: 'Change Orders', href: '/change-orders', icon: FileText },
-    { name: 'Finance', href: '/finance', icon: CreditCard },
-    { name: 'Team', href: '/team', icon: Users },
+    { name: "Dashboard", href: "/", icon: Home },
+    { name: "Calendar", href: "/calendar", icon: Calendar },
+    { name: "Projects", href: "/projects", icon: FolderOpen },
+    { name: "Meetings", href: "/meetings", icon: Users },
+    { name: "Chat", href: "/chat", icon: MessageSquare },
+    { name: "Documents", href: "/documents", icon: FolderOpen },
+    { name: "Images", href: "/images", icon: ImageIcon },
+    { name: "Change Orders", href: "/change-orders", icon: FileText },
+    { name: "Finance", href: "/finance", icon: CreditCard },
+    { name: "Team", href: "/team", icon: Users },
   ];
-
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -82,8 +81,8 @@ export function MainLayout({ children }: MainLayoutProps) {
                     href={item.href}
                     className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                       isActive
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        ? "bg-blue-100 text-blue-700"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                     }`}
                   >
                     <item.icon className="mr-3 h-5 w-5" />
@@ -99,9 +98,9 @@ export function MainLayout({ children }: MainLayoutProps) {
             <Link
               href="/settings"
               className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                pathname === '/settings'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                pathname === "/settings"
+                  ? "bg-blue-100 text-blue-700"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}
             >
               <Settings className="mr-3 h-5 w-5" />
@@ -118,8 +117,11 @@ export function MainLayout({ children }: MainLayoutProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <h2 className="text-lg font-semibold text-gray-900 capitalize">
-                {pathname === '/calendar' ? 'Calendar' :
-                 pathname.slice(1) || 'Dashboard'}
+                {pathname === "/calendar"
+                  ? "Calendar"
+                  : pathname === "/images"
+                  ? "Images & Design Library"
+                  : pathname.slice(1) || "Dashboard"}
               </h2>
             </div>
             <div className="flex items-center space-x-4">
@@ -141,9 +143,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
         {/* Page Content */}
         <main className="flex-1">
-          <ErrorBoundary>
-            {children}
-          </ErrorBoundary>
+          <ErrorBoundary>{children}</ErrorBoundary>
         </main>
 
         {/* Notification System */}
