@@ -45,12 +45,6 @@ export async function updateSession(request: NextRequest) {
   const isPublicRoute =
     publicRoutes.includes(request.nextUrl.pathname) || isAuthApiRoute;
 
-  console.log(
-    `Middleware: ${request.nextUrl.pathname}, User: ${
-      user?.id || "none"
-    }, IsPublic: ${isPublicRoute}`
-  );
-
   // If user is not authenticated and trying to access a protected route
   if (!user && !isPublicRoute) {
     console.log(`Redirecting to login from: ${request.nextUrl.pathname}`);
@@ -65,9 +59,6 @@ export async function updateSession(request: NextRequest) {
 
   // If user is authenticated and trying to access auth pages, redirect to dashboard
   if (user && isPublicRoute && !isAuthApiRoute) {
-    console.log(
-      `Authenticated user accessing auth page, redirecting to dashboard`
-    );
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
