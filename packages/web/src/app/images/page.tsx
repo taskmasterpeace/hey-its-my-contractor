@@ -62,34 +62,50 @@ export default function ImagesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-6">
+    <div className="min-h-screen bg-white">
+      <div className="w-full">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Images & Design Library
-          </h1>
-          <p className="text-gray-600 text-lg">
-            Search for design inspiration, manage your image library, and
-            generate AI-enhanced visuals for your projects
-          </p>
+        <div className="w-full bg-white border-b border-gray-100 sticky top-0 z-10 backdrop-blur-sm bg-white/95">
+          <div className="px-8 py-8">
+            <h1 className="text-4xl font-bold text-gray-900 mb-3 tracking-tight">
+              Images & Design Library
+            </h1>
+            <p className="text-gray-600 text-lg leading-relaxed max-w-2xl">
+              Search for design inspiration, manage your image library, and
+              generate AI-enhanced visuals for your projects
+            </p>
+          </div>
         </div>
 
         {/* Tab Navigation */}
-        <TabNavigation />
+        <div className="w-full bg-white border-b border-gray-100">
+          <div className="px-8">
+            <TabNavigation />
+          </div>
+        </div>
 
         {/* Tab Content */}
-        <div className="space-y-6">
-          {activeTab === "shopping" && (
-            <>
-              <SearchInterface />
-              <SearchResultsGrid />
-            </>
-          )}
+        <div className="w-full px-8 py-8">
+          <div className="space-y-8 transition-all duration-300 ease-in-out">
+            {activeTab === "shopping" && (
+              <div className="space-y-8 animate-in fade-in-50 duration-500">
+                <SearchInterface />
+                <SearchResultsGrid />
+              </div>
+            )}
 
-          {activeTab === "library" && <LibraryView />}
+            {activeTab === "library" && (
+              <div className="animate-in fade-in-50 duration-500">
+                <LibraryView />
+              </div>
+            )}
 
-          {activeTab === "generator" && <AIGeneratorView />}
+            {activeTab === "generator" && (
+              <div className="animate-in fade-in-50 duration-500">
+                <AIGeneratorView />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Magic Wand Modal */}
