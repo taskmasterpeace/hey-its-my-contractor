@@ -18,6 +18,7 @@ export default function ImagesPage() {
     magicWandSource,
     setLibraryImages,
     libraryImages,
+    fetchLibraryImages,
   } = useImagesStore();
 
   // Load library images from database on mount
@@ -59,6 +60,11 @@ export default function ImagesPage() {
   ) => {
     console.log("AI Generation:", { sourceImage, referenceImage, prompt });
     // This would trigger actual AI generation
+  };
+
+  const handleImageSaved = async () => {
+    // Refresh library images from database to get proper URLs
+    await fetchLibraryImages();
   };
 
   return (
@@ -111,6 +117,7 @@ export default function ImagesPage() {
             }}
             libraryImages={libraryImages}
             onGenerate={handleAIGeneration}
+            onImageSaved={handleImageSaved}
           />
         )}
       </div>

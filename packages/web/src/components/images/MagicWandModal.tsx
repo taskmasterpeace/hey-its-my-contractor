@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, Wand2, ImageIcon, Sparkles, Download, Share2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface LibraryImage {
   id: string;
@@ -29,6 +30,7 @@ interface MagicWandModalProps {
     referenceImage: LibraryImage | null,
     prompt: string
   ) => void;
+  onImageSaved?: () => void;
 }
 
 export function MagicWandModal({
@@ -37,7 +39,9 @@ export function MagicWandModal({
   sourceImage,
   libraryImages,
   onGenerate,
+  onImageSaved,
 }: MagicWandModalProps) {
+  const { toast } = useToast();
   const [selectedReference, setSelectedReference] =
     useState<LibraryImage | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -47,6 +51,7 @@ export function MagicWandModal({
   const [customPresets, setCustomPresets] = useState<string[]>([]);
   const [showAddPreset, setShowAddPreset] = useState(false);
   const [newPreset, setNewPreset] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   const defaultPresets = [
     "Add modern window trim",
@@ -61,7 +66,11 @@ export function MagicWandModal({
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      alert("Please enter a prompt for AI generation");
+      toast({
+        title: "Prompt Required",
+        description: "Please enter a prompt for AI generation",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -96,16 +105,67 @@ export function MagicWandModal({
     } catch (error) {
       console.error("AI generation failed:", error);
       setIsGenerating(false);
-      alert("AI generation failed. Please try again.");
+      toast({
+        title: "Generation Failed",
+        description: "AI generation failed. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleSaveToLibrary = () => {
-    if (generatedResult) {
-      alert(
-        `✅ AI-generated image saved to library!\n\n🏷️ Title: Enhanced ${sourceImage.title}\n📁 Folder: ai-generated\n🏢 Watermark: Loudon Construction`
-      );
-      onClose();
+  const handleSaveToLibrary = async () => {
+    if (!generatedResult) return;
+
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/images/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imageUrl: generatedResult,
+          title: `Enhanced ${sourceImage.title}`,
+          categoryName: "ai-generated",
+          description: `AI-enhanced version of ${sourceImage.title} using prompt: "${prompt}"`,
+          tags: ["ai-generated", "enhanced", "magic-wand"],
+          source: "ai_generated",
+          metadata: {
+            originalImage: sourceImage,
+            referenceImage: selectedReference,
+            prompt: prompt,
+            enhancementType: "magic-wand",
+            generatedAt: new Date().toISOString(),
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "Image Saved Successfully!",
+          description: `Enhanced ${sourceImage.title} has been saved to your ai-generated folder with company watermark.`,
+        });
+
+        // Call the onImageSaved callback to refresh the library
+        if (onImageSaved) {
+          await onImageSaved();
+        }
+
+        onClose();
+      } else {
+        throw new Error(data.error || "Failed to save image");
+      }
+    } catch (error) {
+      console.error("Failed to save image:", error);
+      toast({
+        title: "Save Failed",
+        description: "Failed to save image to library. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -113,7 +173,7 @@ export function MagicWandModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-7xl w-full max-h-[95vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center space-x-3">
@@ -283,7 +343,7 @@ export function MagicWandModal({
                       <img
                         src={generatedResult}
                         alt="AI Enhanced"
-                        className="w-full object-contain rounded-lg bg-gray-50 max-h-64"
+                        className="w-full object-contain rounded-lg bg-gray-50 max-h-80"
                       />
                       {/* Company Watermark */}
                       <div className="absolute bottom-6 right-6 bg-black bg-opacity-70 text-white text-sm px-3 py-1 rounded">
@@ -295,10 +355,20 @@ export function MagicWandModal({
                       <div className="flex space-x-2">
                         <button
                           onClick={handleSaveToLibrary}
-                          className="flex-1 flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                          disabled={isSaving}
+                          className="flex-1 flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors text-sm"
                         >
-                          <Download className="w-4 h-4 mr-1" />
-                          Save
+                          {isSaving ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="w-4 h-4 mr-1" />
+                              Save
+                            </>
+                          )}
                         </button>
                         <button
                           onClick={() =>
@@ -322,7 +392,7 @@ export function MagicWandModal({
                     </div>
                   </div>
                 ) : (
-                  <div className="h-64 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+                  <div className="h-80 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
                     <div className="text-center text-gray-500">
                       <Sparkles className="w-12 h-12 mx-auto mb-3" />
                       <p className="text-sm">Enhanced image will appear here</p>
@@ -355,7 +425,7 @@ export function MagicWandModal({
                 </select>
 
                 {/* Library Grid */}
-                <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto">
+                <div className="grid grid-cols-4 gap-3 max-h-80 overflow-y-auto">
                   {libraryImages
                     .filter(
                       (image) =>
