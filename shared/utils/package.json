@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@contractor-platform/types": "workspace:*",
-    "@supabase/supabase-js": "^2.39.0"
+    "@supabase/supabase-js": "^2.39.0",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

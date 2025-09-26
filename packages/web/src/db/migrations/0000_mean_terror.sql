@@ -1,5 +1,6 @@
 CREATE TYPE "public"."change_order_status" AS ENUM('draft', 'pending', 'approved', 'rejected', 'implemented');--> statement-breakpoint
 CREATE TYPE "public"."document_type" AS ENUM('plan', 'permit', 'contract', 'invoice', 'photo', 'other');--> statement-breakpoint
+CREATE TYPE "public"."image_source" AS ENUM('upload', 'search_result', 'ai_generated', 'field_photo');--> statement-breakpoint
 CREATE TYPE "public"."plan" AS ENUM('basic', 'pro', 'enterprise');--> statement-breakpoint
 CREATE TYPE "public"."user_role" AS ENUM('contractor', 'staff', 'sub', 'homeowner', 'admin');--> statement-breakpoint
 CREATE TYPE "public"."project_status" AS ENUM('planning', 'active', 'paused', 'completed', 'cancelled');--> statement-breakpoint
@@ -73,6 +74,39 @@ CREATE TABLE "daily_logs" (
 	"media" jsonb DEFAULT '[]',
 	"weather_data" jsonb,
 	"location" jsonb,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "image_library" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"project_id" uuid,
+	"category_id" uuid,
+	"title" varchar(255) NOT NULL,
+	"description" text,
+	"storage_key" text NOT NULL,
+	"filename" varchar(255) NOT NULL,
+	"mime_type" varchar(100) NOT NULL,
+	"file_size" bigint NOT NULL,
+	"source" "image_source" NOT NULL,
+	"original_url" text,
+	"retailer" varchar(50),
+	"tags" varchar[] DEFAULT '{}',
+	"metadata" jsonb DEFAULT '{}',
+	"ai_prompt" text,
+	"ai_model" varchar(50),
+	"reference_images" uuid[] DEFAULT '{}',
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "image_library_categories" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"name" varchar(100) NOT NULL,
+	"description" text,
+	"color" varchar(7) DEFAULT '#3B82F6',
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -179,6 +213,10 @@ ALTER TABLE "documents" ADD CONSTRAINT "documents_project_id_projects_id_fk" FOR
 ALTER TABLE "documents" ADD CONSTRAINT "documents_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "daily_logs" ADD CONSTRAINT "daily_logs_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "daily_logs" ADD CONSTRAINT "daily_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "image_library" ADD CONSTRAINT "image_library_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "image_library" ADD CONSTRAINT "image_library_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "image_library" ADD CONSTRAINT "image_library_category_id_image_library_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."image_library_categories"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "image_library_categories" ADD CONSTRAINT "image_library_categories_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_id_users_id_fk" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

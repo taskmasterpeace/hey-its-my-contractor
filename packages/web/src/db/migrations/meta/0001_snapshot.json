@@ -1,6 +1,6 @@
 {
-  "id": "2085191e-931d-40ae-8d43-d0e78b04bab1",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "f115f92b-363c-42b1-8450-325f98250b31",
+  "prevId": "2085191e-931d-40ae-8d43-d0e78b04bab1",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -606,6 +606,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         },
         "storage_key": {
           "name": "storage_key",

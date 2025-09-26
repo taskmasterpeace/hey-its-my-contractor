@@ -8,3 +8,4 @@ export * from "./tasks";
 export * from "./change-orders";
 export * from "./chat";
 export * from "./notifications";
+export * from "./image-library";
