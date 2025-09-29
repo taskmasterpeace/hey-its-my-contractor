@@ -119,251 +119,6 @@ export function AIGeneratorView() {
 
   return (
     <div className="space-y-8">
-      {/* Reference Image Selection */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Select Reference Images
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Choose up to 3 images from your library to use as references for AI
-          generation.
-        </p>
-
-        {/* Selected References Display */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium text-gray-900">
-              Selected References ({selectedReferences.length}/3)
-            </h3>
-            {selectedReferences.length > 0 && (
-              <button
-                onClick={clearSelectedReferences}
-                className="text-sm text-red-600 hover:text-red-800"
-              >
-                Clear All
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div
-                key={index}
-                className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50"
-              >
-                {selectedReferences[index] ? (
-                  <div className="relative w-full h-full">
-                    <img
-                      src={selectedReferences[index].url}
-                      alt={selectedReferences[index].title}
-                      className="w-full h-full object-cover rounded-lg"
-                    />
-                    <button
-                      onClick={() =>
-                        toggleReferenceSelection(selectedReferences[index])
-                      }
-                      className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <div className="bg-black/70 text-white text-xs px-2 py-1 rounded">
-                        {index === 0 ? "Source" : `Reference ${index}`}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">
-                      {index === 0 ? "Source Image" : `Reference ${index}`}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Library Images Grid */}
-        {libraryImages.length > 0 ? (
-          <div>
-            <h4 className="font-medium text-gray-900 mb-4">Your Library</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-64 overflow-y-auto">
-              {libraryImages.map((image) => (
-                <button
-                  key={image.id}
-                  onClick={() => toggleReferenceSelection(image)}
-                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                    selectedReferences.find((ref) => ref.id === image.id)
-                      ? "border-blue-500 scale-95"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                  disabled={
-                    selectedReferences.length >= 3 &&
-                    !selectedReferences.find((ref) => ref.id === image.id)
-                  }
-                >
-                  <img
-                    src={image.url}
-                    alt={image.title}
-                    className="w-full h-full object-cover"
-                  />
-                  {selectedReferences.find((ref) => ref.id === image.id) && (
-                    <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
-                      <div className="bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
-                        ✓
-                      </div>
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">
-              No images in your library yet. Save some images from search
-              results first.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* AI Generation Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Sparkles className="w-5 h-5 mr-2 text-purple-600" />
-          AI Generation Settings
-        </h2>
-
-        {/* Model Selection */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            AI Model
-          </label>
-          <div className="space-y-3">
-            <label className="flex items-center space-x-3">
-              <input
-                type="radio"
-                name="model"
-                value="auto"
-                checked={selectedModel === "auto"}
-                onChange={(e) => {
-                  setSelectedModel("auto");
-                  setManualModelOverride(null);
-                }}
-                className="text-blue-600"
-              />
-              <div>
-                <div className="font-medium">Auto Selection</div>
-                <div className="text-sm text-gray-500">
-                  {selectedModel === "auto" ? (
-                    <span>
-                      Currently using: <strong>{getSmartModel()}</strong>
-                      {selectedReferences.length <= 1
-                        ? " (optimized for single image)"
-                        : " (optimized for multiple references)"}
-                    </span>
-                  ) : (
-                    "Automatically chooses the best model based on your selection"
-                  )}
-                </div>
-              </div>
-            </label>
-
-            <label className="flex items-center space-x-3">
-              <input
-                type="radio"
-                name="model"
-                value="nano-banana"
-                checked={manualModelOverride === "nano-banana"}
-                onChange={() => {
-                  setSelectedModel("nano-banana");
-                  setManualModelOverride("nano-banana");
-                }}
-                className="text-blue-600"
-              />
-              <div>
-                <div className="font-medium">Nano Banana</div>
-                <div className="text-sm text-gray-500">
-                  Fast generation, best for single images
-                </div>
-              </div>
-            </label>
-
-            <label className="flex items-center space-x-3">
-              <input
-                type="radio"
-                name="model"
-                value="gen4-turbo"
-                checked={manualModelOverride === "gen4-turbo"}
-                onChange={() => {
-                  setSelectedModel("gen4-turbo");
-                  setManualModelOverride("gen4-turbo");
-                }}
-                className="text-blue-600"
-              />
-              <div>
-                <div className="font-medium">Gen4 Turbo</div>
-                <div className="text-sm text-gray-500">
-                  Higher quality, better for complex compositions
-                </div>
-              </div>
-            </label>
-          </div>
-        </div>
-
-        {/* Prompt Input */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Generation Prompt
-          </label>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Describe the changes you want to make to the image..."
-          />
-        </div>
-
-        {/* Preset Prompts */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Quick Prompts
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {presetPrompts.map((preset) => (
-              <button
-                key={preset}
-                onClick={() => setPrompt(preset)}
-                className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                {preset}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Generate Button */}
-        <button
-          onClick={handleGenerate}
-          disabled={
-            !prompt.trim() || selectedReferences.length === 0 || isGenerating
-          }
-          className="w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-400 transition-all duration-200 font-medium"
-        >
-          {isGenerating ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-          ) : (
-            <Wand2 className="w-5 h-5 mr-2" />
-          )}
-          {isGenerating ? "Generating..." : "Generate with AI"}
-        </button>
-      </div>
-
       {/* Generated Result */}
       {generatedImage && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -409,6 +164,160 @@ export function AIGeneratorView() {
           </div>
         </div>
       )}
+
+      {/* AI Generation Interface */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column - AI Controls */}
+          <div className="space-y-6">
+            {/* Model Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                AI Model
+              </label>
+              <div className="space-y-3">
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="radio"
+                    name="model"
+                    value="nano-banana"
+                    checked={
+                      !manualModelOverride ||
+                      manualModelOverride === "nano-banana"
+                    }
+                    onChange={() => {
+                      setSelectedModel("nano-banana");
+                      setManualModelOverride("nano-banana");
+                    }}
+                    className="text-blue-600"
+                  />
+                  <div>
+                    <div className="font-medium">Nano Banana</div>
+                    <div className="text-sm text-gray-500">Fast generation</div>
+                  </div>
+                </label>
+
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="radio"
+                    name="model"
+                    value="gen4-turbo"
+                    checked={manualModelOverride === "gen4-turbo"}
+                    onChange={() => {
+                      setSelectedModel("gen4-turbo");
+                      setManualModelOverride("gen4-turbo");
+                    }}
+                    className="text-blue-600"
+                  />
+                  <div>
+                    <div className="font-medium">Gen4 Turbo</div>
+                    <div className="text-sm text-gray-500">Higher quality</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Prompt Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Prompt
+              </label>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Describe changes..."
+              />
+            </div>
+
+            {/* Quick Prompts */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Quick Prompts
+              </label>
+              <div className="grid grid-cols-1 gap-2">
+                {presetPrompts.map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => setPrompt(preset)}
+                    className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-left"
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Generate Button */}
+            <button
+              onClick={handleGenerate}
+              disabled={
+                !prompt.trim() ||
+                selectedReferences.length === 0 ||
+                isGenerating
+              }
+              className="w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-400 transition-all duration-200 font-medium"
+            >
+              {isGenerating ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+              ) : (
+                <Wand2 className="w-5 h-5 mr-2" />
+              )}
+              {isGenerating ? "Generating..." : "Generate with AI"}
+            </button>
+          </div>
+
+          {/* Right Column - Library Images */}
+          <div>
+            <h4 className="font-medium text-gray-900 mb-2">Your Library</h4>
+            <p className="text-gray-600 text-sm mb-4">
+              Choose up to 3 images from your library to use as references for
+              AI generation.
+            </p>
+            {libraryImages.length > 0 ? (
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                {libraryImages.map((image) => (
+                  <button
+                    key={image.id}
+                    onClick={() => toggleReferenceSelection(image)}
+                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                      selectedReferences.find((ref) => ref.id === image.id)
+                        ? "border-blue-500 scale-95"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                    disabled={
+                      selectedReferences.length >= 3 &&
+                      !selectedReferences.find((ref) => ref.id === image.id)
+                    }
+                  >
+                    <img
+                      src={image.url}
+                      alt={image.title}
+                      className="w-full h-full object-cover"
+                    />
+                    {selectedReferences.find((ref) => ref.id === image.id) && (
+                      <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                        <div className="bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
+                          ✓
+                        </div>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">
+                  No images in your library yet. Save some images from search
+                  results first.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
