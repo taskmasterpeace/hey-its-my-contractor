@@ -44,6 +44,7 @@ interface CreateCompanyFormData {
   billingEndDate?: string;
   externalInvoiceId?: string;
   monthlyRate?: number;
+  billingCycle?: string;
   notes?: string;
 }
 
@@ -286,7 +287,39 @@ export function SuperAdminDashboard({
                 </div>
 
                 <div>
-                  <Label htmlFor="monthlyRate">Monthly Rate ($)</Label>
+                  <Label htmlFor="billingCycle">Billing Cycle</Label>
+                  <select
+                    id="billingCycle"
+                    value={formData.billingCycle}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        billingCycle: e.target.value,
+                      })
+                    }
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly (3 months)</option>
+                    <option value="semi-annual">Semi-Annual (6 months)</option>
+                    <option value="yearly">Yearly</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label htmlFor="monthlyRate">
+                    {formData.billingCycle === "monthly"
+                      ? "Monthly"
+                      : formData.billingCycle === "quarterly"
+                      ? "Quarterly"
+                      : formData.billingCycle === "semi-annual"
+                      ? "Semi-Annual"
+                      : formData.billingCycle === "yearly"
+                      ? "Yearly"
+                      : "Custom"}{" "}
+                    Rate ($)
+                  </Label>
                   <Input
                     id="monthlyRate"
                     type="number"
@@ -294,12 +327,23 @@ export function SuperAdminDashboard({
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        monthlyRate: parseInt(e.target.value) || 1000,
+                        monthlyRate: parseInt(e.target.value) || 99,
                       })
                     }
                     min="0"
                     step="1"
                   />
+                  <p className="text-sm text-gray-500 mt-1">
+                    {formData.billingCycle === "monthly"
+                      ? "Charged every month"
+                      : formData.billingCycle === "quarterly"
+                      ? "Charged every 3 months"
+                      : formData.billingCycle === "semi-annual"
+                      ? "Charged every 6 months"
+                      : formData.billingCycle === "yearly"
+                      ? "Charged annually"
+                      : "Custom billing period"}
+                  </p>
                 </div>
 
                 <div>
@@ -436,7 +480,13 @@ export function SuperAdminDashboard({
 
                   <div className="flex items-center gap-3">
                     {getStatusBadge(company.subscriptionStatus)}
-                    <Button size="sm" variant="outline">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        (window.location.href = `/admin/companies/${company.id}`)
+                      }
+                    >
                       <Settings className="w-4 h-4 mr-2" />
                       Manage
                     </Button>
