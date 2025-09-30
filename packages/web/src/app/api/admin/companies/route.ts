@@ -18,6 +18,14 @@ const createCompanySchema = z.object({
   industry: z.string().optional(),
   adminEmail: z.string().email("Invalid admin email format"),
   maxSeats: z.number().min(1).max(1000).default(10),
+  subscriptionStatus: z
+    .enum(["active", "trial", "past_due", "cancelled"])
+    .default("active"),
+  billingStartDate: z.string().optional(),
+  billingEndDate: z.string().optional(),
+  externalInvoiceId: z.string().max(255).optional(),
+  monthlyRate: z.number().min(0).default(99),
+  notes: z.string().optional(),
 });
 
 async function getCurrentUser(request: NextRequest) {
@@ -96,10 +104,13 @@ export async function POST(request: NextRequest) {
         name: validatedData.name,
         industry: validatedData.industry,
         email: validatedData.adminEmail,
-        subscriptionStatus: "trial",
+        subscriptionStatus: validatedData.subscriptionStatus,
         createdBy: user.id,
         settings: {},
-        metadata: {},
+        metadata: {
+          billingNotes: validatedData.notes,
+          monthlyRate: validatedData.monthlyRate,
+        },
       })
       .returning();
 
@@ -109,8 +120,15 @@ export async function POST(request: NextRequest) {
       plan: "starter",
       maxSeats: validatedData.maxSeats,
       usedSeats: needsInvitation ? 0 : 1,
-      status: "active",
+      status: validatedData.subscriptionStatus,
       billingCycle: "monthly",
+      startDate: validatedData.billingStartDate
+        ? new Date(validatedData.billingStartDate)
+        : new Date(),
+      endDate: validatedData.billingEndDate
+        ? new Date(validatedData.billingEndDate)
+        : null,
+      externalInvoiceId: validatedData.externalInvoiceId,
     });
 
     let invitationResult = null;

@@ -39,6 +39,12 @@ interface CreateCompanyFormData {
   industry: string;
   adminEmail: string;
   maxSeats: number;
+  subscriptionStatus: "active" | "trial" | "past_due" | "cancelled";
+  billingStartDate?: string;
+  billingEndDate?: string;
+  externalInvoiceId?: string;
+  monthlyRate?: number;
+  notes?: string;
 }
 
 export function SuperAdminDashboard({
@@ -52,6 +58,12 @@ export function SuperAdminDashboard({
     industry: "",
     adminEmail: "",
     maxSeats: 10,
+    subscriptionStatus: "active",
+    billingStartDate: new Date().toISOString().split("T")[0], // Today's date
+    billingEndDate: "",
+    externalInvoiceId: "",
+    monthlyRate: 99,
+    notes: "",
   });
 
   const handleCreateCompany = async () => {
@@ -67,7 +79,18 @@ export function SuperAdminDashboard({
       const result = await response.json();
 
       if (result.success) {
-        setFormData({ name: "", industry: "", adminEmail: "", maxSeats: 10 });
+        setFormData({
+          name: "",
+          industry: "",
+          adminEmail: "",
+          maxSeats: 10,
+          subscriptionStatus: "active",
+          billingStartDate: new Date().toISOString().split("T")[0],
+          billingEndDate: "",
+          externalInvoiceId: "",
+          monthlyRate: 99,
+          notes: "",
+        });
         setShowCreateForm(false);
         window.location.reload(); // Refresh to show new company
       } else {
@@ -232,6 +255,123 @@ export function SuperAdminDashboard({
               <p className="text-sm text-gray-500 mt-1">
                 Number of licenses for this company
               </p>
+            </div>
+
+            {/* Billing Information Section */}
+            <div className="border-t pt-4 mt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Billing Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="subscriptionStatus">
+                    Subscription Status
+                  </Label>
+                  <select
+                    id="subscriptionStatus"
+                    value={formData.subscriptionStatus}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        subscriptionStatus: e.target.value as any,
+                      })
+                    }
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="active">Active (Paid)</option>
+                    <option value="trial">Trial Period</option>
+                    <option value="past_due">Past Due</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label htmlFor="monthlyRate">Monthly Rate ($)</Label>
+                  <Input
+                    id="monthlyRate"
+                    type="number"
+                    value={formData.monthlyRate}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        monthlyRate: parseInt(e.target.value) || 1000,
+                      })
+                    }
+                    min="0"
+                    step="1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="billingStartDate">Billing Start Date</Label>
+                  <Input
+                    id="billingStartDate"
+                    type="date"
+                    value={formData.billingStartDate}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        billingStartDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="billingEndDate">
+                    Billing End Date (Optional)
+                  </Label>
+                  <Input
+                    id="billingEndDate"
+                    type="date"
+                    value={formData.billingEndDate}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        billingEndDate: e.target.value,
+                      })
+                    }
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Leave empty for ongoing subscription
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="externalInvoiceId">
+                    External Invoice ID (Optional)
+                  </Label>
+                  <Input
+                    id="externalInvoiceId"
+                    value={formData.externalInvoiceId}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        externalInvoiceId: e.target.value,
+                      })
+                    }
+                    placeholder="INV-001234"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Reference from your billing system
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="notes">Billing Notes (Optional)</Label>
+                  <Input
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        notes: e.target.value,
+                      })
+                    }
+                    placeholder="Custom billing arrangements, etc."
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-2 justify-end pt-4">
