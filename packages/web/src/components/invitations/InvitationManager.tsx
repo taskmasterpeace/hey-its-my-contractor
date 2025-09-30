@@ -57,6 +57,7 @@ export function InvitationManager({
   const [formData, setFormData] = useState<InvitationFormData>({
     email: "",
     companyRole: "member",
+    projectRole: "contractor", // Default to contractor since this is used for contractor invitations
   });
 
   const canInvite =
@@ -97,7 +98,11 @@ export function InvitationManager({
       const result = await response.json();
 
       if (result.success) {
-        setFormData({ email: "", companyRole: "member" });
+        setFormData({
+          email: "",
+          companyRole: "member",
+          projectRole: "contractor", // Reset to contractor default
+        });
         setShowForm(false);
         await loadInvitations();
       } else {
@@ -197,7 +202,7 @@ export function InvitationManager({
         {canInvite && (
           <Button onClick={() => setShowForm(true)} disabled={loading}>
             <Plus className="w-4 h-4 mr-2" />
-            Invite Member
+            Invite Contractor
           </Button>
         )}
       </div>
@@ -235,7 +240,7 @@ export function InvitationManager({
                 }
                 className="w-full p-2 border rounded-md"
               >
-                <option value="member">Member</option>
+                <option value="member">Contractor</option>
                 {currentUserRole === "admin" && (
                   <>
                     <option value="project_manager">Project Manager</option>
@@ -251,12 +256,15 @@ export function InvitationManager({
                 <select
                   id="projectId"
                   value={formData.projectId || ""}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const projectId = e.target.value || undefined;
                     setFormData({
                       ...formData,
-                      projectId: e.target.value || undefined,
-                    })
-                  }
+                      projectId,
+                      // Auto-set projectRole to contractor when project is selected for contractor invitations
+                      projectRole: projectId ? "contractor" : undefined,
+                    });
+                  }}
                   className="w-full p-2 border rounded-md"
                 >
                   <option value="">No specific project</option>
@@ -274,7 +282,7 @@ export function InvitationManager({
                 <Label htmlFor="projectRole">Project Role</Label>
                 <select
                   id="projectRole"
-                  value={formData.projectRole || ""}
+                  value={formData.projectRole || "contractor"}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -283,7 +291,6 @@ export function InvitationManager({
                   }
                   className="w-full p-2 border rounded-md"
                 >
-                  <option value="">Select role</option>
                   <option value="contractor">Contractor</option>
                   <option value="project_manager">Project Manager</option>
                   <option value="homeowner">Homeowner</option>
