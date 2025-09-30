@@ -63,7 +63,8 @@ export function SuperAdminDashboard({
     billingStartDate: new Date().toISOString().split("T")[0], // Today's date
     billingEndDate: "",
     externalInvoiceId: "",
-    monthlyRate: 99,
+    monthlyRate: 1000,
+    billingCycle: "monthly",
     notes: "",
   });
 
@@ -89,7 +90,7 @@ export function SuperAdminDashboard({
           billingStartDate: new Date().toISOString().split("T")[0],
           billingEndDate: "",
           externalInvoiceId: "",
-          monthlyRate: 99,
+          monthlyRate: 1000,
           notes: "",
         });
         setShowCreateForm(false);
@@ -327,7 +328,7 @@ export function SuperAdminDashboard({
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        monthlyRate: parseInt(e.target.value) || 99,
+                        monthlyRate: parseInt(e.target.value) || 1000,
                       })
                     }
                     min="0"

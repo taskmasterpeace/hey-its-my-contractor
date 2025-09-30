@@ -25,6 +25,7 @@ const createCompanySchema = z.object({
   billingEndDate: z.string().optional(),
   externalInvoiceId: z.string().max(255).optional(),
   monthlyRate: z.number().min(0).default(99),
+  billingCycle: z.string().default("monthly"),
   notes: z.string().optional(),
 });
 
@@ -121,7 +122,8 @@ export async function POST(request: NextRequest) {
       maxSeats: validatedData.maxSeats,
       usedSeats: needsInvitation ? 0 : 1,
       status: validatedData.subscriptionStatus,
-      billingCycle: "monthly",
+      billingCycle: validatedData.billingCycle || "monthly",
+      price: validatedData.monthlyRate?.toString(),
       startDate: validatedData.billingStartDate
         ? new Date(validatedData.billingStartDate)
         : new Date(),
