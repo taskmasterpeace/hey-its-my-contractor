@@ -32,12 +32,19 @@ export async function signup(formData: FormData) {
     confirmPassword: formData.get("confirmPassword") as string,
   };
 
+  // Get invitation token and redirectTo parameters
+  const invitationToken = formData.get("token") as string | null;
+  const redirectTo = (formData.get("redirectTo") as string) || "/";
+
   // Validate input
   const validationResult = signupSchema.safeParse(rawData);
   if (!validationResult.success) {
     const errors = validationResult.error.flatten().fieldErrors;
     const errorMessage = Object.values(errors).flat()[0] || "Invalid input";
-    redirect(`/signup?error=${encodeURIComponent(errorMessage)}`);
+    const params = new URLSearchParams({ error: errorMessage });
+    if (invitationToken) params.set("token", invitationToken);
+    if (redirectTo !== "/") params.set("redirectTo", redirectTo);
+    redirect(`/signup?${params.toString()}`);
   }
 
   const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -57,20 +64,52 @@ export async function signup(formData: FormData) {
       errorMessage = "Please enter a valid email address.";
     }
 
-    redirect(`/signup?error=${encodeURIComponent(errorMessage)}`);
+    const params = new URLSearchParams({ error: errorMessage });
+    if (invitationToken) params.set("token", invitationToken);
+    if (redirectTo !== "/") params.set("redirectTo", redirectTo);
+    redirect(`/signup?${params.toString()}`);
   }
 
   if (!authData.user) {
-    redirect(
-      `/signup?error=${encodeURIComponent(
-        "Signup failed unexpectedly. Please try again."
-      )}`
-    );
+    const params = new URLSearchParams({
+      error: "Signup failed unexpectedly. Please try again.",
+    });
+    if (invitationToken) params.set("token", invitationToken);
+    if (redirectTo !== "/") params.set("redirectTo", redirectTo);
+    redirect(`/signup?${params.toString()}`);
+  }
+
+  // Store invitation token for processing after email confirmation
+  // This follows saas-starter pattern but adapted for Supabase email confirmation
+  if (invitationToken && authData.user) {
+    try {
+      // Create service role client for admin operations
+      const { createClient } = await import("@supabase/supabase-js");
+      const serviceSupabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      // Store the invitation token in user metadata for processing after confirmation
+      const { error: updateError } =
+        await serviceSupabase.auth.admin.updateUserById(authData.user.id, {
+          user_metadata: {
+            pending_invitation_token: invitationToken,
+          },
+        });
+
+      if (updateError) {
+        console.error("Error storing pending invitation token:", updateError);
+      }
+    } catch (error) {
+      console.error("Error storing pending invitation token:", error);
+      // Continue with normal signup flow
+    }
   }
 
   revalidatePath("/", "layout");
 
-  // Always redirect to login with confirmation message since email confirmation is required
+  // Redirect to login with confirmation message (invitation will be processed after confirmation)
   redirect(
     `/login?message=${encodeURIComponent(
       "Please check your email and click the confirmation link to complete your signup."

@@ -25,8 +25,9 @@ export async function login(formData: FormData) {
     password: formData.get("password") as string,
   };
 
-  // Get redirectTo parameter to redirect after successful login
+  // Get redirectTo parameter and token to redirect after successful login
   const redirectTo = (formData.get("redirectTo") as string) || "/";
+  const token = formData.get("token") as string | null;
 
   // Validate input
   const validationResult = loginSchema.safeParse(rawData);
@@ -36,6 +37,9 @@ export async function login(formData: FormData) {
     const params = new URLSearchParams({ error: errorMessage });
     if (redirectTo !== "/") {
       params.set("redirectTo", redirectTo);
+    }
+    if (token) {
+      params.set("token", token);
     }
     redirect(`/login?${params.toString()}`);
   }
@@ -61,9 +65,18 @@ export async function login(formData: FormData) {
     if (redirectTo !== "/") {
       params.set("redirectTo", redirectTo);
     }
+    if (token) {
+      params.set("token", token);
+    }
     redirect(`/login?${params.toString()}`);
   }
 
   revalidatePath("/", "layout");
-  redirect(redirectTo);
+
+  // If there's a token, redirect to invitation acceptance
+  if (token) {
+    redirect(`/invitations/accept?token=${token}`);
+  } else {
+    redirect(redirectTo);
+  }
 }

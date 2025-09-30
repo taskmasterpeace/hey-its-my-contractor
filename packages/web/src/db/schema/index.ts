@@ -1,6 +1,7 @@
 // Export all schemas
 export * from "./users";
 export * from "./projects";
+export * from "./invitations";
 export * from "./field-logs";
 export * from "./documents";
 export * from "./meetings";

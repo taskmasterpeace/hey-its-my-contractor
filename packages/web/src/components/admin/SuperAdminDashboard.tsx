@@ -1,0 +1,343 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Building2, Users, Crown, Settings } from "lucide-react";
+
+interface Company {
+  id: string;
+  name: string;
+  industry: string | null;
+  subscriptionStatus: "active" | "past_due" | "cancelled" | "trial" | null;
+  createdAt: Date;
+  createdBy: string | null;
+  adminUser: {
+    id: string | null;
+    fullName: string | null;
+    email: string | null;
+  } | null;
+}
+
+interface ProjectManager {
+  id: string;
+  fullName: string | null;
+  email: string | null;
+  systemRole: string;
+}
+
+interface SuperAdminDashboardProps {
+  companies: Company[];
+  availableProjectManagers: ProjectManager[];
+}
+
+interface CreateCompanyFormData {
+  name: string;
+  industry: string;
+  adminEmail: string;
+  maxSeats: number;
+}
+
+export function SuperAdminDashboard({
+  companies,
+  availableProjectManagers,
+}: SuperAdminDashboardProps) {
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState<CreateCompanyFormData>({
+    name: "",
+    industry: "",
+    adminEmail: "",
+    maxSeats: 10,
+  });
+
+  const handleCreateCompany = async () => {
+    try {
+      setLoading(true);
+
+      const response = await fetch("/api/admin/companies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setFormData({ name: "", industry: "", adminEmail: "", maxSeats: 10 });
+        setShowCreateForm(false);
+        window.location.reload(); // Refresh to show new company
+      } else {
+        alert(result.error || "Failed to create company");
+      }
+    } catch (error) {
+      console.error("Error creating company:", error);
+      alert("Failed to create company");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusBadge = (status: string | null) => {
+    const variants = {
+      active: "bg-green-100 text-green-800",
+      trial: "bg-blue-100 text-blue-800",
+      past_due: "bg-yellow-100 text-yellow-800",
+      cancelled: "bg-red-100 text-red-800",
+    };
+
+    const displayStatus = status || "trial";
+    return (
+      <Badge
+        className={
+          variants[displayStatus as keyof typeof variants] ||
+          "bg-gray-100 text-gray-800"
+        }
+      >
+        {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+      </Badge>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Create Company Button */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Company Management</h2>
+          <p className="text-gray-600">
+            Create and manage companies in the system
+          </p>
+        </div>
+
+        <Button onClick={() => setShowCreateForm(true)} disabled={loading}>
+          <Plus className="w-4 h-4 mr-2" />
+          Create Company
+        </Button>
+      </div>
+
+      {/* System Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Building2 className="w-8 h-8 text-blue-600" />
+              <div className="ml-4">
+                <p className="text-2xl font-bold text-gray-900">
+                  {companies.length}
+                </p>
+                <p className="text-sm text-gray-600">Total Companies</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Users className="w-8 h-8 text-green-600" />
+              <div className="ml-4">
+                <p className="text-2xl font-bold text-gray-900">
+                  {availableProjectManagers.length}
+                </p>
+                <p className="text-sm text-gray-600">Project Managers</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Crown className="w-8 h-8 text-yellow-600" />
+              <div className="ml-4">
+                <p className="text-2xl font-bold text-gray-900">
+                  {
+                    companies.filter((c) => c.subscriptionStatus === "active")
+                      .length
+                  }
+                </p>
+                <p className="text-sm text-gray-600">Active Subscriptions</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Create Company Form */}
+      {showCreateForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Create New Company</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="companyName">Company Name</Label>
+              <Input
+                id="companyName"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                placeholder="ABC Construction LLC"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="industry">Industry</Label>
+              <Input
+                id="industry"
+                value={formData.industry}
+                onChange={(e) =>
+                  setFormData({ ...formData, industry: e.target.value })
+                }
+                placeholder="Construction, Electrical, Plumbing, etc."
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="adminEmail">Administrator Email</Label>
+              <Input
+                id="adminEmail"
+                type="email"
+                value={formData.adminEmail}
+                onChange={(e) =>
+                  setFormData({ ...formData, adminEmail: e.target.value })
+                }
+                placeholder="admin@company.com"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                This person will be invited as the company administrator
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="maxSeats">Maximum Seats</Label>
+              <Input
+                id="maxSeats"
+                type="number"
+                value={formData.maxSeats}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    maxSeats: parseInt(e.target.value) || 10,
+                  })
+                }
+                min="1"
+                max="1000"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Number of licenses for this company
+              </p>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateForm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateCompany}
+                disabled={loading || !formData.name || !formData.adminEmail}
+              >
+                Create Company & Send Invitation
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Companies List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Companies</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {companies.length === 0 ? (
+            <div className="text-center py-8">
+              <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No companies created yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {companies.map((company) => (
+                <div
+                  key={company.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-4">
+                      <Building2 className="w-8 h-8 text-blue-600" />
+                      <div>
+                        <h3 className="font-semibold text-gray-900">
+                          {company.name}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {company.industry || "No industry specified"}
+                        </p>
+                        {company.adminUser?.fullName && (
+                          <p className="text-xs text-gray-500">
+                            Admin: {company.adminUser.fullName} (
+                            {company.adminUser.email})
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          Created:{" "}
+                          {new Date(company.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {getStatusBadge(company.subscriptionStatus)}
+                    <Button size="sm" variant="outline">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Manage
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Available Project Managers */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Available Project Managers</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {availableProjectManagers.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No project managers in the system</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {availableProjectManagers.map((pm) => (
+                <div key={pm.id} className="p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Crown className="w-6 h-6 text-yellow-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {pm.fullName || "Unnamed"}
+                      </p>
+                      <p className="text-sm text-gray-600">{pm.email}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

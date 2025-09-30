@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { db } from "@/db";
-import { users, tenants } from "@/db/schema";
+import { users, companies, companyUsers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import AccountForm from "./account-form";
 
@@ -23,19 +23,25 @@ export default async function Account() {
       email: users.email,
       fullName: users.fullName,
       avatarUrl: users.avatarUrl,
-      role: users.role,
-      tenantId: users.tenantId,
+      systemRole: users.systemRole,
       profile: users.profile,
-      tenant: {
-        id: tenants.id,
-        name: tenants.name,
-        plan: tenants.plan,
-      },
+      preferences: users.preferences,
+      isActive: users.isActive,
     })
     .from(users)
-    .leftJoin(tenants, eq(users.tenantId, tenants.id))
     .where(eq(users.id, user.id))
     .limit(1);
+
+  // Fetch user's company memberships
+  const userCompanies = await db
+    .select({
+      id: companies.id,
+      name: companies.name,
+      role: companyUsers.companyRole,
+    })
+    .from(companyUsers)
+    .innerJoin(companies, eq(companyUsers.companyId, companies.id))
+    .where(eq(companyUsers.userId, user.id));
 
   const userRecord = userData[0];
 
@@ -43,6 +49,12 @@ export default async function Account() {
     // User exists in auth but not in custom schema - redirect to error
     redirect("/error");
   }
+
+  // Combine user data with company information
+  const userDataWithCompanies = {
+    ...userRecord,
+    companies: userCompanies,
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -52,7 +64,7 @@ export default async function Account() {
             <h1 className="text-2xl font-semibold text-gray-900 mb-6">
               Account Settings
             </h1>
-            <AccountForm user={user} userData={userRecord} />
+            <AccountForm user={user} userData={userDataWithCompanies} />
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import { type EmailOtpType } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { db } from "@/db";
-import { users, tenants } from "@/db/schema";
+import { users, companies, invitations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
@@ -55,25 +55,52 @@ export async function GET(request: NextRequest) {
       if (existingUser.length === 0) {
         console.log("Creating user record for:", authData.user.email);
 
-        // Create or get default tenant
-        let defaultTenant = await db
-          .select()
-          .from(tenants)
-          .where(eq(tenants.name, "Default"))
-          .limit(1);
+        // Check if this is an invitation-based signup
+        const invitationToken =
+          authData.user.user_metadata?.invitation_token ||
+          authData.user.user_metadata?.pending_invitation_token;
+        let systemRole = "homeowner"; // Default
 
-        if (defaultTenant.length === 0) {
-          console.log("Creating default tenant");
-          const [newTenant] = await db
-            .insert(tenants)
-            .values({
-              name: "Default",
-              plan: "basic",
-              settings: {},
-            })
-            .returning();
-          defaultTenant = [newTenant];
-          console.log("Created tenant:", newTenant);
+        if (invitationToken) {
+          console.log(
+            "🔄 Auth: Found invitation token in user metadata:",
+            invitationToken.substring(0, 8) + "..."
+          );
+
+          // Get invitation details to determine proper role
+          try {
+            const invitation = await db
+              .select()
+              .from(invitations)
+              .where(eq(invitations.token, invitationToken))
+              .limit(1);
+
+            if (
+              invitation.length > 0 &&
+              invitation[0].email === authData.user.email
+            ) {
+              // Set system role based on invitation
+              if (
+                invitation[0].companyRole === "admin" ||
+                invitation[0].companyRole === "project_manager"
+              ) {
+                systemRole = "project_manager";
+              } else if (invitation[0].projectRole === "contractor") {
+                systemRole = "contractor";
+              } else if (invitation[0].projectRole === "homeowner") {
+                systemRole = "homeowner";
+              }
+              console.log(
+                "🎯 Auth: Setting system role from invitation:",
+                systemRole
+              );
+            }
+          } catch (inviteError) {
+            console.error(
+              "Error processing invitation during signup:",
+              inviteError
+            );
+          }
         }
 
         // Create user record in custom schema
@@ -81,18 +108,62 @@ export async function GET(request: NextRequest) {
           .insert(users)
           .values({
             id: authData.user.id,
-            tenantId: defaultTenant[0].id,
-            role: "homeowner", // Default role, can be changed later
+            systemRole: systemRole as
+              | "super_admin"
+              | "project_manager"
+              | "contractor"
+              | "homeowner",
             email: authData.user.email,
             fullName: authData.user.user_metadata?.full_name || null,
             avatarUrl: authData.user.user_metadata?.avatar_url || null,
             profile: {},
+            preferences: {},
+            isActive: true,
           })
           .returning();
 
         console.log("Created user record:", newUser);
       } else {
         console.log("User record already exists");
+      }
+
+      // Check for invitation token and process if found
+      const invitationToken =
+        authData.user.user_metadata?.invitation_token ||
+        authData.user.user_metadata?.pending_invitation_token ||
+        searchParams.get("invitation_token");
+
+      if (invitationToken) {
+        // Clear the pending invitation token from user metadata after processing
+        if (authData.user.user_metadata?.pending_invitation_token) {
+          try {
+            // Create service role client for admin operations
+            const { createClient: createServiceClient } = await import(
+              "@supabase/supabase-js"
+            );
+            const serviceSupabase = createServiceClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.SUPABASE_SERVICE_ROLE_KEY!
+            );
+
+            await serviceSupabase.auth.admin.updateUserById(authData.user.id, {
+              user_metadata: {
+                ...authData.user.user_metadata,
+                pending_invitation_token: null,
+              },
+            });
+          } catch (cleanupError) {
+            console.error(
+              "Error cleaning up pending invitation token:",
+              cleanupError
+            );
+          }
+        }
+
+        // Redirect to existing invitation acceptance page
+        redirectTo.pathname = "/invitations/accept";
+        redirectTo.searchParams.set("token", invitationToken);
+        return NextResponse.redirect(redirectTo);
       }
     } catch (dbError) {
       console.error(

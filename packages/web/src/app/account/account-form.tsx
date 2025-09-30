@@ -8,14 +8,15 @@ interface UserData {
   email: string | null;
   fullName: string | null;
   avatarUrl: string | null;
-  role: "contractor" | "staff" | "sub" | "homeowner" | "admin";
-  tenantId: string;
+  systemRole: "super_admin" | "project_manager" | "contractor" | "homeowner";
   profile: any;
-  tenant: {
+  preferences: any;
+  isActive: boolean | null;
+  companies?: Array<{
     id: string;
     name: string;
-    plan: "basic" | "pro" | "enterprise" | null;
-  } | null;
+    role: string;
+  }>;
 }
 
 export default function AccountForm({
@@ -89,22 +90,26 @@ export default function AccountForm({
           <input
             id="role"
             type="text"
-            value={userData.role}
+            value={userData.systemRole}
             disabled
             className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-gray-500 capitalize"
           />
         </div>
         <div>
           <label
-            htmlFor="tenant"
+            htmlFor="companies"
             className="block text-sm font-medium text-gray-700"
           >
-            Organization
+            Companies
           </label>
           <input
-            id="tenant"
+            id="companies"
             type="text"
-            value={userData.tenant?.name || "No Organization"}
+            value={
+              userData.companies && userData.companies.length > 0
+                ? userData.companies.map((c) => c.name).join(", ")
+                : "No Companies"
+            }
             disabled
             className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-gray-500"
           />

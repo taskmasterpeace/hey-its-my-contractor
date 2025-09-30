@@ -2,39 +2,57 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function GoogleSignInButton() {
   const [isLoading, setIsLoading] = useState(false);
   const supabase = createClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
 
+      // Get invitation token and redirectTo from URL
+      const token = searchParams.get("token");
+      const redirectTo = searchParams.get("redirectTo");
+
+      // Build redirect URL with token preserved in URL (simple & reliable)
+      const confirmUrl = new URL("/auth/confirm", window.location.origin);
+      if (token) {
+        confirmUrl.searchParams.set("invitation_token", token);
+      }
+      if (redirectTo) {
+        confirmUrl.searchParams.set("redirectTo", redirectTo);
+      }
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/confirm`,
+          redirectTo: confirmUrl.toString(),
         },
       });
 
       if (error) {
         console.error("Google sign-in error:", error);
-        router.push(
-          `/login?error=${encodeURIComponent(
-            "Failed to sign in with Google. Please try again."
-          )}`
-        );
+        const params = new URLSearchParams({
+          error: "Failed to sign in with Google. Please try again.",
+        });
+        if (token) params.set("token", token);
+        if (redirectTo) params.set("redirectTo", redirectTo);
+        router.push(`/login?${params.toString()}`);
       }
     } catch (error) {
       console.error("Google sign-in error:", error);
-      router.push(
-        `/login?error=${encodeURIComponent(
-          "Failed to sign in with Google. Please try again."
-        )}`
-      );
+      const token = searchParams.get("token");
+      const redirectTo = searchParams.get("redirectTo");
+      const params = new URLSearchParams({
+        error: "Failed to sign in with Google. Please try again.",
+      });
+      if (token) params.set("token", token);
+      if (redirectTo) params.set("redirectTo", redirectTo);
+      router.push(`/login?${params.toString()}`);
     } finally {
       setIsLoading(false);
     }

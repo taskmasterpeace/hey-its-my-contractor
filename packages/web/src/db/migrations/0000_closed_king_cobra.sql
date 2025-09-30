@@ -1,9 +1,13 @@
 CREATE TYPE "public"."change_order_status" AS ENUM('draft', 'pending', 'approved', 'rejected', 'implemented');--> statement-breakpoint
 CREATE TYPE "public"."document_type" AS ENUM('plan', 'permit', 'contract', 'invoice', 'photo', 'other');--> statement-breakpoint
 CREATE TYPE "public"."image_source" AS ENUM('upload', 'search_result', 'ai_generated', 'field_photo');--> statement-breakpoint
-CREATE TYPE "public"."plan" AS ENUM('basic', 'pro', 'enterprise');--> statement-breakpoint
-CREATE TYPE "public"."user_role" AS ENUM('contractor', 'staff', 'sub', 'homeowner', 'admin');--> statement-breakpoint
+CREATE TYPE "public"."plan" AS ENUM('starter', 'pro', 'enterprise');--> statement-breakpoint
+CREATE TYPE "public"."subscription_status" AS ENUM('active', 'past_due', 'cancelled', 'trial');--> statement-breakpoint
+CREATE TYPE "public"."user_role" AS ENUM('super_admin', 'project_manager', 'contractor', 'homeowner');--> statement-breakpoint
 CREATE TYPE "public"."project_status" AS ENUM('planning', 'active', 'paused', 'completed', 'cancelled');--> statement-breakpoint
+CREATE TYPE "public"."company_role" AS ENUM('admin', 'project_manager', 'member');--> statement-breakpoint
+CREATE TYPE "public"."invitation_status" AS ENUM('pending', 'accepted', 'declined', 'expired', 'cancelled');--> statement-breakpoint
+CREATE TYPE "public"."project_role" AS ENUM('project_manager', 'contractor', 'homeowner');--> statement-breakpoint
 CREATE TYPE "public"."meeting_status" AS ENUM('scheduled', 'in_progress', 'completed', 'cancelled');--> statement-breakpoint
 CREATE TYPE "public"."meeting_type" AS ENUM('consultation', 'progress_review', 'change_order', 'walkthrough', 'inspection');--> statement-breakpoint
 CREATE TYPE "public"."task_priority" AS ENUM('low', 'medium', 'high', 'urgent');--> statement-breakpoint
@@ -85,6 +89,7 @@ CREATE TABLE "image_library" (
 	"category_id" uuid,
 	"title" varchar(255) NOT NULL,
 	"description" text,
+	"url" text NOT NULL,
 	"storage_key" text NOT NULL,
 	"filename" varchar(255) NOT NULL,
 	"mime_type" varchar(100) NOT NULL,
@@ -111,40 +116,110 @@ CREATE TABLE "image_library_categories" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "tenants" (
+CREATE TABLE "companies" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar(255) NOT NULL,
-	"plan" "plan" DEFAULT 'basic',
+	"industry" varchar(100),
+	"address" text,
+	"phone" varchar(50),
+	"email" varchar(255),
+	"website" varchar(255),
+	"stripe_customer_id" varchar(255),
+	"subscription_status" "subscription_status" DEFAULT 'trial',
 	"settings" jsonb DEFAULT '{}',
+	"metadata" jsonb DEFAULT '{}',
+	"created_by" uuid,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "company_subscriptions" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"company_id" uuid NOT NULL,
+	"plan" "plan" NOT NULL,
+	"max_seats" integer NOT NULL,
+	"used_seats" integer DEFAULT 0,
+	"price" numeric(10, 2),
+	"billing_cycle" varchar(20) DEFAULT 'monthly',
+	"status" "subscription_status" DEFAULT 'active',
+	"start_date" timestamp DEFAULT now(),
+	"end_date" timestamp,
+	"external_invoice_id" varchar(255),
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
 	"id" uuid PRIMARY KEY NOT NULL,
-	"tenant_id" uuid NOT NULL,
-	"role" "user_role" NOT NULL,
+	"system_role" "user_role" NOT NULL,
 	"profile" jsonb DEFAULT '{}' NOT NULL,
 	"email" text,
 	"full_name" text,
+	"phone" varchar(50),
 	"avatar_url" text,
+	"preferences" jsonb DEFAULT '{}',
+	"is_active" boolean DEFAULT true,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "projects" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"tenant_id" uuid NOT NULL,
+	"company_id" uuid NOT NULL,
 	"name" varchar(255) NOT NULL,
+	"description" text,
 	"address" text NOT NULL,
 	"status" "project_status" DEFAULT 'planning',
-	"client_user_id" uuid NOT NULL,
+	"homeowner_name" varchar(255),
+	"homeowner_email" varchar(255),
+	"homeowner_phone" varchar(50),
 	"budget" numeric(12, 2),
+	"estimated_cost" numeric(12, 2),
 	"start_date" date,
-	"end_date" date,
+	"estimated_end_date" date,
+	"actual_end_date" date,
 	"progress_percentage" integer DEFAULT 0,
+	"metadata" jsonb DEFAULT '{}',
+	"settings" jsonb DEFAULT '{}',
+	"created_by" uuid NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "company_users" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"company_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"company_role" "company_role" NOT NULL,
+	"is_active" boolean DEFAULT true,
+	"joined_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "invitations" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"company_id" uuid NOT NULL,
+	"project_id" uuid,
+	"email" varchar(255) NOT NULL,
+	"invited_by" uuid NOT NULL,
+	"company_role" "company_role" NOT NULL,
+	"project_role" "project_role",
+	"status" "invitation_status" DEFAULT 'pending' NOT NULL,
+	"token" varchar(255) NOT NULL,
+	"custom_message" text,
+	"metadata" jsonb DEFAULT '{}',
+	"expires_at" timestamp NOT NULL,
+	"accepted_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "invitations_token_unique" UNIQUE("token")
+);
+--> statement-breakpoint
+CREATE TABLE "project_users" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"project_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"project_role" "project_role" NOT NULL,
+	"assigned_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "meetings" (
@@ -217,10 +292,18 @@ ALTER TABLE "image_library" ADD CONSTRAINT "image_library_user_id_users_id_fk" F
 ALTER TABLE "image_library" ADD CONSTRAINT "image_library_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "image_library" ADD CONSTRAINT "image_library_category_id_image_library_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."image_library_categories"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "image_library_categories" ADD CONSTRAINT "image_library_categories_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "companies" ADD CONSTRAINT "companies_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "company_subscriptions" ADD CONSTRAINT "company_subscriptions_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_id_users_id_fk" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "projects" ADD CONSTRAINT "projects_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "projects" ADD CONSTRAINT "projects_client_user_id_users_id_fk" FOREIGN KEY ("client_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "projects" ADD CONSTRAINT "projects_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "projects" ADD CONSTRAINT "projects_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "company_users" ADD CONSTRAINT "company_users_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "company_users" ADD CONSTRAINT "company_users_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_invited_by_users_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "project_users" ADD CONSTRAINT "project_users_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "project_users" ADD CONSTRAINT "project_users_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "meetings" ADD CONSTRAINT "meetings_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "transcripts" ADD CONSTRAINT "transcripts_meeting_id_meetings_id_fk" FOREIGN KEY ("meeting_id") REFERENCES "public"."meetings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tasks" ADD CONSTRAINT "tasks_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

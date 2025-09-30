@@ -6,11 +6,18 @@ import GoogleSignInButton from "../login/google-signin";
 async function SignupContent({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string; error?: string }>;
+  searchParams: Promise<{
+    message?: string;
+    error?: string;
+    token?: string;
+    redirectTo?: string;
+  }>;
 }) {
   const resolvedSearchParams = await searchParams;
   const message = resolvedSearchParams.message;
   const error = resolvedSearchParams.error;
+  const token = resolvedSearchParams.token;
+  const redirectTo = resolvedSearchParams.redirectTo || "/";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -22,7 +29,13 @@ async function SignupContent({
           <p className="mt-2 text-center text-sm text-gray-600">
             Already have an account?{" "}
             <Link
-              href="/login"
+              href={`/login${token ? `?token=${token}` : ""}${
+                redirectTo !== "/"
+                  ? `${token ? "&" : "?"}redirectTo=${encodeURIComponent(
+                      redirectTo
+                    )}`
+                  : ""
+              }`}
               className="font-medium text-indigo-600 hover:text-indigo-500"
             >
               Sign in here
@@ -63,7 +76,13 @@ async function SignupContent({
                     Try Again
                   </Link>
                   <Link
-                    href="/login"
+                    href={`/login${token ? `?token=${token}` : ""}${
+                      redirectTo !== "/"
+                        ? `${token ? "&" : "?"}redirectTo=${encodeURIComponent(
+                            redirectTo
+                          )}`
+                        : ""
+                    }`}
                     className="text-sm font-medium text-red-600 hover:text-red-500"
                   >
                     Login
@@ -98,6 +117,8 @@ async function SignupContent({
         </div>
 
         <form className="mt-6 space-y-6" action={signup}>
+          <input type="hidden" name="token" value={token || ""} />
+          <input type="hidden" name="redirectTo" value={redirectTo} />
           <div className="space-y-4">
             <div>
               <label
@@ -174,7 +195,12 @@ async function SignupContent({
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string; error?: string }>;
+  searchParams: Promise<{
+    message?: string;
+    error?: string;
+    token?: string;
+    redirectTo?: string;
+  }>;
 }) {
   return (
     <Suspense fallback={<div>Loading...</div>}>
