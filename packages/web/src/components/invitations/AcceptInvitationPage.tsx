@@ -9,10 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   Building2,
   Users,
-  Calendar,
   CheckCircle,
   AlertCircle,
-  Clock,
   LogIn,
   UserPlus,
 } from "lucide-react";
@@ -64,13 +62,6 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
   useEffect(() => {
     checkAuthAndLoadInvitation();
   }, [token]);
-
-  // Auto-accept invitation when user is ready
-  useEffect(() => {
-    if (flowState === "ready_to_accept") {
-      acceptInvitation();
-    }
-  }, [flowState]);
 
   const checkAuthAndLoadInvitation = async () => {
     try {
@@ -222,8 +213,8 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
       const result = await response.json();
 
       if (result.success) {
-        // Redirect to dashboard after successful acceptance
-        window.location.href = "/dashboard";
+        // Redirect to team page after successful acceptance
+        window.location.href = "/team";
       } else {
         setError(result.error || "Failed to accept invitation");
       }
