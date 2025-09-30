@@ -25,6 +25,12 @@ interface Company {
     name: string;
   };
   companyRole: string;
+  subscription: {
+    maxSeats: number | null;
+    usedSeats: number | null;
+    plan: string | null;
+    status: string | null;
+  } | null;
 }
 
 interface Project {
@@ -163,26 +169,101 @@ export function TeamManagement({
       : names[0][0].toUpperCase();
   };
 
+  const getCurrentCompany = () => {
+    return companies.find((c) => c.company.id === selectedCompany);
+  };
+
+  const currentCompany = getCurrentCompany();
+
   return (
     <div className="space-y-6">
-      {/* Header with Company Selection */}
-      <div className="flex justify-between items-center">
-        {companies.length > 1 && (
-          <div className="w-64">
-            <Label htmlFor="companySelect">Company</Label>
-            <select
-              id="companySelect"
-              value={selectedCompany}
-              onChange={(e) => setSelectedCompany(e.target.value)}
-              className="w-full p-2 border rounded-md"
-            >
-              {companies.map((comp) => (
-                <option key={comp.company.id} value={comp.company.id}>
-                  {comp.company.name} ({comp.companyRole})
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* Header with Company Selection and Seat Information */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          {companies.length > 1 && (
+            <div className="w-64">
+              <Label htmlFor="companySelect">Company</Label>
+              <select
+                id="companySelect"
+                value={selectedCompany}
+                onChange={(e) => setSelectedCompany(e.target.value)}
+                className="w-full p-2 border rounded-md"
+              >
+                {companies.map((comp) => (
+                  <option key={comp.company.id} value={comp.company.id}>
+                    {comp.company.name} ({comp.companyRole})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Seat Information Display */}
+        {currentCompany && currentCompany.subscription && (
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-100 p-2 rounded-lg">
+                    <Users className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-blue-900">
+                      {currentCompany.company.name} - Seat Usage
+                    </h3>
+                    <p className="text-sm text-blue-700">
+                      Plan:{" "}
+                      <span className="capitalize font-medium">
+                        {currentCompany.subscription.plan}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-blue-900">
+                    {currentCompany.subscription.usedSeats || 0} /{" "}
+                    {currentCompany.subscription.maxSeats}
+                  </div>
+                  <div className="text-sm text-blue-700">
+                    {(currentCompany.subscription.maxSeats || 0) -
+                      (currentCompany.subscription.usedSeats || 0)}{" "}
+                    seats available
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="mt-3">
+                <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.min(
+                        ((currentCompany.subscription.usedSeats || 0) /
+                          (currentCompany.subscription.maxSeats || 1)) *
+                          100,
+                        100
+                      )}%`,
+                    }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Warning if near limit */}
+              {currentCompany.subscription.maxSeats &&
+                currentCompany.subscription.usedSeats &&
+                currentCompany.subscription.usedSeats >=
+                  currentCompany.subscription.maxSeats * 0.9 && (
+                  <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded-md">
+                    <p className="text-sm text-yellow-800">
+                      ⚠️ You're approaching your seat limit. Consider upgrading
+                      your plan to invite more team members.
+                    </p>
+                  </div>
+                )}
+            </CardContent>
+          </Card>
         )}
       </div>
 

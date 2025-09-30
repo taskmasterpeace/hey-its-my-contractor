@@ -5,6 +5,7 @@ import {
   users,
   companies,
   companyUsers,
+  companySubscriptions,
   projects,
   projectUsers,
 } from "@/db/schema";
@@ -45,7 +46,7 @@ export default async function TeamPage() {
     redirect("/dashboard"); // Redirect homeowners and others to dashboard
   }
 
-  // Get user's company memberships
+  // Get user's company memberships with subscription details
   const userCompanies = await db
     .select({
       company: {
@@ -53,9 +54,19 @@ export default async function TeamPage() {
         name: companies.name,
       },
       companyRole: companyUsers.companyRole,
+      subscription: {
+        maxSeats: companySubscriptions.maxSeats,
+        usedSeats: companySubscriptions.usedSeats,
+        plan: companySubscriptions.plan,
+        status: companySubscriptions.status,
+      },
     })
     .from(companyUsers)
     .innerJoin(companies, eq(companyUsers.companyId, companies.id))
+    .leftJoin(
+      companySubscriptions,
+      eq(companySubscriptions.companyId, companies.id)
+    )
     .where(eq(companyUsers.userId, user.id));
 
   // Get user's projects (for contractors)

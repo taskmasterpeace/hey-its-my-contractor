@@ -1,4 +1,4 @@
-import { eq, and, desc, isNull, count } from "drizzle-orm";
+import { eq, and, desc, count, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   invitations,
@@ -7,6 +7,7 @@ import {
   projectUsers,
   companies,
   projects,
+  companySubscriptions,
   type InsertInvitation,
   type SelectInvitation,
 } from "@/db/schema";
@@ -350,6 +351,9 @@ export class InvitationService {
       })
       .returning();
 
+    // Increment used seats in company subscription
+    await this.incrementUsedSeats(invitation.companyId);
+
     // Create project membership if specified
     let projectMembership = null;
     if (invitation.projectId && invitation.projectRole) {
@@ -624,6 +628,10 @@ export class InvitationService {
   }
 
   private static async checkInvitationLimits(companyId: string): Promise<void> {
+    // Check seat-based licensing first
+    await this.checkSeatLimits(companyId);
+
+    // Check pending invitations limit (secondary limit)
     const [countResult] = await db
       .select({ count: count() })
       .from(invitations)
@@ -643,6 +651,80 @@ export class InvitationService {
     }
   }
 
+  /**
+   * Check if company has available seats for new invitation
+   */
+  private static async checkSeatLimits(companyId: string): Promise<void> {
+    // Get company subscription
+    const [subscription] = await db
+      .select({
+        maxSeats: companySubscriptions.maxSeats,
+        usedSeats: companySubscriptions.usedSeats,
+        status: companySubscriptions.status,
+      })
+      .from(companySubscriptions)
+      .where(eq(companySubscriptions.companyId, companyId))
+      .limit(1);
+
+    if (!subscription) {
+      throw new InvitationError(
+        "No active subscription found for this company",
+        "NO_SUBSCRIPTION",
+        402
+      );
+    }
+
+    if (subscription.status !== "active") {
+      throw new InvitationError(
+        "Company subscription is not active",
+        "SUBSCRIPTION_INACTIVE",
+        402
+      );
+    }
+
+    // Count current active members
+    const [memberCount] = await db
+      .select({ count: count() })
+      .from(companyUsers)
+      .where(
+        and(
+          eq(companyUsers.companyId, companyId),
+          eq(companyUsers.isActive, true)
+        )
+      );
+
+    // Count pending invitations
+    const [pendingCount] = await db
+      .select({ count: count() })
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.companyId, companyId),
+          eq(invitations.status, "pending")
+        )
+      );
+
+    const currentSeats = Number(memberCount.count);
+    const pendingSeats = Number(pendingCount.count);
+    const totalSeats = currentSeats + pendingSeats;
+
+    console.log(`🔍 Seat check for company ${companyId}:`, {
+      maxSeats: subscription.maxSeats,
+      currentMembers: currentSeats,
+      pendingInvitations: pendingSeats,
+      totalSeats,
+      availableSeats: subscription.maxSeats - totalSeats,
+    });
+
+    if (totalSeats >= subscription.maxSeats) {
+      throw new InvitationError(
+        `No available seats. Company has ${subscription.maxSeats} seats, ${currentSeats} active members, and ${pendingSeats} pending invitations.`,
+        "SEAT_LIMIT_EXCEEDED",
+        402
+      );
+    }
+  }
+
   private static generateSecureToken(): string {
     return randomBytes(32).toString("hex");
   }
@@ -655,5 +737,50 @@ export class InvitationService {
         updatedAt: new Date(),
       })
       .where(eq(invitations.id, invitationId));
+  }
+
+  /**
+   * Increment used seats counter when new member joins
+   */
+  private static async incrementUsedSeats(companyId: string): Promise<void> {
+    try {
+      await db
+        .update(companySubscriptions)
+        .set({
+          usedSeats: sql`${companySubscriptions.usedSeats} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(companySubscriptions.companyId, companyId));
+
+      console.log(`✅ Incremented used seats for company ${companyId}`);
+    } catch (error) {
+      console.error(
+        `❌ Failed to increment used seats for company ${companyId}:`,
+        error
+      );
+      // Don't throw error as invitation was already accepted successfully
+    }
+  }
+
+  /**
+   * Decrement used seats counter when member leaves
+   */
+  private static async decrementUsedSeats(companyId: string): Promise<void> {
+    try {
+      await db
+        .update(companySubscriptions)
+        .set({
+          usedSeats: sql`${companySubscriptions.usedSeats} - 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(companySubscriptions.companyId, companyId));
+
+      console.log(`✅ Decremented used seats for company ${companyId}`);
+    } catch (error) {
+      console.error(
+        `❌ Failed to decrement used seats for company ${companyId}:`,
+        error
+      );
+    }
   }
 }
