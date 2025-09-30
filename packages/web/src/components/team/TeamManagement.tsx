@@ -167,15 +167,6 @@ export function TeamManagement({
     <div className="space-y-6">
       {/* Header with Company Selection */}
       <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Team Management</h2>
-          <p className="text-gray-600">
-            {currentUser.systemRole === "project_manager"
-              ? "Invite contractors and manage your team"
-              : "Invite homeowners to your projects"}
-          </p>
-        </div>
-
         {companies.length > 1 && (
           <div className="w-64">
             <Label htmlFor="companySelect">Company</Label>
