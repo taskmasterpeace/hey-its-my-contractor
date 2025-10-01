@@ -38,6 +38,7 @@ export const companies = pgTable("companies", {
   phone: varchar("phone", { length: 50 }),
   email: varchar("email", { length: 255 }),
   website: varchar("website", { length: 255 }),
+  logoUrl: text("logo_url"), // Company logo URL from Supabase storage
 
   // Billing and subscription info
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),

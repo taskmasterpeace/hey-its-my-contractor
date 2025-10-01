@@ -17,6 +17,7 @@ const createCompanySchema = z.object({
   name: z.string().min(1, "Company name is required").max(255),
   industry: z.string().optional(),
   adminEmail: z.string().email("Invalid admin email format"),
+  logoUrl: z.string().url().optional().nullable(),
   maxSeats: z.number().min(1).max(1000).default(10),
   subscriptionStatus: z
     .enum(["active", "trial", "past_due", "cancelled"])
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
         name: validatedData.name,
         industry: validatedData.industry,
         email: validatedData.adminEmail,
+        logoUrl: validatedData.logoUrl,
         subscriptionStatus: validatedData.subscriptionStatus,
         createdBy: user.id,
         settings: {},
@@ -266,6 +268,7 @@ export async function GET(request: NextRequest) {
         id: companies.id,
         name: companies.name,
         industry: companies.industry,
+        logoUrl: companies.logoUrl,
         subscriptionStatus: companies.subscriptionStatus,
         createdAt: companies.createdAt,
         // Get subscription info

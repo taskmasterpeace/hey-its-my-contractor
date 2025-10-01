@@ -73,6 +73,9 @@ export async function PUT(
     const body = await request.json();
     const validatedData = updateCompanySchema.parse(body);
 
+    // Await params before using
+    const { id } = await params;
+
     // Update company record
     const [updatedCompany] = await db
       .update(companies)
@@ -90,7 +93,7 @@ export async function PUT(
         },
         updatedAt: new Date(),
       })
-      .where(eq(companies.id, params.id))
+      .where(eq(companies.id, id))
       .returning();
 
     if (!updatedCompany) {
@@ -107,7 +110,7 @@ export async function PUT(
     const existingSubscription = await db
       .select()
       .from(companySubscriptions)
-      .where(eq(companySubscriptions.companyId, params.id))
+      .where(eq(companySubscriptions.companyId, id))
       .limit(1);
 
     if (existingSubscription.length > 0) {
@@ -129,11 +132,11 @@ export async function PUT(
           externalInvoiceId: validatedData.externalInvoiceId || null,
           updatedAt: new Date(),
         })
-        .where(eq(companySubscriptions.companyId, params.id));
+        .where(eq(companySubscriptions.companyId, id));
     } else {
       // Create new subscription record
       await db.insert(companySubscriptions).values({
-        companyId: params.id,
+        companyId: id,
         plan: validatedData.plan,
         maxSeats: validatedData.maxSeats,
         usedSeats: 0,
@@ -200,6 +203,9 @@ export async function GET(
     const user = await getCurrentUser(request);
     await validateSuperAdmin(user.id);
 
+    // Await params before using
+    const { id } = await params;
+
     const companyData = await db
       .select({
         company: companies,
@@ -210,7 +216,7 @@ export async function GET(
         companySubscriptions,
         eq(companies.id, companySubscriptions.companyId)
       )
-      .where(eq(companies.id, params.id))
+      .where(eq(companies.id, id))
       .limit(1);
 
     if (!companyData.length) {

@@ -1,18 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Building2, Users, Crown, Settings, Mail } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
+import {
+  Plus,
+  Building2,
+  Users,
+  Crown,
+  Settings,
+  Mail,
+  Upload,
+  X,
+  Image,
+} from "lucide-react";
 
 interface Company {
   id: string;
   name: string;
   industry: string | null;
+  logoUrl: string | null;
   subscriptionStatus: "active" | "past_due" | "cancelled" | "trial" | null;
   createdAt: Date;
   createdBy: string | null;
@@ -56,6 +68,7 @@ interface CreateCompanyFormData {
   monthlyRate?: number;
   billingCycle?: string;
   notes?: string;
+  logoFile?: File | null;
 }
 
 export function SuperAdminDashboard({
@@ -64,10 +77,15 @@ export function SuperAdminDashboard({
 }: SuperAdminDashboardProps) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [resendingInvitation, setResendingInvitation] = useState<string | null>(
     null
   );
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const supabase = createClient();
+
   const [formData, setFormData] = useState<CreateCompanyFormData>({
     name: "",
     industry: "",
@@ -80,16 +98,122 @@ export function SuperAdminDashboard({
     monthlyRate: 1000,
     billingCycle: "monthly",
     notes: "",
+    logoFile: null,
   });
+
+  const handleLogoUpload = async (file: File): Promise<string | null> => {
+    try {
+      setUploadingLogo(true);
+
+      // Generate unique filename
+      const fileExt = file.name.split(".").pop();
+      const fileName = `company-logos/${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2)}.${fileExt}`;
+
+      const { data, error } = await supabase.storage
+        .from("company-assets")
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (error) {
+        console.error("Error uploading logo:", error);
+        toast({
+          title: "Failed to upload logo",
+          description: error.message,
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("company-assets").getPublicUrl(data.path);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Error uploading logo:", error);
+      toast({
+        title: "Failed to upload logo",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setFormData({ ...formData, logoFile: file });
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setLogoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setFormData({ ...formData, logoFile: null });
+    setLogoPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleCreateCompany = async () => {
     try {
       setLoading(true);
 
+      let logoUrl = null;
+
+      // Upload logo if provided
+      if (formData.logoFile) {
+        logoUrl = await handleLogoUpload(formData.logoFile);
+        if (!logoUrl) {
+          return; // Logo upload failed, error already shown
+        }
+      }
+
+      // Prepare form data for submission
+      const submissionData = {
+        ...formData,
+        logoUrl,
+        logoFile: undefined, // Remove file from submission
+      };
+
       const response = await fetch("/api/admin/companies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submissionData),
       });
 
       const result = await response.json();
@@ -111,7 +235,9 @@ export function SuperAdminDashboard({
           externalInvoiceId: "",
           monthlyRate: 1000,
           notes: "",
+          logoFile: null,
         });
+        setLogoPreview(null);
         setShowCreateForm(false);
         window.location.reload(); // Refresh to show new company
       } else {
@@ -307,6 +433,70 @@ export function SuperAdminDashboard({
                 }
                 placeholder="Construction, Electrical, Plumbing, etc."
               />
+            </div>
+
+            {/* Logo Upload Section */}
+            <div>
+              <Label>Company Logo</Label>
+              <div className="mt-2">
+                {logoPreview ? (
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <img
+                        src={logoPreview}
+                        alt="Logo preview"
+                        className="w-20 h-20 object-contain border border-gray-300 rounded-lg bg-white p-2"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                        onClick={handleRemoveLogo}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600">
+                        {formData.logoFile?.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formData.logoFile?.size
+                          ? `${Math.round(formData.logoFile.size / 1024)}KB`
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                    <div className="text-center">
+                      <Image className="mx-auto h-12 w-12 text-gray-400" />
+                      <div className="mt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingLogo}
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                        </Button>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-500">
+                        PNG, JPG, GIF up to 5MB
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+              </div>
             </div>
 
             <div>
@@ -543,7 +733,27 @@ export function SuperAdminDashboard({
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-4">
-                      <Building2 className="w-8 h-8 text-blue-600" />
+                      {company.logoUrl ? (
+                        <img
+                          src={company.logoUrl}
+                          alt={`${company.name} logo`}
+                          className="w-12 h-12 object-contain border border-gray-200 rounded-lg bg-white p-1"
+                          onError={(e) => {
+                            // Fallback to Building2 icon if image fails to load
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = "none";
+                            const fallbackIcon =
+                              target.nextElementSibling as HTMLElement;
+                            if (fallbackIcon)
+                              fallbackIcon.style.display = "block";
+                          }}
+                        />
+                      ) : null}
+                      <Building2
+                        className={`w-8 h-8 text-blue-600 ${
+                          company.logoUrl ? "hidden" : "block"
+                        }`}
+                      />
                       <div>
                         <h3 className="font-semibold text-gray-900">
                           {company.name}

@@ -35,6 +35,7 @@ export default async function AdminPage() {
       id: companies.id,
       name: companies.name,
       industry: companies.industry,
+      logoUrl: companies.logoUrl,
       subscriptionStatus: companies.subscriptionStatus,
       createdAt: companies.createdAt,
       createdBy: companies.createdBy,
