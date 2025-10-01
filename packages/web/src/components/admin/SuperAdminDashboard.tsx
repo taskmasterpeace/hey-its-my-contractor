@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Building2, Users, Crown, Settings } from "lucide-react";
+import { Plus, Building2, Users, Crown, Settings, Mail } from "lucide-react";
 
 interface Company {
   id: string;
@@ -23,6 +23,7 @@ interface Company {
     | "expired"
     | "cancelled"
     | null;
+  adminInvitationId: string | null;
   createdByUser: {
     id: string | null;
     fullName: string | null;
@@ -62,6 +63,9 @@ export function SuperAdminDashboard({
 }: SuperAdminDashboardProps) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendingInvitation, setResendingInvitation] = useState<string | null>(
+    null
+  );
   const [formData, setFormData] = useState<CreateCompanyFormData>({
     name: "",
     industry: "",
@@ -111,6 +115,34 @@ export function SuperAdminDashboard({
       alert("Failed to create company");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendInvitation = async (
+    invitationId: string,
+    companyName: string
+  ) => {
+    try {
+      setResendingInvitation(invitationId);
+
+      const response = await fetch(`/api/invitations/${invitationId}/resend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`Invitation resent successfully for ${companyName}!`);
+        window.location.reload(); // Refresh to show updated status
+      } else {
+        alert(result.error || "Failed to resend invitation");
+      }
+    } catch (error) {
+      console.error("Error resending invitation:", error);
+      alert("Failed to resend invitation");
+    } finally {
+      setResendingInvitation(null);
     }
   };
 
@@ -517,6 +549,29 @@ export function SuperAdminDashboard({
                       company.subscriptionStatus,
                       company.adminInvitationStatus
                     )}
+                    {/* Show resend button if invitation is not accepted */}
+                    {company.adminInvitationStatus &&
+                      company.adminInvitationStatus !== "accepted" &&
+                      company.adminInvitationId && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            handleResendInvitation(
+                              company.adminInvitationId!,
+                              company.name
+                            )
+                          }
+                          disabled={
+                            resendingInvitation === company.adminInvitationId
+                          }
+                        >
+                          <Mail className="w-4 h-4 mr-2" />
+                          {resendingInvitation === company.adminInvitationId
+                            ? "Sending..."
+                            : "Resend"}
+                        </Button>
+                      )}
                     <Button
                       size="sm"
                       variant="outline"

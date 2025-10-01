@@ -515,6 +515,56 @@ export class InvitationService {
       );
     }
 
+    // Send the invitation email
+    try {
+      console.log("🔄 Resending invitation email for:", invitation.id);
+
+      // Fetch related data for email
+      const companyInfo = await db
+        .select({ name: companies.name })
+        .from(companies)
+        .where(eq(companies.id, invitation.companyId))
+        .limit(1);
+
+      const projectInfo = invitation.projectId
+        ? await db
+            .select({ name: projects.name })
+            .from(projects)
+            .where(eq(projects.id, invitation.projectId))
+            .limit(1)
+        : null;
+
+      const inviterInfo = await db
+        .select({ fullName: users.fullName })
+        .from(users)
+        .where(eq(users.id, invitation.invitedBy))
+        .limit(1);
+
+      const emailSent = await EmailService.sendInvitationEmail({
+        invitation,
+        companyName: companyInfo[0]?.name || "Unknown Company",
+        projectName: projectInfo?.[0]?.name,
+        inviterName: inviterInfo[0]?.fullName || "Team Member",
+        acceptUrl: EmailService.generateAcceptUrl(invitation.token),
+      });
+
+      console.log("📧 Resend email result:", emailSent);
+
+      if (!emailSent) {
+        console.warn(
+          "❌ Failed to resend invitation email, but invitation was updated"
+        );
+      } else {
+        console.log(
+          "✅ Invitation email resent successfully to:",
+          invitation.email
+        );
+      }
+    } catch (emailError) {
+      console.error("❌ Error resending invitation email:", emailError);
+      // Don't throw error - invitation was updated successfully
+    }
+
     return invitation;
   }
 

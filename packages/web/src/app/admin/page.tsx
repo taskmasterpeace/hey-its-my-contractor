@@ -41,6 +41,7 @@ export default async function AdminPage() {
       // Get admin info (who gets the invitation)
       adminEmail: invitations.email,
       adminInvitationStatus: invitations.status,
+      adminInvitationId: invitations.id,
       // Get super admin who created the company
       createdByUser: {
         id: users.id,

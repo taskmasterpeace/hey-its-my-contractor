@@ -25,11 +25,11 @@ async function getCurrentUser(request: NextRequest) {
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser(request);
-    const invitationId = params.id;
+    const { id: invitationId } = await params;
 
     if (!invitationId) {
       return NextResponse.json(
