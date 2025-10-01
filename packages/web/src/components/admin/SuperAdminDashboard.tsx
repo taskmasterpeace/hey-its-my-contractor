@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { Plus, Building2, Users, Crown, Settings, Mail } from "lucide-react";
 
 interface Company {
@@ -66,6 +67,7 @@ export function SuperAdminDashboard({
   const [resendingInvitation, setResendingInvitation] = useState<string | null>(
     null
   );
+  const { toast } = useToast();
   const [formData, setFormData] = useState<CreateCompanyFormData>({
     name: "",
     industry: "",
@@ -93,6 +95,11 @@ export function SuperAdminDashboard({
       const result = await response.json();
 
       if (result.success) {
+        toast({
+          title: "Company created successfully!",
+          description: `${formData.name} has been created and invitation sent to ${formData.adminEmail}`,
+          variant: "default",
+        });
         setFormData({
           name: "",
           industry: "",
@@ -108,11 +115,19 @@ export function SuperAdminDashboard({
         setShowCreateForm(false);
         window.location.reload(); // Refresh to show new company
       } else {
-        alert(result.error || "Failed to create company");
+        toast({
+          title: "Failed to create company",
+          description: result.error || "Please try again",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error creating company:", error);
-      alert("Failed to create company");
+      toast({
+        title: "Failed to create company",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -133,14 +148,26 @@ export function SuperAdminDashboard({
       const result = await response.json();
 
       if (result.success) {
-        alert(`Invitation resent successfully for ${companyName}!`);
+        toast({
+          title: "Invitation resent successfully!",
+          description: `New invitation sent for ${companyName}`,
+          variant: "default",
+        });
         window.location.reload(); // Refresh to show updated status
       } else {
-        alert(result.error || "Failed to resend invitation");
+        toast({
+          title: "Failed to resend invitation",
+          description: result.error || "Please try again",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error resending invitation:", error);
-      alert("Failed to resend invitation");
+      toast({
+        title: "Failed to resend invitation",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
     } finally {
       setResendingInvitation(null);
     }

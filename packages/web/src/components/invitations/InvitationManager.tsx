@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { Plus, Mail, RefreshCw, X, Eye } from "lucide-react";
 
 interface Invitation {
@@ -53,7 +54,11 @@ export function InvitationManager({
 }: InvitationManagerProps) {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(false);
+  const [resendingInvitation, setResendingInvitation] = useState<string | null>(
+    null
+  );
   const [showForm, setShowForm] = useState(false);
+  const { toast } = useToast();
   const [formData, setFormData] = useState<InvitationFormData>({
     email: "",
     companyRole: "member",
@@ -117,8 +122,9 @@ export function InvitationManager({
   };
 
   const resendInvitation = async (invitationId: string) => {
+    const invitation = invitations.find((inv) => inv.id === invitationId);
     try {
-      setLoading(true);
+      setResendingInvitation(invitationId);
       const response = await fetch(`/api/invitations/${invitationId}/resend`, {
         method: "POST",
       });
@@ -126,15 +132,28 @@ export function InvitationManager({
       const result = await response.json();
 
       if (result.success) {
+        toast({
+          title: "Invitation resent successfully!",
+          description: `New invitation sent to ${invitation?.email}`,
+          variant: "default",
+        });
         await loadInvitations();
       } else {
-        alert(result.error || "Failed to resend invitation");
+        toast({
+          title: "Failed to resend invitation",
+          description: result.error || "Please try again",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error resending invitation:", error);
-      alert("Failed to resend invitation");
+      toast({
+        title: "Failed to resend invitation",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false);
+      setResendingInvitation(null);
     }
   };
 
@@ -371,16 +390,25 @@ export function InvitationManager({
                     </div>
                   </div>
 
-                  {invitation.status === "pending" && canInvite && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => resendInvitation(invitation.id)}
-                        disabled={loading}
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </Button>
+                  <div className="flex gap-2">
+                    {/* Show resend button for pending, expired, or declined invitations */}
+                    {["pending", "expired", "declined"].includes(
+                      invitation.status
+                    ) &&
+                      canInvite && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => resendInvitation(invitation.id)}
+                          disabled={resendingInvitation === invitation.id}
+                        >
+                          <Mail className="w-4 h-4 mr-2" />
+                          {resendingInvitation === invitation.id
+                            ? "Sending..."
+                            : "Resend"}
+                        </Button>
+                      )}
+                    {invitation.status === "pending" && canInvite && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -389,8 +417,8 @@ export function InvitationManager({
                       >
                         <X className="w-4 h-4" />
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
