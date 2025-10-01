@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Building2,
   Image as ImageIcon,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +86,11 @@ export function ProjectWorkspaceLayout({
       icon: CreditCard,
     },
     { name: "Team", href: `/project/${project.id}/team`, icon: Users },
+    {
+      name: "Research",
+      href: `/project/${project.id}/research`,
+      icon: Search,
+    },
   ];
 
   const getStatusBadge = (status: Project["status"]) => {

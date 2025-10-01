@@ -5,6 +5,7 @@ import {
   users,
   companies,
   companyUsers,
+  companySubscriptions,
   projectUsers,
   projects,
 } from "@/db/schema";
@@ -113,9 +114,22 @@ export async function GET(request: NextRequest) {
       })
     );
 
+    // Get subscription info for this company
+    const subscription = await db
+      .select({
+        maxSeats: companySubscriptions.maxSeats,
+        usedSeats: companySubscriptions.usedSeats,
+        plan: companySubscriptions.plan,
+        status: companySubscriptions.status,
+      })
+      .from(companySubscriptions)
+      .where(eq(companySubscriptions.companyId, companyId))
+      .limit(1);
+
     return NextResponse.json({
       success: true,
       data: teamMembersWithProjects,
+      subscription: subscription[0] || null,
     });
   } catch (error) {
     console.error("Error fetching team members:", error);
