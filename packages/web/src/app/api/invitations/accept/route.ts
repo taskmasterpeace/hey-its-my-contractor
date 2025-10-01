@@ -121,6 +121,7 @@ export async function GET(request: NextRequest) {
         email: invitation.email,
         companyId: invitation.companyId,
         companyName: invitation.company.name,
+        companyLogoUrl: invitation.company.logoUrl,
         projectName: invitation.project?.name,
         invitedBy: invitation.invitedByUser.fullName,
         companyRole: invitation.companyRole,

@@ -21,6 +21,7 @@ interface InvitationDetails {
   email: string;
   companyId: string;
   companyName: string;
+  companyLogoUrl?: string | null;
   projectName?: string;
   invitedBy: string;
   companyRole: "admin" | "project_manager" | "member";
@@ -330,7 +331,25 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
         <div className="max-w-md mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
-            <Building2 className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+            {invitation.companyLogoUrl ? (
+              <img
+                src={invitation.companyLogoUrl}
+                alt={`${invitation.companyName} logo`}
+                className="w-16 h-16 object-contain mx-auto mb-4 border border-gray-200 rounded-lg bg-white p-2"
+                onError={(e) => {
+                  // Fallback to Building2 icon if logo fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = "none";
+                  const fallbackDiv = target.nextElementSibling as HTMLElement;
+                  if (fallbackDiv) fallbackDiv.style.display = "block";
+                }}
+              />
+            ) : null}
+            <Building2
+              className={`w-16 h-16 text-blue-600 mx-auto mb-4 ${
+                invitation.companyLogoUrl ? "hidden" : "block"
+              }`}
+            />
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Welcome to {invitation.companyName}!
             </h1>
@@ -520,7 +539,25 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <CheckCircle className="w-20 h-20 text-green-600 mx-auto mb-6" />
+          {invitation.companyLogoUrl ? (
+            <img
+              src={invitation.companyLogoUrl}
+              alt={`${invitation.companyName} logo`}
+              className="w-32 h-32 object-contain mx-auto mb-3 rounded-lg shadow-sm"
+              onError={(e) => {
+                // Fallback to CheckCircle icon if logo fails to load
+                const target = e.target as HTMLImageElement;
+                target.style.display = "none";
+                const fallbackIcon = target.nextElementSibling as HTMLElement;
+                if (fallbackIcon) fallbackIcon.style.display = "block";
+              }}
+            />
+          ) : null}
+          <CheckCircle
+            className={`w-32 h-32 text-green-600 mx-auto mb-3 ${
+              invitation.companyLogoUrl ? "hidden" : "block"
+            }`}
+          />
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Welcome to {invitation.companyName}!
           </h1>

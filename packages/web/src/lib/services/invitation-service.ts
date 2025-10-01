@@ -43,6 +43,7 @@ export interface InvitationWithDetails extends SelectInvitation {
   };
   company: {
     name: string;
+    logoUrl: string | null;
   };
   project?: {
     name: string;
@@ -226,6 +227,7 @@ export class InvitationService {
         },
         company: {
           name: companies.name,
+          logoUrl: companies.logoUrl,
         },
         project: {
           name: projects.name,
@@ -446,6 +448,7 @@ export class InvitationService {
         },
         company: {
           name: companies.name,
+          logoUrl: companies.logoUrl,
         },
         project: {
           name: projects.name,
