@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { db } from "@/db";
-import { users, companies, companySubscriptions } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import {
+  users,
+  companies,
+  companySubscriptions,
+  invitations,
+} from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 const updateCompanySchema = z.object({
   // Company fields
@@ -13,6 +18,7 @@ const updateCompanySchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional(),
   website: z.string().optional(),
+  logoUrl: z.string().url().optional().nullable(),
   stripeCustomerId: z.string().optional(),
   subscriptionStatus: z.enum(["active", "past_due", "cancelled", "trial"]),
 
@@ -76,6 +82,26 @@ export async function PUT(
     // Await params before using
     const { id } = await params;
 
+    // Get current company data to check if email is changing
+    const currentCompany = await db
+      .select({ email: companies.email })
+      .from(companies)
+      .where(eq(companies.id, id))
+      .limit(1);
+
+    if (!currentCompany.length) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Company not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    const isEmailChanging =
+      validatedData.email && validatedData.email !== currentCompany[0].email;
+
     // Update company record
     const [updatedCompany] = await db
       .update(companies)
@@ -86,6 +112,7 @@ export async function PUT(
         phone: validatedData.phone || null,
         email: validatedData.email || null,
         website: validatedData.website || null,
+        logoUrl: validatedData.logoUrl,
         stripeCustomerId: validatedData.stripeCustomerId || null,
         subscriptionStatus: validatedData.subscriptionStatus,
         metadata: {
@@ -103,6 +130,32 @@ export async function PUT(
           error: "Company not found",
         },
         { status: 404 }
+      );
+    }
+
+    // If email is changing, update pending invitations for project managers
+    if (isEmailChanging && validatedData.email) {
+      console.log(
+        `🔄 Admin: Updating pending invitations for company ${id} - email changed from ${currentCompany[0].email} to ${validatedData.email}`
+      );
+
+      const updatedInvitations = await db
+        .update(invitations)
+        .set({
+          email: validatedData.email,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(invitations.companyId, id),
+            eq(invitations.companyRole, "project_manager"),
+            eq(invitations.status, "pending")
+          )
+        )
+        .returning();
+
+      console.log(
+        `✅ Admin: Updated ${updatedInvitations.length} pending invitations with new email`
       );
     }
 
