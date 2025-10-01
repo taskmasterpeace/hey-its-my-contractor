@@ -4,6 +4,10 @@ import {
   InvitationError,
 } from "@/lib/services/invitation-service";
 import { createClient } from "@/utils/supabase/server";
+import { canInviteToCompany } from "@/lib/auth/permissions";
+import { db } from "@/db";
+import { invitations } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 async function getCurrentUser(request: NextRequest) {
   const supabase = await createClient();
@@ -38,6 +42,40 @@ export async function POST(
           error: "Invitation ID is required",
         },
         { status: 400 }
+      );
+    }
+
+    // 🔒 SECURITY: Check scoped permissions - get the invitation's company first
+    const invitationData = await db
+      .select({ companyId: invitations.companyId })
+      .from(invitations)
+      .where(eq(invitations.id, invitationId))
+      .limit(1);
+
+    if (!invitationData.length) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invitation not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    // Check if user can resend invitations for this company
+    const canResend = await canInviteToCompany(
+      user.id,
+      invitationData[0].companyId
+    );
+
+    if (!canResend) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "You don't have permission to resend invitations for this company",
+        },
+        { status: 403 }
       );
     }
 

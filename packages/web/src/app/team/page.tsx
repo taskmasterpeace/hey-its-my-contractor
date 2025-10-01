@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { TeamManagement } from "@/components/team/TeamManagement";
+import { getUserPermissions, canInviteToCompany } from "@/lib/auth/permissions";
 
 export default async function TeamPage() {
   const supabase = await createClient();
@@ -41,9 +42,17 @@ export default async function TeamPage() {
     redirect("/error");
   }
 
-  // Only project managers and contractors should access team management
-  if (!["project_manager", "contractor"].includes(userRecord.systemRole)) {
-    redirect("/dashboard"); // Redirect homeowners and others to dashboard
+  // Get user's scoped permissions
+  const permissions = await getUserPermissions(user.id);
+
+  // Only allow access if user has company or project permissions
+  // (super_admin access is handled in the permissions helper)
+  if (
+    permissions.systemRole === "homeowner" &&
+    permissions.companyPermissions.length === 0 &&
+    permissions.projectPermissions.length === 0
+  ) {
+    redirect("/dashboard"); // Redirect users with no team access
   }
 
   // Get user's company memberships with subscription details
@@ -83,16 +92,14 @@ export default async function TeamPage() {
     .innerJoin(projects, eq(projectUsers.projectId, projects.id))
     .where(eq(projectUsers.userId, user.id));
 
-  // Determine what the user can do based on their role
-  const canInviteContractors =
-    userRecord.systemRole === "project_manager" ||
-    userCompanies.some(
-      (c) => c.companyRole === "admin" || c.companyRole === "project_manager"
-    );
+  // Determine what the user can do based on SCOPED permissions
+  const canInviteContractors = userCompanies.some(
+    (c) => c.companyRole === "admin" || c.companyRole === "project_manager"
+  );
 
-  const canInviteHomeowners =
-    userRecord.systemRole === "contractor" ||
-    userProjects.some((p) => p.projectRole === "contractor");
+  const canInviteHomeowners = userProjects.some(
+    (p) => p.projectRole === "contractor" || p.projectRole === "project_manager"
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">

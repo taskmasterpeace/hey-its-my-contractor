@@ -12,6 +12,7 @@ import {
 import { eq } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { EmailService } from "@/lib/services/email-service";
+import { isSuperAdmin } from "@/lib/auth/permissions";
 
 const createCompanySchema = z.object({
   name: z.string().min(1, "Company name is required").max(255),
@@ -50,7 +51,10 @@ async function validateSuperAdmin(userId: string) {
     .where(eq(users.id, userId))
     .limit(1);
 
-  if (!userData.length || userData[0].systemRole !== "super_admin") {
+  // 🔒 SECURITY: Use scoped permission check instead of global systemRole
+  const hasAdminAccess = await isSuperAdmin(userId);
+
+  if (!hasAdminAccess) {
     throw new Error("Super admin access required");
   }
 

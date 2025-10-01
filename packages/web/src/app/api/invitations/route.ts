@@ -5,6 +5,7 @@ import {
   InvitationError,
 } from "@/lib/services/invitation-service";
 import { createClient } from "@/utils/supabase/server";
+import { canInviteToCompany, isSuperAdmin } from "@/lib/auth/permissions";
 
 // Validation schemas
 const createInvitationSchema = z.object({
