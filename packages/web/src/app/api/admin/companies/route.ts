@@ -5,7 +5,6 @@ import { db } from "@/db";
 import {
   users,
   companies,
-  companyUsers,
   companySubscriptions,
   invitations,
 } from "@/db/schema";
@@ -81,14 +80,16 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     let adminUserId: string;
-    let needsInvitation = false;
+    const needsInvitation = true; // Always need invitation for each company
+    let existingUser = false;
 
     if (adminUser.length === 0) {
       // Admin user doesn't exist, we'll need to send an invitation
-      needsInvitation = true;
       adminUserId = ""; // Will be set when they accept invitation
     } else {
+      existingUser = true;
       adminUserId = adminUser[0].id;
+
       // Check if user is eligible to be admin (must be project_manager role)
       if (adminUser[0].systemRole !== "project_manager") {
         return NextResponse.json(
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
       companyId: newCompany.id,
       plan: "starter",
       maxSeats: validatedData.maxSeats,
-      usedSeats: needsInvitation ? 0 : 1,
+      usedSeats: 0, // Always start with 0 since we always send invitations now
       status: validatedData.subscriptionStatus,
       billingCycle: validatedData.billingCycle || "monthly",
       price: validatedData.monthlyRate?.toString(),
@@ -139,84 +140,71 @@ export async function POST(request: NextRequest) {
 
     let invitationResult = null;
 
-    if (needsInvitation) {
-      // Create invitation for new admin
-      const token = randomBytes(32).toString("hex");
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
+    // Always create invitation for company admin (even if user exists)
+    // This ensures proper per-company invitation flow
+    // Create invitation for new admin
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
+    console.log(
+      "🔄 Admin: Creating invitation for new company admin:",
+      validatedData.adminEmail
+    );
+
+    const [invitation] = await db
+      .insert(invitations)
+      .values({
+        companyId: newCompany.id,
+        email: validatedData.adminEmail,
+        invitedBy: user.id,
+        companyRole: "project_manager",
+        token,
+        expiresAt,
+        customMessage: `You have been selected as the administrator for ${validatedData.name}. Please accept this invitation to get started.`,
+      })
+      .returning();
+
+    invitationResult = invitation;
+
+    // Send invitation email
+    try {
       console.log(
-        "🔄 Admin: Creating invitation for new company admin:",
+        "📧 Admin: Sending invitation email to:",
         validatedData.adminEmail
       );
 
-      const [invitation] = await db
-        .insert(invitations)
-        .values({
-          companyId: newCompany.id,
-          email: validatedData.adminEmail,
-          invitedBy: user.id,
-          companyRole: "project_manager",
-          token,
-          expiresAt,
-          customMessage: `You have been selected as the administrator for ${validatedData.name}. Please accept this invitation to get started.`,
-        })
-        .returning();
+      // Get inviter info (super admin)
+      const inviterInfo = await db
+        .select({ fullName: users.fullName })
+        .from(users)
+        .where(eq(users.id, user.id))
+        .limit(1);
 
-      invitationResult = invitation;
-
-      // Send invitation email
-      try {
-        console.log(
-          "📧 Admin: Sending invitation email to:",
-          validatedData.adminEmail
-        );
-
-        // Get inviter info (super admin)
-        const inviterInfo = await db
-          .select({ fullName: users.fullName })
-          .from(users)
-          .where(eq(users.id, user.id))
-          .limit(1);
-
-        const emailSent = await EmailService.sendInvitationEmail({
-          invitation,
-          companyName: newCompany.name,
-          projectName: undefined, // No project for company admin invitation
-          inviterName: inviterInfo[0]?.fullName || "System Administrator",
-          acceptUrl: EmailService.generateAcceptUrl(invitation.token),
-        });
-
-        console.log("📧 Admin: Email sending result:", emailSent);
-
-        if (!emailSent) {
-          console.warn(
-            "❌ Admin: Failed to send invitation email to:",
-            validatedData.adminEmail
-          );
-        } else {
-          console.log(
-            "✅ Admin: Invitation email sent successfully to:",
-            validatedData.adminEmail
-          );
-        }
-      } catch (emailError) {
-        console.error("❌ Admin: Error sending invitation email:", emailError);
-        // Don't throw error - invitation was created successfully
-      }
-    } else {
-      // Add existing user as company admin
-      await db.insert(companyUsers).values({
-        companyId: newCompany.id,
-        userId: adminUserId,
-        companyRole: "project_manager",
+      const emailSent = await EmailService.sendInvitationEmail({
+        invitation,
+        companyName: newCompany.name,
+        projectName: undefined, // No project for company admin invitation
+        inviterName: inviterInfo[0]?.fullName || "System Administrator",
+        acceptUrl: EmailService.generateAcceptUrl(invitation.token),
       });
 
-      // Update used seats
-      await db
-        .update(companySubscriptions)
-        .set({ usedSeats: 1 })
-        .where(eq(companySubscriptions.companyId, newCompany.id));
+      console.log("📧 Admin: Email sending result:", emailSent);
+
+      if (!emailSent) {
+        console.warn(
+          "❌ Admin: Failed to send invitation email to:",
+          validatedData.adminEmail
+        );
+      } else {
+        console.log(
+          "✅ Admin: Invitation email sent successfully to:",
+          validatedData.adminEmail
+        );
+      }
+    } catch (emailError) {
+      console.error("❌ Admin: Error sending invitation email:", emailError);
+      // Don't throw error - invitation was created successfully
     }
 
     return NextResponse.json(

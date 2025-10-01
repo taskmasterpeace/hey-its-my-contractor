@@ -28,48 +28,13 @@ export function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname();
   const notifications = useAppStore((state) => state.notifications);
 
-  const navigation = [
-    { name: "Dashboard", href: "/", icon: Home },
-    { name: "Calendar", href: "/calendar", icon: Calendar },
-    { name: "Projects", href: "/projects", icon: FolderOpen },
-    { name: "Meetings", href: "/meetings", icon: Users },
-    { name: "Chat", href: "/chat", icon: MessageSquare },
-    { name: "Documents", href: "/documents", icon: FolderOpen },
-    { name: "Images", href: "/images", icon: ImageIcon },
-    { name: "Change Orders", href: "/change-orders", icon: FileText },
-    { name: "Finance", href: "/finance", icon: CreditCard },
-    { name: "Team", href: "/team", icon: Users },
-  ];
+  const navigation: Array<{ name: string; href: string; icon: any }> = [];
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
       <div className="w-64 bg-white shadow-sm border-r border-gray-200">
         <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Home className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="ml-3 text-xl font-bold text-gray-900">
-                Hey, It's My Contractor
-              </h1>
-            </div>
-          </div>
-
-          {/* Search */}
-          <div className="px-6 py-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
-
           {/* Navigation */}
           <nav className="flex-1 px-6 pb-4">
             <div className="space-y-1">

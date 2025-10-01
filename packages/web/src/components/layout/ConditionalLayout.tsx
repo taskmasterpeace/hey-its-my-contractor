@@ -20,6 +20,9 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
     pathname === "/error" ||
     pathname.startsWith("/auth/");
 
+  // Check if current path is a project workspace route (should bypass MainLayout)
+  const isProjectRoute = pathname.startsWith("/project/");
+
   // Show loading spinner while checking authentication
   if (loading) {
     return (
@@ -29,8 +32,8 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
     );
   }
 
-  // For auth routes, render children without MainLayout
-  if (isAuthRoute) {
+  // For auth routes and project routes, render children without MainLayout
+  if (isAuthRoute || isProjectRoute) {
     return <>{children}</>;
   }
 

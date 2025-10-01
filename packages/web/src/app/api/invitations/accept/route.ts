@@ -119,6 +119,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         email: invitation.email,
+        companyId: invitation.companyId,
         companyName: invitation.company.name,
         projectName: invitation.project?.name,
         invitedBy: invitation.invitedByUser.fullName,

@@ -223,14 +223,7 @@ export function SuperAdminDashboard({
   return (
     <div className="space-y-6">
       {/* Header with Create Company Button */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Company Management</h2>
-          <p className="text-gray-600">
-            Create and manage companies in the system
-          </p>
-        </div>
-
+      <div className="flex justify-end items-center">
         <Button onClick={() => setShowCreateForm(true)} disabled={loading}>
           <Plus className="w-4 h-4 mr-2" />
           Create Company

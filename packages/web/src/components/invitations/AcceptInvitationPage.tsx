@@ -19,6 +19,7 @@ import { createClient } from "@/utils/supabase/client";
 
 interface InvitationDetails {
   email: string;
+  companyId: string;
   companyName: string;
   projectName?: string;
   invitedBy: string;
@@ -213,8 +214,12 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
       const result = await response.json();
 
       if (result.success) {
-        // Redirect to team page after successful acceptance
-        window.location.href = "/team";
+        // Redirect to company-specific dashboard after successful acceptance
+        if (invitation?.companyId) {
+          window.location.href = `/dashboard/${invitation.companyId}`;
+        } else {
+          window.location.href = "/dashboard";
+        }
       } else {
         setError(result.error || "Failed to accept invitation");
       }

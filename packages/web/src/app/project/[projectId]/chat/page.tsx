@@ -1,20 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { ChatRoom, ChatMessage } from "@contractor-platform/types";
 import { ChatRoomsList } from "@/components/chat/ChatRoomsList";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { MessageSquare, Users, Hash, Lock, Plus } from "lucide-react";
 
-export default function ChatPage() {
+export default function ProjectChatPage() {
+  const params = useParams();
+  const projectId = params.projectId as string;
+
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Sample chat data
+  // Sample chat data filtered by project
   useEffect(() => {
     const loadChatData = async () => {
       setLoading(true);
@@ -24,9 +28,9 @@ export default function ChatPage() {
         const sampleRooms: ChatRoom[] = [
           {
             id: "1",
-            name: "Johnson Kitchen Project",
+            name: "Project Discussion",
             type: "project",
-            project_id: "proj-1",
+            project_id: projectId,
             participants: ["contractor-1", "client-1", "staff-1"],
             last_message: {
               id: "msg-1",
@@ -43,9 +47,9 @@ export default function ChatPage() {
           },
           {
             id: "2",
-            name: "Wilson Bathroom Team",
+            name: "Team Chat",
             type: "team",
-            project_id: "proj-2",
+            project_id: projectId,
             participants: ["contractor-1", "staff-1", "sub-1"],
             last_message: {
               id: "msg-2",
@@ -61,29 +65,13 @@ export default function ChatPage() {
           },
           {
             id: "3",
-            name: "General Discussion",
-            type: "general",
-            participants: ["contractor-1", "staff-1", "sub-1", "sub-2"],
-            last_message: {
-              id: "msg-3",
-              content: "Weather looks good for outdoor work next week",
-              sender_id: "contractor-1",
-              sender_name: "Mike Johnson",
-              timestamp: "2025-01-24T12:00:00Z",
-              type: "text",
-            },
-            unread_count: 0,
-            created_at: "2025-01-01T08:00:00Z",
-            updated_at: "2025-01-24T12:00:00Z",
-          },
-          {
-            id: "4",
-            name: "John Smith",
+            name: "Client Direct",
             type: "direct",
+            project_id: projectId,
             participants: ["contractor-1", "client-1"],
             last_message: {
-              id: "msg-4",
-              content: "Thanks for the update! The kitchen is looking great.",
+              id: "msg-3",
+              content: "Thanks for the update! The project is looking great.",
               sender_id: "client-1",
               sender_name: "John Smith",
               timestamp: "2025-01-24T11:45:00Z",
@@ -129,8 +117,10 @@ export default function ChatPage() {
       }, 1000);
     };
 
-    loadChatData();
-  }, []);
+    if (projectId) {
+      loadChatData();
+    }
+  }, [projectId]);
 
   const handleRoomSelect = (room: ChatRoom) => {
     setSelectedRoom(room);
@@ -147,7 +137,7 @@ export default function ChatPage() {
           id: "1",
           channel_id: room.id,
           user_id: "contractor-1",
-          content: "Good morning everyone! Starting work on the kitchen today.",
+          content: "Good morning everyone! Starting work on the project today.",
           type: "text",
           created_at: "2025-01-24T08:00:00Z",
           updated_at: "2025-01-24T08:00:00Z",
@@ -172,8 +162,8 @@ export default function ChatPage() {
             {
               id: "att-1",
               type: "image",
-              url: "https://via.placeholder.com/400x300/E5E7EB/6B7280?text=Kitchen+Demo+Complete",
-              filename: "kitchen-demo.jpg",
+              url: "https://via.placeholder.com/400x300/E5E7EB/6B7280?text=Project+Progress",
+              filename: "project-progress.jpg",
               size: 1800000,
               metadata: {},
             },
@@ -185,7 +175,7 @@ export default function ChatPage() {
           id: "4",
           channel_id: room.id,
           user_id: "staff-1",
-          content: "Electrician is scheduled for tomorrow at 9 AM",
+          content: "Next phase is scheduled for tomorrow at 9 AM",
           type: "text",
           created_at: "2025-01-24T14:00:00Z",
           updated_at: "2025-01-24T14:00:00Z",
@@ -194,8 +184,7 @@ export default function ChatPage() {
           id: "5",
           channel_id: room.id,
           user_id: "contractor-1",
-          content:
-            "Perfect! Just finished the electrical rough-in. Ready for inspection.",
+          content: "Perfect! Just finished this phase. Ready for next steps.",
           type: "text",
           created_at: "2025-01-24T16:30:00Z",
           updated_at: "2025-01-24T16:30:00Z",
@@ -241,7 +230,7 @@ export default function ChatPage() {
                 sender_id: newMessage.user_id,
                 sender_name: "Mike Johnson", // Current user name
                 timestamp: newMessage.created_at,
-                type: newMessage.type,
+                type: "text" as const,
               },
               updated_at: newMessage.created_at,
             }

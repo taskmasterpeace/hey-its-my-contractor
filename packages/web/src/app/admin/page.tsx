@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { db } from "@/db";
-import { users, companies, companyUsers, invitations } from "@/db/schema";
+import { users, companies, invitations } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { SuperAdminDashboard } from "@/components/admin/SuperAdminDashboard";
 
@@ -38,10 +38,6 @@ export default async function AdminPage() {
       subscriptionStatus: companies.subscriptionStatus,
       createdAt: companies.createdAt,
       createdBy: companies.createdBy,
-      // Get admin info (who gets the invitation)
-      adminEmail: invitations.email,
-      adminInvitationStatus: invitations.status,
-      adminInvitationId: invitations.id,
       // Get super admin who created the company
       createdByUser: {
         id: users.id,
@@ -51,14 +47,37 @@ export default async function AdminPage() {
     })
     .from(companies)
     .leftJoin(users, eq(companies.createdBy, users.id))
-    .leftJoin(
-      invitations,
-      and(
-        eq(invitations.companyId, companies.id),
-        eq(invitations.companyRole, "project_manager")
-      )
-    )
     .orderBy(desc(companies.createdAt));
+
+  // Fetch invitations separately for each company to avoid JOIN confusion
+  const companiesWithInvitations = await Promise.all(
+    companiesData.map(async (company) => {
+      const latestInvitation = await db
+        .select({
+          id: invitations.id,
+          email: invitations.email,
+          status: invitations.status,
+          companyRole: invitations.companyRole,
+          createdAt: invitations.createdAt,
+        })
+        .from(invitations)
+        .where(
+          and(
+            eq(invitations.companyId, company.id),
+            eq(invitations.companyRole, "project_manager")
+          )
+        )
+        .orderBy(desc(invitations.createdAt))
+        .limit(1);
+
+      return {
+        ...company,
+        adminEmail: latestInvitation[0]?.email || null,
+        adminInvitationStatus: latestInvitation[0]?.status || null,
+        adminInvitationId: latestInvitation[0]?.id || null,
+      };
+    })
+  );
 
   // Get all users for PM assignment
   const availableProjectManagers = await db
@@ -88,7 +107,7 @@ export default async function AdminPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <SuperAdminDashboard
-          companies={companiesData}
+          companies={companiesWithInvitations}
           availableProjectManagers={availableProjectManagers}
         />
       </div>

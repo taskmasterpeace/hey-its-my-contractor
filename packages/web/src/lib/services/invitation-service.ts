@@ -341,15 +341,40 @@ export class InvitationService {
         .where(eq(users.id, userId));
     }
 
-    // Create company membership
-    const [companyMembership] = await db
-      .insert(companyUsers)
-      .values({
-        companyId: invitation.companyId,
-        userId,
-        companyRole: invitation.companyRole,
-      })
-      .returning();
+    // Check if user is already a member of THIS specific company
+    const existingMembership = await this.findCompanyMembership(
+      userId,
+      invitation.companyId
+    );
+
+    let companyMembership;
+    if (existingMembership) {
+      // Update existing membership role if needed
+      const [updatedMembership] = await db
+        .update(companyUsers)
+        .set({
+          companyRole: invitation.companyRole,
+        })
+        .where(
+          and(
+            eq(companyUsers.userId, userId),
+            eq(companyUsers.companyId, invitation.companyId)
+          )
+        )
+        .returning();
+      companyMembership = updatedMembership;
+    } else {
+      // Create new company membership
+      const [newMembership] = await db
+        .insert(companyUsers)
+        .values({
+          companyId: invitation.companyId,
+          userId,
+          companyRole: invitation.companyRole,
+        })
+        .returning();
+      companyMembership = newMembership;
+    }
 
     // Increment used seats in company subscription
     await this.incrementUsedSeats(invitation.companyId);

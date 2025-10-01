@@ -1,0 +1,71 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/utils/supabase/server";
+import { db } from "@/db";
+import { users, projects, projectUsers } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { getUserProjectRole, isSuperAdmin } from "@/lib/auth/permissions";
+import { ProjectWorkspaceLayout } from "@/components/layout/ProjectWorkspaceLayout";
+
+interface ProjectLayoutProps {
+  children: React.ReactNode;
+  params: Promise<{ projectId: string }>;
+}
+
+export default async function ProjectLayout({
+  children,
+  params,
+}: ProjectLayoutProps) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { projectId } = await params;
+
+  // Check if user has access to this project
+  const isSuper = await isSuperAdmin(user.id);
+  const userProjectRole = await getUserProjectRole(user.id, projectId);
+
+  if (!isSuper && !userProjectRole) {
+    redirect("/dashboard?error=no-project-access");
+  }
+
+  // Get project details
+  const projectData = await db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      address: projects.address,
+      status: projects.status,
+      companyId: projects.companyId,
+      homeownerName: projects.homeownerName,
+      homeownerEmail: projects.homeownerEmail,
+    })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  const project = projectData[0];
+
+  if (!project) {
+    redirect("/dashboard?error=project-not-found");
+  }
+
+  return (
+    <ProjectWorkspaceLayout
+      project={project}
+      userRole={userProjectRole || "contractor"}
+      user={{
+        id: user.id,
+        email: user.email || "",
+      }}
+    >
+      {children}
+    </ProjectWorkspaceLayout>
+  );
+}
