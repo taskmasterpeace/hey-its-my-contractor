@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { db } from "@/db";
-import { users, companies, companyUsers } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { users, companies, companyUsers, invitations } from "@/db/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { SuperAdminDashboard } from "@/components/admin/SuperAdminDashboard";
 
 export default async function AdminPage() {
@@ -38,8 +38,11 @@ export default async function AdminPage() {
       subscriptionStatus: companies.subscriptionStatus,
       createdAt: companies.createdAt,
       createdBy: companies.createdBy,
-      // Get admin info
-      adminUser: {
+      // Get admin info (who gets the invitation)
+      adminEmail: invitations.email,
+      adminInvitationStatus: invitations.status,
+      // Get super admin who created the company
+      createdByUser: {
         id: users.id,
         fullName: users.fullName,
         email: users.email,
@@ -47,6 +50,13 @@ export default async function AdminPage() {
     })
     .from(companies)
     .leftJoin(users, eq(companies.createdBy, users.id))
+    .leftJoin(
+      invitations,
+      and(
+        eq(invitations.companyId, companies.id),
+        eq(invitations.companyRole, "project_manager")
+      )
+    )
     .orderBy(desc(companies.createdAt));
 
   // Get all users for PM assignment

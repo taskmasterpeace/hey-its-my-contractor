@@ -15,7 +15,15 @@ interface Company {
   subscriptionStatus: "active" | "past_due" | "cancelled" | "trial" | null;
   createdAt: Date;
   createdBy: string | null;
-  adminUser: {
+  adminEmail: string | null;
+  adminInvitationStatus:
+    | "pending"
+    | "accepted"
+    | "declined"
+    | "expired"
+    | "cancelled"
+    | null;
+  createdByUser: {
     id: string | null;
     fullName: string | null;
     email: string | null;
@@ -106,15 +114,41 @@ export function SuperAdminDashboard({
     }
   };
 
-  const getStatusBadge = (status: string | null) => {
+  const getStatusBadge = (
+    subscriptionStatus: string | null,
+    invitationStatus: string | null
+  ) => {
     const variants = {
+      // Subscription statuses
       active: "bg-green-100 text-green-800",
       trial: "bg-blue-100 text-blue-800",
       past_due: "bg-yellow-100 text-yellow-800",
       cancelled: "bg-red-100 text-red-800",
+      // Invitation statuses
+      pending: "bg-orange-100 text-orange-800",
+      declined: "bg-red-100 text-red-800",
+      expired: "bg-gray-100 text-gray-800",
     };
 
-    const displayStatus = status || "trial";
+    // If invitation is not accepted, show invitation status
+    if (invitationStatus && invitationStatus !== "accepted") {
+      const displayStatus = invitationStatus;
+      return (
+        <Badge
+          className={
+            variants[displayStatus as keyof typeof variants] ||
+            "bg-gray-100 text-gray-800"
+          }
+        >
+          {displayStatus === "pending"
+            ? "Invitation Pending"
+            : displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+        </Badge>
+      );
+    }
+
+    // If invitation is accepted or null, show subscription status
+    const displayStatus = subscriptionStatus || "trial";
     return (
       <Badge
         className={
@@ -465,10 +499,9 @@ export function SuperAdminDashboard({
                         <p className="text-sm text-gray-600">
                           {company.industry || "No industry specified"}
                         </p>
-                        {company.adminUser?.fullName && (
+                        {company.adminEmail && (
                           <p className="text-xs text-gray-500">
-                            Admin: {company.adminUser.fullName} (
-                            {company.adminUser.email})
+                            Admin: {company.adminEmail}
                           </p>
                         )}
                         <p className="text-xs text-gray-500">
@@ -480,7 +513,10 @@ export function SuperAdminDashboard({
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {getStatusBadge(company.subscriptionStatus)}
+                    {getStatusBadge(
+                      company.subscriptionStatus,
+                      company.adminInvitationStatus
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
