@@ -102,7 +102,7 @@ export function ProjectWorkspaceLayout({
       cancelled: "bg-red-100 text-red-800",
     };
 
-    const displayStatus = status || "planning";
+    const displayStatus = status || "active";
     return (
       <Badge className={variants[displayStatus as keyof typeof variants]}>
         {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}

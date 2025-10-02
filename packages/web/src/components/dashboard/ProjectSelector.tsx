@@ -152,7 +152,7 @@ export function ProjectSelector({
       cancelled: "bg-red-100 text-red-800",
     };
 
-    const displayStatus = status || "planning";
+    const displayStatus = status || "active";
     return (
       <Badge className={variants[displayStatus as keyof typeof variants]}>
         {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
@@ -169,38 +169,28 @@ export function ProjectSelector({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Create Project Button */}
-        {canCreateProjects && (
-          <div className="mb-6 flex justify-end">
-            <Button onClick={() => setShowCreateForm(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Project
-            </Button>
-          </div>
-        )}
-        {/* Company Header */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">
-            {selectedCompany?.name}
-          </h2>
-          <p className="text-gray-600 mt-2">
-            {selectedCompany?.industry || "Construction Company"} •{" "}
-            {userCompanyRole.replace("_", " ")}
-          </p>
-        </div>
+        {/* Only show project header and button when there are projects */}
+        {projects.length > 0 && (
+          <>
+            {/* Create Project Button */}
+            {canCreateProjects && (
+              <div className="mb-6 flex justify-end">
+                <Button onClick={() => setShowCreateForm(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Project
+                </Button>
+              </div>
+            )}
 
-        {/* Projects Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-gray-900">Projects</h3>
-            <div className="text-sm text-gray-500">
-              {projects.length} project{projects.length !== 1 ? "s" : ""}
+            {/* Projects Section */}
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Projects</h3>
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
         {/* Create Project Form */}
         {showCreateForm && (
@@ -342,84 +332,94 @@ export function ProjectSelector({
 
         {/* Projects Grid */}
         {projects.length === 0 ? (
-          <div className="text-center py-12">
-            <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No projects yet
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Get started by creating your first project for this company.
-            </p>
-            {canCreateProjects && (
-              <Button onClick={() => setShowCreateForm(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create your first project
-              </Button>
-            )}
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Building2 className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                Ready to start your first project?
+              </h3>
+              {canCreateProjects && (
+                <Button
+                  onClick={() => setShowCreateForm(true)}
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create Project
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
               <Card
                 key={project.id}
-                className="cursor-pointer hover:shadow-lg transition-all duration-200 group"
+                className="cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group border border-slate-300 shadow-sm bg-gradient-to-br from-slate-100 to-slate-200/80 hover:from-blue-100 hover:to-blue-50 hover:border-blue-400"
                 onClick={() => handleProjectClick(project.id)}
               >
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                        {project.name}
-                      </CardTitle>
-                      <div className="flex items-center mt-2 text-sm text-gray-600">
-                        <MapPin className="w-4 h-4 mr-1" />
-                        <span className="truncate">{project.address}</span>
-                      </div>
+                <CardContent className="p-6">
+                  {/* Header with Status */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      {getStatusBadge(project.status)}
                     </div>
-                    <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                    <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" />
                   </div>
-                  <div className="mt-3">{getStatusBadge(project.status)}</div>
-                </CardHeader>
 
-                <CardContent>
+                  {/* Project Name */}
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                    {project.name}
+                  </h3>
+
+                  {/* Address */}
+                  <div className="flex items-center text-gray-600 mb-4">
+                    <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                    <span className="text-sm">{project.address}</span>
+                  </div>
+
+                  {/* Key Info Grid */}
                   <div className="space-y-3">
                     {project.homeownerName && (
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Users className="w-4 h-4 mr-2" />
-                        <span>{project.homeownerName}</span>
-                      </div>
-                    )}
-
-                    {project.budget && (
-                      <div className="flex items-center text-sm text-gray-600">
-                        <DollarSign className="w-4 h-4 mr-2" />
-                        <span>{formatCurrency(project.budget)}</span>
-                      </div>
-                    )}
-
-                    {(project.startDate || project.estimatedEndDate) && (
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        <span>
-                          {project.startDate &&
-                            new Date(project.startDate).toLocaleDateString()}
-                          {project.startDate &&
-                            project.estimatedEndDate &&
-                            " - "}
-                          {project.estimatedEndDate &&
-                            new Date(
-                              project.estimatedEndDate
-                            ).toLocaleDateString()}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500">Client</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {project.homeownerName}
                         </span>
                       </div>
                     )}
 
-                    <div className="flex items-center text-sm text-gray-500 pt-2 border-t">
-                      <Clock className="w-4 h-4 mr-2" />
+                    {project.budget && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500">Budget</span>
+                        <span className="text-sm font-semibold text-green-600">
+                          {formatCurrency(project.budget)}
+                        </span>
+                      </div>
+                    )}
+
+                    {project.startDate && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500">
+                          Start Date
+                        </span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {new Date(project.startDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bottom Border Accent */}
+                  <div className="mt-6 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between text-xs text-gray-400">
                       <span>
                         Created{" "}
                         {new Date(project.createdAt).toLocaleDateString()}
                       </span>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </div>
                   </div>
                 </CardContent>

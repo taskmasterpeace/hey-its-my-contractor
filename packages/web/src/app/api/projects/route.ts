@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         budget: validatedData.budget ? validatedData.budget : null,
         startDate: validatedData.startDate || null,
         estimatedEndDate: validatedData.estimatedEndDate || null,
-        status: "planning",
+        status: "active",
         createdBy: user.id,
       })
       .returning();

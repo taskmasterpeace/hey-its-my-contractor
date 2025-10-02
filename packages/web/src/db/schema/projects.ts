@@ -31,7 +31,7 @@ export const projects = pgTable("projects", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   address: text("address").notNull(),
-  status: projectStatusEnum("status").default("planning"),
+  status: projectStatusEnum("status").default("active"),
 
   // Homeowner information (from meeting requirements)
   homeownerName: varchar("homeowner_name", { length: 255 }),

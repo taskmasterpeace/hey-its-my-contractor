@@ -212,7 +212,6 @@ export function RoleSwitcher() {
         <User className="w-8 h-8" />
         <div className="text-sm">
           <div className="font-medium">No companies</div>
-          <div className="text-xs">Contact admin</div>
         </div>
       </div>
     );
@@ -327,15 +326,6 @@ export function RoleSwitcher() {
                 )}
               </button>
             ))}
-          </div>
-
-          {/* Help Text */}
-          <div className="p-3 border-t border-gray-200 bg-gray-50">
-            <p className="text-xs text-gray-600">
-              💡 <strong>Tip:</strong> Each company has its own projects, team
-              members, and settings. Switch between companies to access
-              different workspaces.
-            </p>
           </div>
         </div>
       )}
