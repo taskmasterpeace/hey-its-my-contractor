@@ -90,18 +90,6 @@ export async function POST(request: NextRequest) {
     } else {
       existingUser = true;
       adminUserId = adminUser[0].id;
-
-      // Check if user is eligible to be admin (must be project_manager role)
-      if (adminUser[0].systemRole !== "project_manager") {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Selected user must have project_manager role to be company admin",
-          },
-          { status: 400 }
-        );
-      }
     }
 
     // Create company
