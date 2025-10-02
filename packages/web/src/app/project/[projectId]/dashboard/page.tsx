@@ -69,33 +69,37 @@ export default async function ProjectDashboardPage({
 
   const getStatusBadge = (status: string | null) => {
     const variants = {
-      planning: "bg-blue-100 text-blue-800",
-      active: "bg-green-100 text-green-800",
-      paused: "bg-yellow-100 text-yellow-800",
-      completed: "bg-gray-100 text-gray-800",
-      cancelled: "bg-red-100 text-red-800",
+      planning: "bg-gray-100 text-gray-800 border-gray-200",
+      active: "bg-green-100 text-green-800 border-green-200",
+      paused: "bg-red-100 text-red-800 border-red-200",
+      completed: "bg-blue-100 text-blue-800 border-blue-200",
+      cancelled: "bg-red-100 text-red-800 border-red-200",
     };
 
     const displayStatus = status || "planning";
     return (
-      <Badge className={variants[displayStatus as keyof typeof variants]}>
+      <Badge
+        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${
+          variants[displayStatus as keyof typeof variants]
+        }`}
+      >
         {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
       </Badge>
     );
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6">
       {/* Project Overview Header */}
-      <Card>
-        <CardHeader>
+      <div className="bg-white rounded-lg shadow-sm border mb-6">
+        <div className="px-6 py-4 border-b">
           <div className="flex items-start justify-between">
             <div>
-              <CardTitle className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-gray-900">
                 {project.name}
-              </CardTitle>
+              </h1>
               <div className="flex items-center mt-2 text-gray-600">
-                <MapPin className="w-4 h-4 mr-1" />
+                <MapPin className="w-4 h-4 mr-1 text-blue-600" />
                 <span>{project.address}</span>
               </div>
               {project.description && (
@@ -106,15 +110,15 @@ export default async function ProjectDashboardPage({
               {getStatusBadge(project.status)}
             </div>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent>
+        <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {project.homeownerName && (
               <div className="flex items-center">
-                <Users className="w-5 h-5 text-gray-400 mr-3" />
+                <Users className="w-5 h-5 text-green-600 mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-green-600">
                     {project.homeownerName}
                   </p>
                   <p className="text-sm text-gray-600">Homeowner</p>
@@ -124,9 +128,9 @@ export default async function ProjectDashboardPage({
 
             {project.budget && (
               <div className="flex items-center">
-                <DollarSign className="w-5 h-5 text-gray-400 mr-3" />
+                <DollarSign className="w-5 h-5 text-purple-600 mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-purple-600">
                     ${parseFloat(project.budget).toLocaleString()}
                   </p>
                   <p className="text-sm text-gray-600">Project Budget</p>
@@ -136,9 +140,9 @@ export default async function ProjectDashboardPage({
 
             {project.startDate && (
               <div className="flex items-center">
-                <Calendar className="w-5 h-5 text-gray-400 mr-3" />
+                <Calendar className="w-5 h-5 text-blue-600 mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-blue-600">
                     {new Date(project.startDate).toLocaleDateString()}
                   </p>
                   <p className="text-sm text-gray-600">Start Date</p>
@@ -146,32 +150,38 @@ export default async function ProjectDashboardPage({
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Project Widgets - Placeholder for now */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="px-6 py-4 border-b">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+              <Activity className="w-5 h-5 text-green-600 mr-2" />
+              Recent Activity
+            </h2>
+          </div>
+          <div className="p-6">
             <p className="text-gray-600">
               Recent project activity will appear here.
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Upcoming Milestones</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="px-6 py-4 border-b">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+              <Clock className="w-5 h-5 text-blue-600 mr-2" />
+              Upcoming Milestones
+            </h2>
+          </div>
+          <div className="p-6">
             <p className="text-gray-600">
               Project milestones will appear here.
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

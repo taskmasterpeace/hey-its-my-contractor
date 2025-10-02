@@ -145,16 +145,20 @@ export function ProjectSelector({
 
   const getStatusBadge = (status: Project["status"]) => {
     const variants = {
-      planning: "bg-blue-100 text-blue-800",
-      active: "bg-green-100 text-green-800",
-      paused: "bg-yellow-100 text-yellow-800",
-      completed: "bg-gray-100 text-gray-800",
-      cancelled: "bg-red-100 text-red-800",
+      planning: "bg-gray-100 text-gray-800 border-gray-200",
+      active: "bg-green-100 text-green-800 border-green-200",
+      paused: "bg-red-100 text-red-800 border-red-200",
+      completed: "bg-blue-100 text-blue-800 border-blue-200",
+      cancelled: "bg-red-100 text-red-800 border-red-200",
     };
 
     const displayStatus = status || "active";
     return (
-      <Badge className={variants[displayStatus as keyof typeof variants]}>
+      <Badge
+        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${
+          variants[displayStatus as keyof typeof variants]
+        }`}
+      >
         {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
       </Badge>
     );
@@ -169,9 +173,9 @@ export function ProjectSelector({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="p-6">
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div>
         {/* Only show project header and button when there are projects */}
         {projects.length > 0 && (
           <>
@@ -355,12 +359,12 @@ export function ProjectSelector({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
-              <Card
+              <div
                 key={project.id}
-                className="cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group border border-slate-300 shadow-sm bg-gradient-to-br from-slate-100 to-slate-200/80 hover:from-blue-100 hover:to-blue-50 hover:border-blue-400"
+                className="cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group bg-white rounded-lg shadow-sm border"
                 onClick={() => handleProjectClick(project.id)}
               >
-                <CardContent className="p-6">
+                <div className="p-6">
                   {/* Header with Status */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
@@ -376,7 +380,7 @@ export function ProjectSelector({
 
                   {/* Address */}
                   <div className="flex items-center text-gray-600 mb-4">
-                    <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                    <MapPin className="w-4 h-4 mr-2 text-blue-600" />
                     <span className="text-sm">{project.address}</span>
                   </div>
 
@@ -385,7 +389,7 @@ export function ProjectSelector({
                     {project.homeownerName && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500">Client</span>
-                        <span className="text-sm font-medium text-gray-900">
+                        <span className="text-sm font-medium text-green-600">
                           {project.homeownerName}
                         </span>
                       </div>
@@ -394,7 +398,7 @@ export function ProjectSelector({
                     {project.budget && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500">Budget</span>
-                        <span className="text-sm font-semibold text-green-600">
+                        <span className="text-sm font-semibold text-purple-600">
                           {formatCurrency(project.budget)}
                         </span>
                       </div>
@@ -405,7 +409,7 @@ export function ProjectSelector({
                         <span className="text-sm text-gray-500">
                           Start Date
                         </span>
-                        <span className="text-sm font-medium text-gray-900">
+                        <span className="text-sm font-medium text-blue-600">
                           {new Date(project.startDate).toLocaleDateString()}
                         </span>
                       </div>
@@ -422,8 +426,8 @@ export function ProjectSelector({
                       <div className="w-2 h-2 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
         )}
