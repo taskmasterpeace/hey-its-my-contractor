@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -100,6 +100,43 @@ export function SuperAdminDashboard({
     notes: "",
     logoFile: null,
   });
+
+  // Calculate billing end date when billing cycle or start date changes
+  useEffect(() => {
+    if (
+      formData.billingStartDate &&
+      formData.billingCycle &&
+      formData.billingCycle !== "custom"
+    ) {
+      const startDate = new Date(formData.billingStartDate);
+      const endDate = new Date(startDate);
+
+      switch (formData.billingCycle) {
+        case "monthly":
+          endDate.setMonth(endDate.getMonth() + 1);
+          break;
+        case "quarterly":
+          endDate.setMonth(endDate.getMonth() + 3);
+          break;
+        case "semi-annual":
+          endDate.setMonth(endDate.getMonth() + 6);
+          break;
+        case "yearly":
+          endDate.setFullYear(endDate.getFullYear() + 1);
+          break;
+        default:
+          endDate.setMonth(endDate.getMonth() + 1); // Default to monthly
+      }
+
+      // Format date to YYYY-MM-DD for input
+      const formattedEndDate = endDate.toISOString().split("T")[0];
+
+      setFormData((prev) => ({
+        ...prev,
+        billingEndDate: formattedEndDate,
+      }));
+    }
+  }, [formData.billingStartDate, formData.billingCycle]);
 
   const handleLogoUpload = async (file: File): Promise<string | null> => {
     try {

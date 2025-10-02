@@ -1,20 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import Link from "next/link";
-import {
-  Home,
-  Calendar,
-  FolderOpen,
-  MessageSquare,
-  CreditCard,
-  Users,
-  Settings,
-  Bell,
-  Search,
-  FileText,
-  Image as ImageIcon,
-} from "lucide-react";
+import { Bell } from "lucide-react";
 import { NotificationSystem } from "@/components/ui/NotificationSystem";
 import { RoleSwitcher } from "@/components/ui/RoleSwitcher";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -26,56 +12,10 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const pathname = usePathname();
   const notifications = useAppStore((state) => state.notifications);
-
-  const navigation: Array<{ name: string; href: string; icon: any }> = [];
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <div className="w-64 bg-white shadow-sm border-r border-gray-200">
-        <div className="flex flex-col h-full">
-          {/* Navigation */}
-          <nav className="flex-1 px-6 pb-4">
-            <div className="space-y-1">
-              {navigation.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      isActive
-                        ? "bg-blue-100 text-blue-700"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                    }`}
-                  >
-                    <item.icon className="mr-3 h-5 w-5" />
-                    {item.name}
-                  </Link>
-                );
-              })}
-            </div>
-          </nav>
-
-          {/* Settings */}
-          <div className="px-6 py-4 border-t border-gray-200">
-            <Link
-              href="/settings"
-              className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                pathname === "/settings"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-              }`}
-            >
-              <Settings className="mr-3 h-5 w-5" />
-              Settings
-            </Link>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Top Bar */}
