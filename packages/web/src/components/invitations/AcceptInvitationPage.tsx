@@ -22,6 +22,7 @@ interface InvitationDetails {
   companyId: string;
   companyName: string;
   companyLogoUrl?: string | null;
+  projectId?: string;
   projectName?: string;
   invitedBy: string;
   companyRole: "admin" | "project_manager" | "member";
@@ -215,8 +216,10 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
       const result = await response.json();
 
       if (result.success) {
-        // Redirect to company-specific dashboard after successful acceptance
-        if (invitation?.companyId) {
+        // Redirect homeowners directly to project dashboard, others to company dashboard
+        if (invitation?.projectRole === "homeowner" && invitation?.projectId) {
+          window.location.href = `/project/${invitation.projectId}/dashboard`;
+        } else if (invitation?.companyId) {
           window.location.href = `/dashboard/${invitation.companyId}`;
         } else {
           window.location.href = "/dashboard";
@@ -561,7 +564,15 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Welcome to {invitation.companyName}!
           </h1>
-          <p className="text-xl text-gray-600">You're ready to join the team</p>
+          <p className="text-xl text-gray-600">
+            {invitation.projectRole === "homeowner"
+              ? "You can now track your project progress and communicate with your contractors"
+              : invitation.companyRole === "project_manager"
+              ? "You're ready to manage projects and invite team members"
+              : invitation.projectRole === "contractor"
+              ? "You're ready to work on your assigned projects"
+              : "You're ready to join the team"}
+          </p>
         </div>
 
         {/* Invitation Details */}

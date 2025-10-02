@@ -39,6 +39,7 @@ interface ProjectWorkspaceLayoutProps {
   user: {
     id: string;
     email: string;
+    fullName?: string | null;
   };
 }
 
@@ -230,7 +231,7 @@ export function ProjectWorkspaceLayout({
                 </div>
                 <div className="ml-2">
                   <div className="text-sm font-medium text-gray-900">
-                    John Smith
+                    {user.fullName || user.email.split("@")[0] || "User"}
                   </div>
                   <div className="text-xs text-gray-600">
                     {userRole

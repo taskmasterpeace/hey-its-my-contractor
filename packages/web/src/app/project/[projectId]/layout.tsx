@@ -35,6 +35,17 @@ export default async function ProjectLayout({
     redirect("/dashboard?error=no-project-access");
   }
 
+  // Get current user's full name from database
+  const currentUserData = await db
+    .select({
+      fullName: users.fullName,
+    })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1);
+
+  const currentUser = currentUserData[0];
+
   // Get project details with company info
   const projectData = await db
     .select({
@@ -66,6 +77,8 @@ export default async function ProjectLayout({
       user={{
         id: user.id,
         email: user.email || "",
+        fullName:
+          currentUser?.fullName || user.user_metadata?.full_name || null,
       }}
     >
       {children}
