@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CompanySwitcher } from "@/components/layout/CompanySwitcher";
 import {
   Plus,
   Building2,
@@ -171,43 +170,17 @@ export function ProjectSelector({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Building2 className="w-5 h-5 text-white" />
-                </div>
-                <h1 className="ml-3 text-xl font-bold text-gray-900">
-                  Hey, It's My Contractor
-                </h1>
-              </div>
-
-              {/* Company Switcher */}
-              <CompanySwitcher
-                companies={companies}
-                selectedCompanyId={selectedCompanyIdState}
-                onCompanySelect={handleCompanySelect}
-              />
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">{user.email}</span>
-              {canCreateProjects && (
-                <Button onClick={() => setShowCreateForm(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Project
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Create Project Button */}
+        {canCreateProjects && (
+          <div className="mb-6 flex justify-end">
+            <Button onClick={() => setShowCreateForm(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              New Project
+            </Button>
+          </div>
+        )}
         {/* Company Header */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900">

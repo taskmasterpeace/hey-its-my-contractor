@@ -18,6 +18,7 @@ import {
 import { NotificationSystem } from "@/components/ui/NotificationSystem";
 import { RoleSwitcher } from "@/components/ui/RoleSwitcher";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { CompanyLogo } from "@/components/layout/CompanyLogo";
 import { useAppStore } from "@/store";
 
 interface MainLayoutProps {
@@ -81,13 +82,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <h2 className="text-lg font-semibold text-gray-900 capitalize">
-                {pathname === "/calendar"
-                  ? "Calendar"
-                  : pathname === "/images"
-                  ? "Images & Design Library"
-                  : pathname.slice(1) || "Dashboard"}
-              </h2>
+              <CompanyLogo />
             </div>
             <div className="flex items-center space-x-4">
               {/* Notifications */}
