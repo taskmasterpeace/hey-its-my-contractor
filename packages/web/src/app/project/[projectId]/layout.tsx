@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { db } from "@/db";
-import { users, projects, projectUsers } from "@/db/schema";
+import { users, projects, projectUsers, companies } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserProjectRole, isSuperAdmin } from "@/lib/auth/permissions";
 import { ProjectWorkspaceLayout } from "@/components/layout/ProjectWorkspaceLayout";
@@ -35,7 +35,7 @@ export default async function ProjectLayout({
     redirect("/dashboard?error=no-project-access");
   }
 
-  // Get project details
+  // Get project details with company info
   const projectData = await db
     .select({
       id: projects.id,
@@ -45,8 +45,11 @@ export default async function ProjectLayout({
       companyId: projects.companyId,
       homeownerName: projects.homeownerName,
       homeownerEmail: projects.homeownerEmail,
+      companyName: companies.name,
+      logoUrl: companies.logoUrl,
     })
     .from(projects)
+    .innerJoin(companies, eq(projects.companyId, companies.id))
     .where(eq(projects.id, projectId))
     .limit(1);
 

@@ -28,6 +28,8 @@ interface Project {
   companyId: string;
   homeownerName: string | null;
   homeownerEmail: string | null;
+  companyName: string | null;
+  logoUrl: string | null;
 }
 
 interface ProjectWorkspaceLayoutProps {
@@ -85,12 +87,12 @@ export function ProjectWorkspaceLayout({
       href: `/project/${project.id}/finance`,
       icon: CreditCard,
     },
-    { name: "Team", href: `/project/${project.id}/team`, icon: Users },
     {
       name: "Research",
       href: `/project/${project.id}/research`,
       icon: Search,
     },
+    { name: "Team", href: `/project/${project.id}/team`, icon: Users },
   ];
 
   const getStatusBadge = (status: Project["status"]) => {
@@ -117,9 +119,13 @@ export function ProjectWorkspaceLayout({
       homeowner: "bg-purple-100 text-purple-800",
     };
 
+    const formattedRole = role
+      .replace("_", " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+
     return (
       <Badge className={`text-xs ${colors[role as keyof typeof colors]}`}>
-        {role.replace("_", " ")}
+        {formattedRole}
       </Badge>
     );
   };
@@ -133,28 +139,33 @@ export function ProjectWorkspaceLayout({
           <div className="flex items-center px-6 py-4 border-b border-gray-200">
             <Link
               href={`/dashboard/${project.companyId}`}
-              className="flex items-center text-gray-600 hover:text-gray-900"
+              className="flex items-center text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg px-2 py-1 transition-colors duration-200"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              <span className="text-sm">Back to Projects</span>
+              <span className="text-sm font-medium">Back to Projects</span>
             </Link>
           </div>
 
           {/* Project Header */}
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-start">
-              <Building2 className="w-8 h-8 text-blue-600 mt-1" />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
+                {project.logoUrl ? (
+                  <img
+                    src={project.logoUrl}
+                    alt={project.companyName || "Company Logo"}
+                    className="w-8 h-8 object-cover rounded-lg"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-white" />
+                  </div>
+                )}
+              </div>
               <div className="ml-3 flex-1 min-w-0">
                 <h1 className="text-lg font-semibold text-gray-900 truncate">
                   {project.name}
                 </h1>
-                <p className="text-sm text-gray-600 truncate mt-1">
-                  {project.address}
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  {getStatusBadge(project.status)}
-                  {getRoleBadge(userRole)}
-                </div>
               </div>
             </div>
           </div>
@@ -219,9 +230,13 @@ export function ProjectWorkspaceLayout({
                 </div>
                 <div className="ml-2">
                   <div className="text-sm font-medium text-gray-900">
-                    {user.email.split("@")[0]}
+                    John Smith
                   </div>
-                  <div className="text-xs text-gray-600">{userRole}</div>
+                  <div className="text-xs text-gray-600">
+                    {userRole
+                      .replace("_", " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                  </div>
                 </div>
               </div>
             </div>

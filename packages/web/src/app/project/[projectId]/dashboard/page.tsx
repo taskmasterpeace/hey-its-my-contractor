@@ -104,9 +104,6 @@ export default async function ProjectDashboardPage({
             </div>
             <div className="flex flex-col items-end gap-2">
               {getStatusBadge(project.status)}
-              <div className="text-sm text-gray-500">
-                Your role: {userProjectRole?.replace("_", " ") || "contractor"}
-              </div>
             </div>
           </div>
         </CardHeader>
@@ -151,57 +148,6 @@ export default async function ProjectDashboardPage({
           </div>
         </CardContent>
       </Card>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Activity className="w-8 h-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-2xl font-bold text-gray-900">4</p>
-                <p className="text-sm text-gray-600">Active Tasks</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Users className="w-8 h-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-2xl font-bold text-gray-900">6</p>
-                <p className="text-sm text-gray-600">Team Members</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Calendar className="w-8 h-8 text-yellow-600" />
-              <div className="ml-4">
-                <p className="text-2xl font-bold text-gray-900">12</p>
-                <p className="text-sm text-gray-600">Days Left</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Clock className="w-8 h-8 text-purple-600" />
-              <div className="ml-4">
-                <p className="text-2xl font-bold text-gray-900">78%</p>
-                <p className="text-sm text-gray-600">Completed</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Project Widgets - Placeholder for now */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
