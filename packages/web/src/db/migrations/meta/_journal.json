@@ -15,6 +15,13 @@
       "when": 1759355433433,
       "tag": "0001_stale_dakota_north",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1759368256957,
+      "tag": "0002_curved_the_enforcers",
+      "breakpoints": true
     }
   ]
 }
