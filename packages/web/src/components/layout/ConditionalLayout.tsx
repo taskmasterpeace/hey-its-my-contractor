@@ -23,6 +23,9 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   // Check if current path is a project workspace route (should bypass MainLayout)
   const isProjectRoute = pathname.startsWith("/project/");
 
+  // Check if current path is an invitation route (should bypass MainLayout)
+  const isInvitationRoute = pathname.startsWith("/invitations/");
+
   // Show loading spinner while checking authentication
   if (loading) {
     return (
@@ -32,8 +35,8 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
     );
   }
 
-  // For auth routes and project routes, render children without MainLayout
-  if (isAuthRoute || isProjectRoute) {
+  // For auth routes, project routes, and invitation routes, render children without MainLayout
+  if (isAuthRoute || isProjectRoute || isInvitationRoute) {
     return <>{children}</>;
   }
 

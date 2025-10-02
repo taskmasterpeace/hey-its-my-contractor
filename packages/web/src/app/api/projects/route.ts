@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { users, projects, projectUsers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hasCompanyPermission } from "@/lib/auth/permissions";
+import { InvitationService } from "@/lib/services/invitation-service";
 
 const createProjectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(255),
@@ -86,11 +87,40 @@ export async function POST(request: NextRequest) {
 
     // If homeowner email is provided, invite them to the project
     if (validatedData.homeownerEmail && validatedData.homeownerEmail.trim()) {
-      // TODO: Create invitation for homeowner
-      console.log(
-        "TODO: Create homeowner invitation for",
-        validatedData.homeownerEmail
-      );
+      try {
+        const homeownerName = validatedData.homeownerName || "Homeowner";
+        console.log(
+          "🏠 Creating homeowner invitation for:",
+          homeownerName,
+          "(",
+          validatedData.homeownerEmail,
+          ")"
+        );
+
+        await InvitationService.createInvitation({
+          email: validatedData.homeownerEmail.trim(),
+          companyId: validatedData.companyId,
+          invitedBy: user.id,
+          companyRole: "member", // Homeowners are company members
+          projectId: newProject.id,
+          projectRole: "homeowner",
+          customMessage: `Hi ${homeownerName}! You've been invited to join the project "${validatedData.name}" as the homeowner. You'll be able to track progress, communicate with the team, and stay updated on all project activities.`,
+        });
+
+        console.log(
+          "✅ Homeowner invitation sent successfully to:",
+          homeownerName,
+          "at",
+          validatedData.homeownerEmail
+        );
+      } catch (invitationError) {
+        console.error(
+          "❌ Error sending homeowner invitation:",
+          invitationError
+        );
+        // Don't fail project creation if invitation fails
+        // The project manager can manually invite the homeowner later
+      }
     }
 
     return NextResponse.json({

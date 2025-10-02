@@ -335,12 +335,21 @@ export function ProjectTeamManagement({
     }
   };
 
-  const getUserInitials = (fullName: string | null) => {
-    if (!fullName) return "?";
-    const names = fullName.split(" ");
-    return names.length > 1
-      ? `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase()
-      : names[0][0].toUpperCase();
+  const getUserInitials = (fullName: string | null, email: string | null) => {
+    const name = fullName || email;
+    if (!name) return "?";
+
+    if (fullName) {
+      const names = fullName.split(" ");
+      return names.length > 1
+        ? `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase()
+        : names[0][0].toUpperCase();
+    } else if (email) {
+      // Use first letter of email if no fullName
+      return email[0].toUpperCase();
+    }
+
+    return "?";
   };
 
   const getInvitationStatusColor = (status: string) => {
@@ -526,9 +535,6 @@ export function ProjectTeamManagement({
 
       {/* Team Invitations */}
       <Card>
-        <CardHeader>
-          <CardTitle>Team Invitations</CardTitle>
-        </CardHeader>
         <CardContent>
           {invitationsLoading ? (
             <div className="text-center py-8">
@@ -658,36 +664,90 @@ export function ProjectTeamManagement({
           ) : (
             <div className="space-y-4">
               {/* Current User */}
-              <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+              <div
+                className={`p-4 border rounded-lg ${
+                  project.homeownerEmail === currentUser.email
+                    ? "bg-purple-50 border-purple-200"
+                    : "bg-blue-50 border-blue-200"
+                }`}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="bg-blue-100 p-2 rounded-full">
-                    <span className="text-sm font-medium text-blue-700">
-                      {getUserInitials(currentUser.fullName)}
+                  <div
+                    className={`p-2 rounded-full ${
+                      project.homeownerEmail === currentUser.email
+                        ? "bg-purple-100"
+                        : "bg-blue-100"
+                    }`}
+                  >
+                    <span
+                      className={`text-sm font-medium ${
+                        project.homeownerEmail === currentUser.email
+                          ? "text-purple-700"
+                          : "text-blue-700"
+                      }`}
+                    >
+                      {getUserInitials(
+                        project.homeownerEmail === currentUser.email
+                          ? project.homeownerName
+                          : currentUser.fullName,
+                        currentUser.email
+                      )}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-blue-900">
-                        {currentUser.fullName || "You"}
+                      <h3
+                        className={`font-semibold ${
+                          project.homeownerEmail === currentUser.email
+                            ? "text-purple-900"
+                            : "text-blue-900"
+                        }`}
+                      >
+                        {project.homeownerEmail === currentUser.email
+                          ? project.homeownerName ||
+                            currentUser.fullName ||
+                            currentUser.email ||
+                            "You"
+                          : currentUser.fullName || currentUser.email || "You"}
                       </h3>
-                      <Badge className="bg-blue-200 text-blue-800 border-blue-300">
+                      <Badge
+                        className={
+                          project.homeownerEmail === currentUser.email
+                            ? "bg-purple-200 text-purple-800 border-purple-300"
+                            : "bg-blue-200 text-blue-800 border-blue-300"
+                        }
+                      >
                         You
                       </Badge>
                     </div>
-                    <Badge className={getRoleColor(currentUser.projectRole)}>
-                      {getRoleIcon(currentUser.projectRole)}
+                    <Badge
+                      className={getRoleColor(
+                        project.homeownerEmail === currentUser.email
+                          ? "homeowner"
+                          : currentUser.projectRole
+                      )}
+                    >
+                      {getRoleIcon(
+                        project.homeownerEmail === currentUser.email
+                          ? "homeowner"
+                          : currentUser.projectRole
+                      )}
                       <span className="ml-1 capitalize">
-                        {currentUser.projectRole.replace("_", " ")}
+                        {project.homeownerEmail === currentUser.email
+                          ? "Homeowner"
+                          : currentUser.projectRole.replace("_", " ")}
                       </span>
                     </Badge>
                     <div className="mt-2">
-                      <div className="flex items-center text-sm text-blue-700">
+                      <div
+                        className={`flex items-center text-sm ${
+                          project.homeownerEmail === currentUser.email
+                            ? "text-purple-700"
+                            : "text-blue-700"
+                        }`}
+                      >
                         <Mail className="w-3 h-3 mr-1" />
                         <span className="truncate">{currentUser.email}</span>
-                      </div>
-                      <div className="text-xs text-blue-600 mt-1">
-                        Company Role:{" "}
-                        {currentUser.projectRole.replace("_", " ")}
                       </div>
                     </div>
                   </div>
@@ -703,12 +763,23 @@ export function ProjectTeamManagement({
                       <div className="flex items-center gap-3">
                         <div className="bg-gray-100 p-2 rounded-full">
                           <span className="text-sm font-medium text-gray-700">
-                            {getUserInitials(member.fullName)}
+                            {getUserInitials(
+                              member.projectRole === "homeowner" &&
+                                project.homeownerEmail === member.email &&
+                                project.homeownerName
+                                ? project.homeownerName
+                                : member.fullName,
+                              member.email
+                            )}
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-gray-900">
-                            {member.fullName || "Unnamed"}
+                            {member.projectRole === "homeowner" &&
+                            project.homeownerEmail === member.email &&
+                            project.homeownerName
+                              ? project.homeownerName
+                              : member.fullName || member.email || "Unnamed"}
                           </h3>
                           <Badge className={getRoleColor(member.projectRole)}>
                             {getRoleIcon(member.projectRole)}

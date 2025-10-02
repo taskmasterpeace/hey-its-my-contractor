@@ -307,10 +307,25 @@ export class InvitationService {
           ? "contractor"
           : "homeowner";
 
+      // For homeowners, try to get their name from the project
+      let fullName = null;
+      if (invitation.projectRole === "homeowner" && invitation.projectId) {
+        const projectData = await db
+          .select({ homeownerName: projects.homeownerName })
+          .from(projects)
+          .where(eq(projects.id, invitation.projectId))
+          .limit(1);
+
+        if (projectData[0]?.homeownerName) {
+          fullName = projectData[0].homeownerName;
+        }
+      }
+
       await db.insert(users).values({
         id: userId,
         systemRole,
         email: invitation.email,
+        fullName,
         profile: {},
         preferences: {},
         isActive: true,
@@ -330,17 +345,36 @@ export class InvitationService {
         newSystemRole
       );
 
-      await db
-        .update(users)
-        .set({
-          systemRole: newSystemRole as
-            | "super_admin"
-            | "project_manager"
-            | "contractor"
-            | "homeowner",
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userId));
+      // For homeowners, try to get their name from the project if they don't have one
+      // Get homeowner name if needed
+      let homeownerFullName = null;
+      if (
+        invitation.projectRole === "homeowner" &&
+        invitation.projectId &&
+        !existingUser[0].fullName
+      ) {
+        const projectData = await db
+          .select({ homeownerName: projects.homeownerName })
+          .from(projects)
+          .where(eq(projects.id, invitation.projectId))
+          .limit(1);
+
+        if (projectData[0]?.homeownerName) {
+          homeownerFullName = projectData[0].homeownerName;
+        }
+      }
+
+      const updateData: any = {
+        systemRole: newSystemRole as
+          | "super_admin"
+          | "project_manager"
+          | "contractor"
+          | "homeowner",
+        updatedAt: new Date(),
+        ...(homeownerFullName && { fullName: homeownerFullName }),
+      };
+
+      await db.update(users).set(updateData).where(eq(users.id, userId));
     }
 
     // Check if user is already a member of THIS specific company
