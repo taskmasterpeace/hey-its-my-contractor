@@ -26,6 +26,9 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   // Check if current path is an invitation route (should bypass MainLayout)
   const isInvitationRoute = pathname.startsWith("/invitations/");
 
+  // Check if current path is the home page (should bypass MainLayout)
+  const isHomePage = pathname === "/";
+
   // Show loading spinner while checking authentication
   if (loading) {
     return (
@@ -35,8 +38,8 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
     );
   }
 
-  // For auth routes, project routes, and invitation routes, render children without MainLayout
-  if (isAuthRoute || isProjectRoute || isInvitationRoute) {
+  // For auth routes, project routes, invitation routes, and home page, render children without MainLayout
+  if (isAuthRoute || isProjectRoute || isInvitationRoute || isHomePage) {
     return <>{children}</>;
   }
 
