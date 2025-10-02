@@ -72,7 +72,11 @@ export default async function ProjectTeamPage({
   }
 
   // Check if user can invite others to this project
-  const canInviteToProject = isSuper || userProjectRole === "project_manager";
+  // Allow project managers, contractors, and super admins to invite team members
+  const canInviteToProject =
+    isSuper ||
+    userProjectRole === "project_manager" ||
+    userProjectRole === "contractor";
 
   return (
     <div className="p-6">
