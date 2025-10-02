@@ -149,21 +149,21 @@ export function ProjectWorkspaceLayout({
 
           {/* Project Header */}
           <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-start">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
+            <div className="flex flex-col items-center text-center">
+              <div className=" w-32 h-20 rounded-lg flex items-center justify-center overflow-hidden mb-3">
                 {project.logoUrl ? (
                   <img
                     src={project.logoUrl}
                     alt={project.companyName || "Company Logo"}
-                    className="w-8 h-8 object-cover rounded-lg"
+                    className="w-32 h-20 object-cover rounded-lg"
                   />
                 ) : (
-                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-white" />
+                  <div className="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <Building2 className="w-9 h-9 text-white" />
                   </div>
                 )}
               </div>
-              <div className="ml-3 flex-1 min-w-0">
+              <div className="w-full">
                 <h1 className="text-lg font-semibold text-gray-900 truncate">
                   {project.name}
                 </h1>
