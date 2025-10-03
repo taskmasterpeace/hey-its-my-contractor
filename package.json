@@ -1,13 +1,37 @@
 {
-  "name": "@contractor-platform/web",
+  "name": "@contractor-platform/monorepo",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/web",
+    "mobile",
+    "shared/types",
+    "shared/utils"
+  ],
+  "packageManager": "yarn@4.0.0",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "dev": "yarn workspace @contractor-platform/web dev",
+    "dev:mobile": "yarn workspace @contractor-platform/mobile dev",
+    "dev:mobile:ios": "yarn workspace @contractor-platform/mobile ios",
+    "dev:mobile:android": "yarn workspace @contractor-platform/mobile android",
+    "build": "yarn workspaces foreach -A run build",
+    "build:web": "yarn workspace @contractor-platform/web build",
+    "build:mobile": "yarn workspace @contractor-platform/mobile build",
+    "start": "yarn workspace @contractor-platform/web start",
+    "lint": "yarn workspaces foreach -A run lint",
+    "lint:fix": "yarn workspaces foreach -A run lint --fix",
+    "type-check": "yarn workspaces foreach -A run type-check",
+    "type-check:web": "yarn workspace @contractor-platform/web type-check",
+    "type-check:mobile": "yarn workspace @contractor-platform/mobile type-check",
+    "clean": "yarn workspaces foreach -A run clean",
+    "clean:all": "yarn workspaces foreach -A run clean && rm -rf node_modules",
+    "test": "yarn workspaces foreach -A run test",
+    "test:web": "yarn workspace @contractor-platform/web test",
+    "test:mobile": "yarn workspace @contractor-platform/mobile test",
+    "workspace:list": "yarn workspaces list",
+    "workspace:info": "yarn workspaces list --verbose",
+    "deps:update": "yarn up \"*\"",
+    "deps:dedupe": "yarn dedupe"
   },
   "dependencies": {
     "@contractor-platform/types": "*",
@@ -45,6 +69,7 @@
     "eslint": "^8.0.0",
     "eslint-config-next": "15.5.0",
     "postcss": "^8.4.32",
+    "supabase": "2.45.5",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.0.0"
   }

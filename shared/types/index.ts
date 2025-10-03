@@ -3,7 +3,7 @@
 export interface Tenant {
   id: string;
   name: string;
-  plan: 'basic' | 'pro' | 'enterprise';
+  plan: "basic" | "pro" | "enterprise";
   settings: TenantSettings;
   created_at: string;
   updated_at: string;
@@ -26,7 +26,7 @@ export interface User {
   updated_at: string;
 }
 
-export type UserRole = 'contractor' | 'staff' | 'sub' | 'homeowner' | 'admin';
+export type UserRole = "contractor" | "staff" | "sub" | "homeowner" | "admin";
 
 export interface UserProfile {
   first_name: string;
@@ -53,7 +53,12 @@ export interface Project {
   updated_at: string;
 }
 
-export type ProjectStatus = 'planning' | 'active' | 'paused' | 'completed' | 'cancelled';
+export type ProjectStatus =
+  | "planning"
+  | "active"
+  | "paused"
+  | "completed"
+  | "cancelled";
 
 export interface Meeting {
   id: string;
@@ -63,7 +68,7 @@ export interface Meeting {
   ends_at?: string;
   type: MeetingType;
   participants: string[]; // User IDs
-  external_provider?: 'zoom' | 'meet' | 'jitsi';
+  external_provider?: "zoom" | "meet" | "jitsi";
   recording_url?: string;
   consent_given: boolean;
   status: MeetingStatus;
@@ -73,13 +78,22 @@ export interface Meeting {
   updated_at: string;
 }
 
-export type MeetingType = 'consultation' | 'progress_review' | 'change_order' | 'walkthrough' | 'inspection';
-export type MeetingStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+export type MeetingType =
+  | "consultation"
+  | "progress_review"
+  | "change_order"
+  | "walkthrough"
+  | "inspection";
+export type MeetingStatus =
+  | "scheduled"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
 
 export interface Transcript {
   id: string;
   meeting_id: string;
-  provider: 'assemblyai' | 'whisper';
+  provider: "assemblyai" | "whisper";
   language: string;
   text: string;
   segments: TranscriptSegment[];
@@ -112,8 +126,8 @@ export interface Task {
   updated_at: string;
 }
 
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
-export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TaskStatus = "pending" | "in_progress" | "completed" | "cancelled";
+export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 export interface DailyLog {
   id: string;
@@ -130,7 +144,7 @@ export interface DailyLog {
 
 export interface MediaFile {
   id: string;
-  type: 'photo' | 'video' | 'audio' | 'image' | 'file';
+  type: "photo" | "video" | "audio" | "image" | "file";
   url: string;
   filename: string;
   size: number;
@@ -184,7 +198,13 @@ export interface Document {
   updated_at: string;
 }
 
-export type DocumentType = 'plan' | 'permit' | 'contract' | 'invoice' | 'photo' | 'other';
+export type DocumentType =
+  | "plan"
+  | "permit"
+  | "contract"
+  | "invoice"
+  | "photo"
+  | "other";
 
 export interface DocumentAnnotation {
   id: string;
@@ -193,7 +213,7 @@ export interface DocumentAnnotation {
   y: number;
   width?: number;
   height?: number;
-  type: 'note' | 'highlight' | 'drawing';
+  type: "note" | "highlight" | "drawing";
   content: string;
   created_by: string;
   created_at: string;
@@ -215,14 +235,19 @@ export interface ChangeOrder {
   updated_at: string;
 }
 
-export type ChangeOrderStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'implemented';
+export type ChangeOrderStatus =
+  | "draft"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "implemented";
 
 // Chat/Communication Types
 export interface ChatChannel {
   id: string;
   project_id: string;
   name: string;
-  type: 'project' | 'team' | 'client';
+  type: "project" | "team" | "client";
   participants: string[]; // User IDs
   created_at: string;
   updated_at: string;
@@ -231,7 +256,7 @@ export interface ChatChannel {
 export interface ChatRoom {
   id: string;
   name?: string;
-  type: 'project' | 'team' | 'client' | 'direct' | 'general';
+  type: "project" | "team" | "client" | "direct" | "general";
   project_id?: string;
   participants?: string[];
   last_message?: {
@@ -240,7 +265,7 @@ export interface ChatRoom {
     sender_id: string;
     sender_name: string;
     timestamp: string;
-    type: 'text' | 'image' | 'file';
+    type: "text" | "image" | "file";
   };
   unread_count: number;
   created_at: string;
@@ -252,7 +277,7 @@ export interface ChatMessage {
   channel_id: string;
   user_id: string;
   content: string;
-  type: 'text' | 'image' | 'file' | 'system';
+  type: "text" | "image" | "file" | "system";
   attachments?: MediaFile[];
   reply_to?: string; // Message ID
   created_at: string;
@@ -282,7 +307,7 @@ export interface CalendarEvent {
   title: string;
   start: string;
   end?: string;
-  type: 'meeting' | 'delivery' | 'inspection' | 'milestone';
+  type: "meeting" | "delivery" | "inspection" | "milestone";
   project_id: string;
   meeting_id?: string;
   task_id?: string;
@@ -302,13 +327,13 @@ export interface Notification {
   created_at: string;
 }
 
-export type NotificationType = 
-  | 'meeting_reminder'
-  | 'task_due'
-  | 'message_received'
-  | 'document_uploaded'
-  | 'weather_alert'
-  | 'change_order_approval';
+export type NotificationType =
+  | "meeting_reminder"
+  | "task_due"
+  | "message_received"
+  | "document_uploaded"
+  | "weather_alert"
+  | "change_order_approval";
 
 // Research Types for Perplexity Integration
 export interface ResearchQuery {
@@ -319,7 +344,7 @@ export interface ResearchQuery {
     budget?: number;
     timeline?: string;
   };
-  type?: 'supplier' | 'regulation' | 'material' | 'technique' | 'general';
+  type?: "supplier" | "regulation" | "material" | "technique" | "general";
 }
 
 export interface ResearchResult {
@@ -370,7 +395,7 @@ export interface WeatherData {
   };
   timestamp: string;
   work_recommendation: {
-    suitability: 'excellent' | 'good' | 'fair' | 'poor' | 'dangerous';
+    suitability: "excellent" | "good" | "fair" | "poor" | "dangerous";
     message: string;
     restrictions: string[];
     recommendations: string[];
@@ -428,3 +453,6 @@ export interface EnhancedMeetingData {
   action_items_count?: number;
   completed_actions?: number;
 }
+
+// Image and Design Library Types
+export * from "./images";
