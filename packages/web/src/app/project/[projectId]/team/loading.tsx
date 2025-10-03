@@ -1,12 +1,4 @@
-import { Suspense } from "react";
-import { TeamDataFetcher } from "./components/TeamDataFetcher";
-
-interface ProjectTeamPageProps {
-  params: Promise<{ projectId: string }>;
-}
-
-// Loading fallback component for the team data
-function TeamLoadingFallback() {
+export default function TeamLoading() {
   return (
     <div className="p-6 space-y-6">
       {/* Header Section */}
@@ -66,21 +58,9 @@ function TeamLoadingFallback() {
       </div>
 
       {/* Loading text */}
-      <div className="text-center py-4">
-        <div className="h-4 w-40 bg-gray-200 animate-pulse rounded mx-auto"></div>
+      <div className="text-center py-8">
+        <div className="h-4 w-32 bg-gray-200 animate-pulse rounded mx-auto"></div>
       </div>
     </div>
-  );
-}
-
-export default async function ProjectTeamPage({
-  params,
-}: ProjectTeamPageProps) {
-  const { projectId } = await params;
-
-  return (
-    <Suspense fallback={<TeamLoadingFallback />}>
-      <TeamDataFetcher projectId={projectId} />
-    </Suspense>
   );
 }

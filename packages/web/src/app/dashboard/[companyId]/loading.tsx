@@ -1,12 +1,4 @@
-import { Suspense } from "react";
-import { DashboardDataFetcher } from "./components/DashboardDataFetcher";
-
-interface DashboardPageProps {
-  params: Promise<{ companyId: string }>;
-}
-
-// Loading fallback component for the dashboard data
-function DashboardLoadingFallback() {
+export default function DashboardLoading() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -84,15 +76,5 @@ function DashboardLoadingFallback() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default async function DashboardPage({ params }: DashboardPageProps) {
-  const { companyId } = await params;
-
-  return (
-    <Suspense fallback={<DashboardLoadingFallback />}>
-      <DashboardDataFetcher companyId={companyId} />
-    </Suspense>
   );
 }

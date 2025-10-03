@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Simple in-memory cache for session validation
+const sessionCache = new Map<string, { user: any; timestamp: number }>();
+const CACHE_DURATION = 30 * 1000; // 30 seconds
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -33,10 +37,42 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  // Try to get session from cache first
+  const sessionToken =
+    request.cookies.get("sb-access-token")?.value ||
+    request.cookies.get("sb-refresh-token")?.value ||
+    "anonymous";
+
+  const cachedEntry = sessionCache.get(sessionToken);
+  const now = Date.now();
+
+  let user, error;
+
+  // Use cached result if available and not expired
+  if (cachedEntry && now - cachedEntry.timestamp < CACHE_DURATION) {
+    user = cachedEntry.user;
+    error = null;
+  } else {
+    // Fetch fresh data from Supabase
+    const authResult = await supabase.auth.getUser();
+    user = authResult.data.user;
+    error = authResult.error;
+
+    // Cache the result
+    sessionCache.set(sessionToken, {
+      user,
+      timestamp: now,
+    });
+
+    // Clean up expired entries (simple cleanup)
+    if (sessionCache.size > 1000) {
+      for (const [key, value] of sessionCache.entries()) {
+        if (now - value.timestamp > CACHE_DURATION) {
+          sessionCache.delete(key);
+        }
+      }
+    }
+  }
 
   // Define public routes that don't require authentication
   const publicRoutes = ["/login", "/signup", "/forgot-password", "/error"];
