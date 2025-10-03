@@ -106,11 +106,12 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
 
       // Determine flow state based on authentication
       if (!user) {
-        // Simple URL preservation - redirect to login with token in URL
-        const currentUrl = window.location.href;
-        window.location.href = `/login?redirectTo=${encodeURIComponent(
-          currentUrl
-        )}`;
+        // Redirect to login with token preserved as separate parameter
+        const params = new URLSearchParams({
+          token: token,
+          redirectTo: window.location.href,
+        });
+        window.location.href = `/login?${params.toString()}`;
         return;
       } else if (user.email !== invitationData.email) {
         // User logged in with wrong email
@@ -172,9 +173,9 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
   };
 
   const handleLogin = async () => {
-    // Simple redirect to login with invitation token
+    // Redirect to login with invitation token preserved
     const params = new URLSearchParams({
-      token,
+      token: token,
       redirectTo: window.location.href,
     });
     window.location.href = `/login?${params.toString()}`;
@@ -184,10 +185,15 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
     try {
       setLoading(true);
 
+      // Build redirect URL with invitation token preserved
+      const confirmUrl = new URL("/auth/confirm", window.location.origin);
+      confirmUrl.searchParams.set("invitation_token", token);
+      confirmUrl.searchParams.set("redirectTo", window.location.href);
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: window.location.href, // Simple redirect back to current URL
+          redirectTo: confirmUrl.toString(),
         },
       });
 
@@ -304,7 +310,7 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
               <Button
                 onClick={() => {
                   const params = new URLSearchParams({
-                    token,
+                    token: token,
                     redirectTo: window.location.href,
                   });
                   window.location.href = `/login?${params.toString()}`;
