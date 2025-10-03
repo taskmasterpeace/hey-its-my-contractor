@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { Wand2, Sparkles, Image as ImageIcon, X } from "lucide-react";
 import { useImagesStore } from "@contractor-platform/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export function AIGeneratorView() {
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
   const {
     selectedReferences,
     toggleReferenceSelection,
@@ -21,6 +24,8 @@ export function AIGeneratorView() {
     setIsGenerating,
     getSmartModel,
     libraryImages,
+    currentProjectId,
+    fetchLibraryImages,
   } = useImagesStore();
 
   const presetPrompts = [
@@ -34,12 +39,20 @@ export function AIGeneratorView() {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      alert("Please enter a prompt for AI generation");
+      toast({
+        title: "Prompt Required",
+        description: "Please enter a prompt for AI generation",
+        variant: "destructive",
+      });
       return;
     }
 
     if (selectedReferences.length === 0) {
-      alert("Please select at least one reference image");
+      toast({
+        title: "Reference Image Required",
+        description: "Please select at least one reference image",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -63,22 +76,32 @@ export function AIGeneratorView() {
 
       if (data.success) {
         setGeneratedImage(data.imageUrl);
+        toast({
+          title: "Generation Complete!",
+          description: "Your AI-generated image is ready to review and save.",
+        });
       } else {
         throw new Error(data.error || "Generation failed");
       }
     } catch (error) {
       console.error("AI generation failed:", error);
-      alert("AI generation failed. Please try again.");
+      toast({
+        title: "Generation Failed",
+        description: "AI generation failed. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleSaveGenerated = async () => {
-    if (!generatedImage) return;
+    if (!generatedImage || !currentProjectId) return;
 
+    setIsSaving(true);
     try {
-      const response = await fetch("/api/images/save", {
+      // Use project-scoped API endpoint
+      const response = await fetch(`/api/project/${currentProjectId}/images`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -97,6 +120,7 @@ export function AIGeneratorView() {
             generatedAt: new Date().toISOString(),
             model: manualModelOverride || getSmartModel(),
             prompt,
+            projectId: currentProjectId,
           },
         }),
       });
@@ -104,16 +128,27 @@ export function AIGeneratorView() {
       const data = await response.json();
 
       if (data.success) {
-        alert("Generated image saved to library!");
+        toast({
+          title: "Image Saved Successfully!",
+          description:
+            "Generated image has been saved to your project library.",
+        });
         setGeneratedImage(null);
         setPrompt("");
         clearSelectedReferences();
+
+        // Refresh the library to show the new image
+        await fetchLibraryImages(currentProjectId);
       } else {
         throw new Error(data.error || "Failed to save image");
       }
     } catch (error) {
       console.error("Save failed:", error);
-      alert("Failed to save generated image. Please try again.");
+      toast({
+        title: "Save Failed",
+        description: "Failed to save generated image. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -138,10 +173,20 @@ export function AIGeneratorView() {
             <div className="flex justify-center space-x-4">
               <button
                 onClick={handleSaveGenerated}
-                className="flex items-center px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={isSaving}
+                className="flex items-center px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors"
               >
-                <ImageIcon className="w-4 h-4 mr-2" />
-                Save to Library
+                {isSaving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Save to Library
+                  </>
+                )}
               </button>
 
               <button

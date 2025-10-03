@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useParams } from "next/navigation";
 import { useImagesStore } from "@contractor-platform/utils";
 import { TabNavigation } from "@/components/images/TabNavigation";
 import { SearchInterface } from "@/components/images/SearchInterface";
@@ -10,6 +11,9 @@ import { AIGeneratorView } from "@/components/images/AIGeneratorView";
 import { MagicWandModal } from "@/components/images/MagicWandModal";
 
 export default function ImagesPage() {
+  const params = useParams();
+  const projectId = params.projectId as string;
+
   const {
     activeTab,
     showMagicWand,
@@ -19,39 +23,19 @@ export default function ImagesPage() {
     setLibraryImages,
     libraryImages,
     fetchLibraryImages,
+    setCurrentProjectId,
   } = useImagesStore();
 
-  // Load library images from database on mount
+  // Set project context and load project-scoped library images
   useEffect(() => {
-    const loadLibraryImages = async () => {
-      try {
-        const response = await fetch("/api/images/save");
-        const data = await response.json();
+    if (projectId) {
+      // Set the current project ID in the store
+      setCurrentProjectId(projectId);
 
-        if (data.success && data.images) {
-          // Transform database images to match LibraryImage interface
-          const transformedImages = data.images.map((img: any) => ({
-            id: img.id,
-            url: img.url,
-            title: img.title,
-            source: img.source || "Unknown",
-            tags: img.tags || [],
-            addedDate: img.createdAt,
-            projectId: img.projectId,
-            folder: img.categoryName || "uncategorized",
-            originalUrl: img.originalUrl,
-            retailer: img.retailer,
-          }));
-
-          setLibraryImages(transformedImages);
-        }
-      } catch (error) {
-        console.error("Failed to load library images:", error);
-      }
-    };
-
-    loadLibraryImages();
-  }, [setLibraryImages]);
+      // Load project-scoped images using the store's fetchLibraryImages
+      fetchLibraryImages(projectId);
+    }
+  }, [projectId, setCurrentProjectId, fetchLibraryImages]);
 
   const handleAIGeneration = (
     sourceImage: any,
@@ -63,8 +47,8 @@ export default function ImagesPage() {
   };
 
   const handleImageSaved = async () => {
-    // Refresh library images from database to get proper URLs
-    await fetchLibraryImages();
+    // Refresh project images using the store's fetch function
+    await fetchLibraryImages(projectId);
   };
 
   return (

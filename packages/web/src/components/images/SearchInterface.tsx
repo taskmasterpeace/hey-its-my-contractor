@@ -2,8 +2,10 @@
 
 import { Search, Plus, X } from "lucide-react";
 import { useImagesStore } from "@contractor-platform/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export function SearchInterface() {
+  const { toast } = useToast();
   const {
     searchTerm,
     setSearchTerm,
@@ -46,7 +48,11 @@ export function SearchInterface() {
       }
     } catch (error) {
       console.error("Search failed:", error);
-      alert("Search failed. Please try again.");
+      toast({
+        title: "Search Failed",
+        description: "Failed to search for images. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       useImagesStore.getState().setIsSearching(false);
     }

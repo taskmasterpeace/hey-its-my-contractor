@@ -5,18 +5,22 @@ import { ExternalLink, Download, Heart, Wand2 } from "lucide-react";
 import { useImagesStore } from "@contractor-platform/utils";
 import type { ImageSearchResult } from "@contractor-platform/types";
 import { SaveImageDialog, type SaveImageData } from "./SaveImageDialog";
+import { useToast } from "@/hooks/use-toast";
 
 export function SearchResultsGrid() {
+  const { toast } = useToast();
   const {
     searchResults,
     setShowMagicWand,
     setMagicWandSource,
     fetchLibraryImages,
+    currentProjectId,
   } = useImagesStore();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [imageToSave, setImageToSave] = useState<ImageSearchResult | null>(
     null
   );
+  const [savingImages, setSavingImages] = useState<Set<string>>(new Set());
 
   const handleSaveClick = (searchResult: ImageSearchResult) => {
     setImageToSave(searchResult);
@@ -24,10 +28,14 @@ export function SearchResultsGrid() {
   };
 
   const handleSaveToLibrary = async (saveData: SaveImageData) => {
-    if (!imageToSave) return;
+    if (!imageToSave || !currentProjectId) return;
+
+    // Add to saving set
+    setSavingImages((prev) => new Set(prev).add(imageToSave.id));
 
     try {
-      const response = await fetch("/api/images/save", {
+      // Use project-scoped API endpoint
+      const response = await fetch(`/api/project/${currentProjectId}/images`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -52,13 +60,29 @@ export function SearchResultsGrid() {
         throw new Error(data.error || "Failed to save image");
       }
 
-      // Refresh library images to show the new saved image
-      await fetchLibraryImages();
-      console.log("Image saved successfully:", data.image);
+      // Show success toast
+      toast({
+        title: "Image Saved Successfully!",
+        description: `"${saveData.title}" has been saved to your project library.`,
+      });
+
+      // Refresh library images to show the new saved image (project-scoped)
+      await fetchLibraryImages(currentProjectId);
     } catch (error) {
       console.error("Save to library failed:", error);
-      alert("Failed to save image. Please try again.");
+      toast({
+        title: "Save Failed",
+        description: "Failed to save image. Please try again.",
+        variant: "destructive",
+      });
       throw error;
+    } finally {
+      // Remove from saving set
+      setSavingImages((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(imageToSave.id);
+        return newSet;
+      });
     }
   };
 
@@ -119,12 +143,21 @@ export function SearchResultsGrid() {
                 <div className="absolute bottom-4 left-4 right-4 flex items-center justify-center space-x-3">
                   <button
                     onClick={() => handleSaveClick(result)}
-                    className="flex-1 flex items-center justify-center px-3 py-2 bg-white/95 hover:bg-white rounded-lg transition-colors duration-200 shadow-lg"
-                    title="Save to Library"
+                    disabled={savingImages.has(result.id)}
+                    className="flex-1 flex items-center justify-center px-3 py-2 bg-white/95 hover:bg-white rounded-lg transition-colors duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={
+                      savingImages.has(result.id)
+                        ? "Saving..."
+                        : "Save to Library"
+                    }
                   >
-                    <Download className="w-4 h-4 text-gray-700 mr-1" />
+                    {savingImages.has(result.id) ? (
+                      <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin mr-1" />
+                    ) : (
+                      <Download className="w-4 h-4 text-gray-700 mr-1" />
+                    )}
                     <span className="text-sm font-medium text-gray-700">
-                      Save
+                      {savingImages.has(result.id) ? "Saving..." : "Save"}
                     </span>
                   </button>
 
@@ -195,6 +228,7 @@ export function SearchResultsGrid() {
         }}
         image={imageToSave}
         onSave={handleSaveToLibrary}
+        currentProjectId={currentProjectId || undefined}
       />
     </div>
   );

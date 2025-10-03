@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Wand2, ImageIcon, Sparkles, Download, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useImagesStore } from "@contractor-platform/utils";
 
 interface LibraryImage {
   id: string;
@@ -42,6 +43,7 @@ export function MagicWandModal({
   onImageSaved,
 }: MagicWandModalProps) {
   const { toast } = useToast();
+  const { currentProjectId } = useImagesStore();
   const [selectedReference, setSelectedReference] =
     useState<LibraryImage | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -114,11 +116,12 @@ export function MagicWandModal({
   };
 
   const handleSaveToLibrary = async () => {
-    if (!generatedResult) return;
+    if (!generatedResult || !currentProjectId) return;
 
     setIsSaving(true);
     try {
-      const response = await fetch("/api/images/save", {
+      // Use project-scoped API endpoint
+      const response = await fetch(`/api/project/${currentProjectId}/images`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -136,6 +139,7 @@ export function MagicWandModal({
             prompt: prompt,
             enhancementType: "magic-wand",
             generatedAt: new Date().toISOString(),
+            projectId: currentProjectId,
           },
         }),
       });
@@ -145,7 +149,7 @@ export function MagicWandModal({
       if (data.success) {
         toast({
           title: "Image Saved Successfully!",
-          description: `Enhanced ${sourceImage.title} has been saved to your ai-generated folder with company watermark.`,
+          description: `Enhanced ${sourceImage.title} has been saved to your project's ai-generated folder with company watermark.`,
         });
 
         // Call the onImageSaved callback to refresh the library

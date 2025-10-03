@@ -9,6 +9,8 @@ interface SaveImageDialogProps {
   onClose: () => void;
   image: ImageSearchResult | null;
   onSave: (data: SaveImageData) => Promise<void>;
+  currentProjectId?: string;
+  defaultCategoryId?: string;
 }
 
 export interface SaveImageData {
@@ -30,6 +32,8 @@ export function SaveImageDialog({
   onClose,
   image,
   onSave,
+  currentProjectId,
+  defaultCategoryId,
 }: SaveImageDialogProps) {
   const [title, setTitle] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
@@ -43,19 +47,26 @@ export function SaveImageDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
 
-  // Load categories from database (mock for now)
+  // Load project-scoped categories from the real API
   useEffect(() => {
-    if (isOpen) {
-      // In real implementation, fetch from database
-      const mockCategories: Category[] = [
-        { id: "1", name: "Kitchen Inspiration", color: "#3B82F6" },
-        { id: "2", name: "Bathroom Ideas", color: "#10B981" },
-        { id: "3", name: "Flooring Options", color: "#F59E0B" },
-        { id: "4", name: "Exterior Design", color: "#EF4444" },
-      ];
-      setCategories(mockCategories);
-    }
-  }, [isOpen]);
+    const loadCategories = async () => {
+      if (isOpen && currentProjectId) {
+        try {
+          const response = await fetch(
+            `/api/project/${currentProjectId}/categories`
+          );
+          const data = await response.json();
+          if (data.success) {
+            setCategories(data.categories);
+          }
+        } catch (error) {
+          console.error("Failed to load categories:", error);
+        }
+      }
+    };
+
+    loadCategories();
+  }, [isOpen, currentProjectId]);
 
   // Reset form when image changes
   useEffect(() => {
@@ -63,12 +74,17 @@ export function SaveImageDialog({
       setTitle(image.title || "");
       setTags(image.retailer ? [image.retailer] : []);
       setDescription("");
-      setSelectedCategoryId(null);
+      // Use defaultCategoryId if provided and not "all"
+      setSelectedCategoryId(
+        defaultCategoryId && defaultCategoryId !== "all"
+          ? defaultCategoryId
+          : null
+      );
       setShowNewCategory(false);
       setNewCategoryName("");
       setNewTag("");
     }
-  }, [image]);
+  }, [image, defaultCategoryId]);
 
   const handleAddTag = () => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
@@ -237,15 +253,56 @@ export function SaveImageDialog({
                       placeholder="New category name"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                    <button
-                      onClick={() => {
-                        setShowNewCategory(false);
-                        setNewCategoryName("");
-                      }}
-                      className="text-sm text-gray-600 hover:text-gray-800"
-                    >
-                      Cancel
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={async () => {
+                          if (newCategoryName.trim() && currentProjectId) {
+                            try {
+                              const response = await fetch(
+                                `/api/project/${currentProjectId}/categories`,
+                                {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    name: newCategoryName.trim(),
+                                    description: `Category: ${newCategoryName.trim()}`,
+                                  }),
+                                }
+                              );
+                              const data = await response.json();
+                              if (data.success) {
+                                setCategories((prev) => [
+                                  ...prev,
+                                  data.category,
+                                ]);
+                                setSelectedCategoryId(data.category.id);
+                                setShowNewCategory(false);
+                                setNewCategoryName("");
+                              }
+                            } catch (error) {
+                              console.error(
+                                "Failed to create category:",
+                                error
+                              );
+                            }
+                          }
+                        }}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                      >
+                        Create
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowNewCategory(false);
+                          setNewCategoryName("");
+                        }}
+                        className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

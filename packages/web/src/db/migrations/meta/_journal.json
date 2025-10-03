@@ -22,6 +22,13 @@
       "when": 1759368256957,
       "tag": "0002_curved_the_enforcers",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1759502549455,
+      "tag": "0003_silly_bulldozer",
+      "breakpoints": true
     }
   ]
 }

@@ -18,6 +18,7 @@ import {
 import { useImagesStore } from "@contractor-platform/utils";
 import type { LibraryImage } from "@contractor-platform/types";
 import { SaveImageDialog, type SaveImageData } from "./SaveImageDialog";
+import { useToast } from "@/hooks/use-toast";
 
 // Image with loading state component
 interface ImageWithLoadingProps {
@@ -119,6 +120,7 @@ interface Category {
 }
 
 export function LibraryView() {
+  const { toast } = useToast();
   const {
     libraryImages,
     selectedFolder,
@@ -135,6 +137,7 @@ export function LibraryView() {
     fetchLibraryImages,
     setShowMagicWand,
     setMagicWandSource,
+    currentProjectId,
   } = useImagesStore();
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -150,40 +153,55 @@ export function LibraryView() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load categories
-        const categoriesResponse = await fetch("/api/images/categories");
-        const categoriesData = await categoriesResponse.json();
-        if (categoriesData.success) {
-          setCategories([
-            { id: "all", name: "All Images", color: "#6B7280" },
-            ...categoriesData.categories,
-          ]);
+        if (currentProjectId) {
+          // Load project-scoped categories
+          const categoriesResponse = await fetch(
+            `/api/project/${currentProjectId}/categories`
+          );
+          const categoriesData = await categoriesResponse.json();
+          if (categoriesData.success) {
+            setCategories([
+              { id: "all", name: "All Images", color: "#6B7280" },
+              ...categoriesData.categories,
+            ]);
+          }
+        } else {
+          // Default categories when no project context
+          setCategories([{ id: "all", name: "All Images", color: "#6B7280" }]);
         }
 
-        // Load library images
-        await fetchLibraryImages();
+        // Load all library images (explicitly load all - no category filter, filtering done on frontend)
+        if (currentProjectId) {
+          await fetchLibraryImages(currentProjectId, "all");
+        }
       } catch (error) {
         console.error("Failed to load data:", error);
       }
     };
 
     loadData();
-  }, [fetchLibraryImages]);
+  }, [fetchLibraryImages, currentProjectId]);
+
+  // Don't refetch when category changes - just filter on frontend
+  // This prevents empty categories from clearing the entire library
 
   const handleCreateCategory = async () => {
-    if (!newFolderName.trim()) return;
+    if (!newFolderName.trim() || !currentProjectId) return;
 
     try {
-      const response = await fetch("/api/images/categories", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: newFolderName.trim(),
-          description: `Category: ${newFolderName.trim()}`,
-        }),
-      });
+      const response = await fetch(
+        `/api/project/${currentProjectId}/categories`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: newFolderName.trim(),
+            description: `Category: ${newFolderName.trim()}`,
+          }),
+        }
+      );
 
       const data = await response.json();
       if (data.success) {
@@ -191,9 +209,21 @@ export function LibraryView() {
         setSelectedFolder(data.category.id);
         setNewFolderName("");
         setShowCreateFolder(false);
+
+        toast({
+          title: "Category Created",
+          description: `"${newFolderName.trim()}" category has been created for this project.`,
+        });
+      } else {
+        throw new Error(data.error || "Failed to create category");
       }
     } catch (error) {
       console.error("Failed to create category:", error);
+      toast({
+        title: "Failed to Create Category",
+        description: "Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -238,7 +268,7 @@ export function LibraryView() {
         )
       );
 
-      const response = await fetch("/api/images/save", {
+      const response = await fetch(`/api/project/${currentProjectId}/images`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -274,8 +304,16 @@ export function LibraryView() {
       // Clean up the blob URL
       URL.revokeObjectURL(currentUploadUrl);
 
-      // Refresh library images to show the new saved image
-      await fetchLibraryImages();
+      // Show success toast
+      toast({
+        title: "Image Uploaded Successfully!",
+        description: `"${saveData.title}" has been saved to your project library.`,
+      });
+
+      // Refresh all library images to show the new saved image (explicitly load all - no category filter)
+      if (currentProjectId) {
+        await fetchLibraryImages(currentProjectId, "all");
+      }
 
       // Process next file if any pending
       if (pendingUploads.length > 0) {
@@ -292,11 +330,13 @@ export function LibraryView() {
         setCurrentUploadFile(null);
         setCurrentUploadUrl("");
       }
-
-      console.log("Image saved successfully:", data.image);
     } catch (error) {
       console.error("Upload failed:", error);
-      alert("Failed to save image. Please try again.");
+      toast({
+        title: "Upload Failed",
+        description: "Failed to save uploaded image. Please try again.",
+        variant: "destructive",
+      });
       throw error;
     } finally {
       setIsUploading(false);
@@ -349,7 +389,20 @@ export function LibraryView() {
   // Filter images based on selected folder
   const filteredImages = libraryImages.filter((image) => {
     if (selectedFolder === "all") return true;
+    // Use nested category.id as per LibraryImage interface
     return image.category?.id === selectedFolder;
+  });
+
+  console.log("🖼️ LibraryView Debug:", {
+    selectedFolder,
+    totalImages: libraryImages.length,
+    filteredImages: filteredImages.length,
+    imageCategories: libraryImages.map((img) => ({
+      id: img.id,
+      categoryId: img.category?.id,
+      categoryName: img.category?.name,
+      title: img.title,
+    })),
   });
 
   // Show loading only when actually loading and no images exist yet
@@ -362,7 +415,7 @@ export function LibraryView() {
     );
   }
 
-  // If not loading and no images, show empty state
+  // If not loading and no images in the entire project, show empty state
   if (!isLoadingLibrary && libraryImages.length === 0) {
     return (
       <div className="space-y-6">
@@ -531,22 +584,50 @@ export function LibraryView() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         {filteredImages.length === 0 ? (
           <div className="text-center py-12">
-            <Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No images yet
-            </h3>
-            <p className="text-gray-500 mb-4">
-              {selectedFolder === "all"
-                ? "Upload images or save them from search results"
-                : "No images in this category"}
-            </p>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Images
-            </button>
+            {selectedFolder === "all" || libraryImages.length === 0 ? (
+              <>
+                <Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No images yet
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  Upload images or save them from search results
+                </p>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Images
+                </button>
+              </>
+            ) : (
+              <>
+                <Folder className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No images in this category
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  This category doesn't have any images yet. Upload some images
+                  or switch to another category.
+                </p>
+                <div className="flex justify-center space-x-3">
+                  <button
+                    onClick={() => setSelectedFolder("all")}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    View All Images
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Images
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div
@@ -659,6 +740,8 @@ export function LibraryView() {
             thumbnail: currentUploadUrl,
           }}
           onSave={handleSaveUploadedImage}
+          currentProjectId={currentProjectId || undefined}
+          defaultCategoryId={selectedFolder}
         />
       )}
 

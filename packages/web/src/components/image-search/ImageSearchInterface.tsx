@@ -1,7 +1,16 @@
-'use client';
+"use client";
 
-import React, { useState, useCallback } from 'react';
-import { Search, Settings, Home, Store, Plus, X, History, Filter } from 'lucide-react';
+import React, { useState, useCallback } from "react";
+import {
+  Search,
+  Settings,
+  Home,
+  Store,
+  Plus,
+  X,
+  History,
+  Filter,
+} from "lucide-react";
 
 export interface GoogleImageResult {
   id: string;
@@ -20,11 +29,27 @@ export interface GoogleImageResult {
 export interface SearchConfiguration {
   defaultSites: string[];
   customSites: string[];
-  safeSearch: 'strict' | 'moderate' | 'off';
-  imageSize: 'any' | 'large' | 'medium' | 'small' | 'icon';
-  imageType: 'any' | 'photo' | 'clipart' | 'line' | 'face';
-  imageColor: 'any' | 'color' | 'blackandwhite' | 'transparent' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink' | 'white' | 'gray' | 'black' | 'brown';
-  usage: 'any' | 'commercial' | 'noncommercial' | 'modify';
+  safeSearch: "strict" | "moderate" | "off";
+  imageSize: "any" | "large" | "medium" | "small" | "icon";
+  imageType: "any" | "photo" | "clipart" | "line" | "face";
+  imageColor:
+    | "any"
+    | "color"
+    | "blackandwhite"
+    | "transparent"
+    | "red"
+    | "orange"
+    | "yellow"
+    | "green"
+    | "teal"
+    | "blue"
+    | "purple"
+    | "pink"
+    | "white"
+    | "gray"
+    | "black"
+    | "brown";
+  usage: "any" | "commercial" | "noncommercial" | "modify";
 }
 
 export interface SearchSyntaxHelp {
@@ -34,7 +59,10 @@ export interface SearchSyntaxHelp {
 }
 
 interface ImageSearchInterfaceProps {
-  onSearch: (query: string, config: SearchConfiguration) => Promise<GoogleImageResult[]>;
+  onSearch: (
+    query: string,
+    config: SearchConfiguration
+  ) => Promise<GoogleImageResult[]>;
   onImageSelect: (image: GoogleImageResult) => void;
   onSaveToLibrary: (image: GoogleImageResult) => Promise<void>;
   searchHistory: string[];
@@ -43,32 +71,80 @@ interface ImageSearchInterfaceProps {
 }
 
 const DEFAULT_SITES = [
-  'homedepot.com',
-  'lowes.com',
-  'menards.com',
-  'homedepotcanada.ca',
-  'rona.ca'
+  "homedepot.com",
+  "lowes.com",
+  "menards.com",
+  "homedepotcanada.ca",
+  "rona.ca",
 ];
 
 const SEARCH_SYNTAX_HELP: SearchSyntaxHelp[] = [
-  { operator: '"exact phrase"', description: 'Search for exact phrase', example: '"kitchen cabinets white"' },
-  { operator: '-exclude', description: 'Exclude terms from results', example: 'cabinets -kitchen' },
-  { operator: 'OR', description: 'Include either term', example: 'tile OR hardwood' },
-  { operator: 'site:', description: 'Search specific site', example: 'site:homedepot.com countertops' },
-  { operator: 'filetype:', description: 'Specific file type', example: 'filetype:jpg bathroom' },
-  { operator: '*', description: 'Wildcard for unknown words', example: 'best * for kitchen' },
-  { operator: '..', description: 'Number range', example: '$100..$500 faucet' }
+  {
+    operator: '"exact phrase"',
+    description: "Search for exact phrase",
+    example: '"kitchen cabinets white"',
+  },
+  {
+    operator: "-exclude",
+    description: "Exclude terms from results",
+    example: "cabinets -kitchen",
+  },
+  {
+    operator: "OR",
+    description: "Include either term",
+    example: "tile OR hardwood",
+  },
+  {
+    operator: "site:",
+    description: "Search specific site",
+    example: "site:homedepot.com countertops",
+  },
+  {
+    operator: "filetype:",
+    description: "Specific file type",
+    example: "filetype:jpg bathroom",
+  },
+  {
+    operator: "*",
+    description: "Wildcard for unknown words",
+    example: "best * for kitchen",
+  },
+  { operator: "..", description: "Number range", example: "$100..$500 faucet" },
 ];
 
 const QUICK_SEARCH_CATEGORIES = [
-  { name: 'Flooring', query: 'flooring hardwood tile laminate', icon: '🏠' },
-  { name: 'Kitchen', query: 'kitchen cabinets countertops appliances', icon: '🍳' },
-  { name: 'Bathroom', query: 'bathroom vanity shower tile fixtures', icon: '🛁' },
-  { name: 'Exterior', query: 'siding roofing windows doors exterior', icon: '🏘️' },
-  { name: 'Lighting', query: 'lighting fixtures LED recessed pendant', icon: '💡' },
-  { name: 'Tools', query: 'construction tools equipment professional', icon: '🔨' },
-  { name: 'Hardware', query: 'hardware screws bolts hinges handles', icon: '🔧' },
-  { name: 'Paint', query: 'paint colors interior exterior primer', icon: '🎨' }
+  { name: "Flooring", query: "flooring hardwood tile laminate", icon: "🏠" },
+  {
+    name: "Kitchen",
+    query: "kitchen cabinets countertops appliances",
+    icon: "🍳",
+  },
+  {
+    name: "Bathroom",
+    query: "bathroom vanity shower tile fixtures",
+    icon: "🛁",
+  },
+  {
+    name: "Exterior",
+    query: "siding roofing windows doors exterior",
+    icon: "🏘️",
+  },
+  {
+    name: "Lighting",
+    query: "lighting fixtures LED recessed pendant",
+    icon: "💡",
+  },
+  {
+    name: "Tools",
+    query: "construction tools equipment professional",
+    icon: "🔨",
+  },
+  {
+    name: "Hardware",
+    query: "hardware screws bolts hinges handles",
+    icon: "🔧",
+  },
+  { name: "Paint", query: "paint colors interior exterior primer", icon: "🎨" },
 ];
 
 export function ImageSearchInterface({
@@ -77,88 +153,103 @@ export function ImageSearchInterface({
   onSaveToLibrary,
   searchHistory = [],
   isLoading = false,
-  className = ''
+  className = "",
 }: ImageSearchInterfaceProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [searchConfig, setSearchConfig] = useState<SearchConfiguration>({
     defaultSites: DEFAULT_SITES,
     customSites: [],
-    safeSearch: 'strict',
-    imageSize: 'any',
-    imageType: 'any',
-    imageColor: 'any',
-    usage: 'any'
+    safeSearch: "strict",
+    imageSize: "any",
+    imageType: "any",
+    imageColor: "any",
+    usage: "any",
   });
 
-  const handleSearch = useCallback(async (query?: string) => {
-    const searchTerm = query || searchQuery.trim();
-    if (!searchTerm) return;
+  const handleSearch = useCallback(
+    async (query?: string) => {
+      const searchTerm = query || searchQuery.trim();
+      if (!searchTerm) return;
 
-    // Build enhanced search query with site restrictions
-    let enhancedQuery = searchTerm;
-    
-    // Add site restrictions if using default sites
-    if (searchConfig.defaultSites.length > 0) {
-      const siteQuery = searchConfig.defaultSites.map(site => `site:${site}`).join(' OR ');
-      enhancedQuery = `${searchTerm} (${siteQuery})`;
-    }
+      // Build enhanced search query with site restrictions
+      let enhancedQuery = searchTerm;
 
-    // Add custom sites
-    if (searchConfig.customSites.length > 0) {
-      const customSiteQuery = searchConfig.customSites.map(site => `site:${site}`).join(' OR ');
-      enhancedQuery += ` OR (${searchTerm} (${customSiteQuery}))`;
-    }
+      // Add site restrictions if using default sites
+      if (searchConfig.defaultSites.length > 0) {
+        const siteQuery = searchConfig.defaultSites
+          .map((site) => `site:${site}`)
+          .join(" OR ");
+        enhancedQuery = `${searchTerm} (${siteQuery})`;
+      }
 
-    try {
-      await onSearch(enhancedQuery, searchConfig);
-    } catch (error) {
-      console.error('Search failed:', error);
-    }
-  }, [searchQuery, searchConfig, onSearch]);
+      // Add custom sites
+      if (searchConfig.customSites.length > 0) {
+        const customSiteQuery = searchConfig.customSites
+          .map((site) => `site:${site}`)
+          .join(" OR ");
+        enhancedQuery += ` OR (${searchTerm} (${customSiteQuery}))`;
+      }
+
+      try {
+        await onSearch(enhancedQuery, searchConfig);
+      } catch (error) {
+        console.error("Search failed:", error);
+      }
+    },
+    [searchQuery, searchConfig, onSearch]
+  );
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleSearch();
     }
   };
 
   const addCustomSite = (site: string) => {
     if (site && !searchConfig.customSites.includes(site)) {
-      setSearchConfig(prev => ({
+      setSearchConfig((prev) => ({
         ...prev,
-        customSites: [...prev.customSites, site]
+        customSites: [...prev.customSites, site],
       }));
     }
   };
 
   const removeCustomSite = (site: string) => {
-    setSearchConfig(prev => ({
+    setSearchConfig((prev) => ({
       ...prev,
-      customSites: prev.customSites.filter(s => s !== site)
+      customSites: prev.customSites.filter((s) => s !== site),
     }));
   };
 
   const insertSearchOperator = (operator: string) => {
-    const input = document.querySelector('[data-search-input]') as HTMLInputElement;
+    const input = document.querySelector(
+      "[data-search-input]"
+    ) as HTMLInputElement;
     if (input) {
       const start = input.selectionStart || 0;
       const end = input.selectionEnd || 0;
-      const newValue = searchQuery.slice(0, start) + operator + searchQuery.slice(end);
+      const newValue =
+        searchQuery.slice(0, start) + operator + searchQuery.slice(end);
       setSearchQuery(newValue);
-      
+
       // Set cursor position after the inserted operator
       setTimeout(() => {
         input.focus();
-        input.setSelectionRange(start + operator.length, start + operator.length);
+        input.setSelectionRange(
+          start + operator.length,
+          start + operator.length
+        );
       }, 0);
     }
   };
 
   return (
-    <div className={`image-search-interface bg-white rounded-lg shadow-sm border ${className}`}>
+    <div
+      className={`image-search-interface bg-white rounded-lg shadow-sm border ${className}`}
+    >
       {/* Header */}
       <div className="p-4 border-b">
         <div className="flex items-center justify-between mb-3">
@@ -210,7 +301,7 @@ export function ImageSearchInterface({
               disabled={isLoading || !searchQuery.trim()}
               className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isLoading ? 'Searching...' : 'Search'}
+              {isLoading ? "Searching..." : "Search"}
             </button>
           </div>
         </div>
@@ -228,7 +319,9 @@ export function ImageSearchInterface({
               <span>Lowe's</span>
             </div>
             {searchConfig.customSites.length > 0 && (
-              <span className="text-green-600">+{searchConfig.customSites.length} custom</span>
+              <span className="text-green-600">
+                +{searchConfig.customSites.length} custom
+              </span>
             )}
           </div>
         </div>
@@ -237,7 +330,9 @@ export function ImageSearchInterface({
       {/* Search History Dropdown */}
       {showHistory && searchHistory.length > 0 && (
         <div className="p-4 border-b bg-gray-50">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Recent Searches</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-2">
+            Recent Searches
+          </h3>
           <div className="flex flex-wrap gap-2">
             {searchHistory.slice(0, 10).map((query, index) => (
               <button
@@ -280,7 +375,9 @@ export function ImageSearchInterface({
       {showSyntaxHelp && (
         <div className="p-4 border-b bg-blue-50">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-gray-900">Search Operators</h3>
+            <h3 className="text-sm font-medium text-gray-900">
+              Search Operators
+            </h3>
             <button
               onClick={() => setShowSyntaxHelp(false)}
               className="text-gray-400 hover:text-gray-600"
@@ -296,14 +393,16 @@ export function ImageSearchInterface({
                     {help.operator}
                   </code>
                   <button
-                    onClick={() => insertSearchOperator(help.operator + ' ')}
+                    onClick={() => insertSearchOperator(help.operator + " ")}
                     className="text-xs text-blue-600 hover:text-blue-800 underline"
                   >
                     Insert
                   </button>
                 </div>
                 <p className="text-xs text-gray-600 mb-1">{help.description}</p>
-                <p className="text-xs text-gray-500 font-mono">{help.example}</p>
+                <p className="text-xs text-gray-500 font-mono">
+                  {help.example}
+                </p>
               </div>
             ))}
           </div>
@@ -314,7 +413,9 @@ export function ImageSearchInterface({
       {showAdvanced && (
         <div className="p-4 border-b bg-gray-50">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-gray-900">Advanced Search Settings</h3>
+            <h3 className="text-sm font-medium text-gray-900">
+              Advanced Search Settings
+            </h3>
             <button
               onClick={() => setShowAdvanced(false)}
               className="text-gray-400 hover:text-gray-600"
@@ -331,7 +432,10 @@ export function ImageSearchInterface({
               </label>
               <div className="space-y-2">
                 {searchConfig.customSites.map((site) => (
-                  <div key={site} className="flex items-center bg-white px-2 py-1 rounded text-sm">
+                  <div
+                    key={site}
+                    className="flex items-center bg-white px-2 py-1 rounded text-sm"
+                  >
                     <span className="flex-1 truncate">{site}</span>
                     <button
                       onClick={() => removeCustomSite(site)}
@@ -347,17 +451,18 @@ export function ImageSearchInterface({
                     placeholder="Add site (e.g., amazon.com)"
                     className="flex-1 px-2 py-1 text-xs border rounded-l-md"
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === "Enter") {
                         addCustomSite((e.target as HTMLInputElement).value);
-                        (e.target as HTMLInputElement).value = '';
+                        (e.target as HTMLInputElement).value = "";
                       }
                     }}
                   />
                   <button
                     onClick={(e) => {
-                      const input = (e.target as HTMLButtonElement).previousElementSibling as HTMLInputElement;
+                      const input = (e.target as HTMLButtonElement)
+                        .previousElementSibling as HTMLInputElement;
                       addCustomSite(input.value);
-                      input.value = '';
+                      input.value = "";
                     }}
                     className="px-2 py-1 bg-blue-600 text-white rounded-r-md hover:bg-blue-700"
                   >
@@ -374,7 +479,12 @@ export function ImageSearchInterface({
               </label>
               <select
                 value={searchConfig.imageSize}
-                onChange={(e) => setSearchConfig(prev => ({ ...prev, imageSize: e.target.value as any }))}
+                onChange={(e) =>
+                  setSearchConfig((prev) => ({
+                    ...prev,
+                    imageSize: e.target.value as any,
+                  }))
+                }
                 className="w-full px-2 py-1 text-sm border rounded-md bg-white"
               >
                 <option value="any">Any Size</option>
@@ -392,7 +502,12 @@ export function ImageSearchInterface({
               </label>
               <select
                 value={searchConfig.imageType}
-                onChange={(e) => setSearchConfig(prev => ({ ...prev, imageType: e.target.value as any }))}
+                onChange={(e) =>
+                  setSearchConfig((prev) => ({
+                    ...prev,
+                    imageType: e.target.value as any,
+                  }))
+                }
                 className="w-full px-2 py-1 text-sm border rounded-md bg-white"
               >
                 <option value="any">Any Type</option>
@@ -410,7 +525,12 @@ export function ImageSearchInterface({
               </label>
               <select
                 value={searchConfig.imageColor}
-                onChange={(e) => setSearchConfig(prev => ({ ...prev, imageColor: e.target.value as any }))}
+                onChange={(e) =>
+                  setSearchConfig((prev) => ({
+                    ...prev,
+                    imageColor: e.target.value as any,
+                  }))
+                }
                 className="w-full px-2 py-1 text-sm border rounded-md bg-white"
               >
                 <option value="any">Any Color</option>
@@ -431,7 +551,12 @@ export function ImageSearchInterface({
               </label>
               <select
                 value={searchConfig.usage}
-                onChange={(e) => setSearchConfig(prev => ({ ...prev, usage: e.target.value as any }))}
+                onChange={(e) =>
+                  setSearchConfig((prev) => ({
+                    ...prev,
+                    usage: e.target.value as any,
+                  }))
+                }
                 className="w-full px-2 py-1 text-sm border rounded-md bg-white"
               >
                 <option value="any">Any Usage</option>
@@ -448,7 +573,12 @@ export function ImageSearchInterface({
               </label>
               <select
                 value={searchConfig.safeSearch}
-                onChange={(e) => setSearchConfig(prev => ({ ...prev, safeSearch: e.target.value as any }))}
+                onChange={(e) =>
+                  setSearchConfig((prev) => ({
+                    ...prev,
+                    safeSearch: e.target.value as any,
+                  }))
+                }
                 className="w-full px-2 py-1 text-sm border rounded-md bg-white"
               >
                 <option value="strict">Strict</option>

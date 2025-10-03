@@ -20,6 +20,9 @@ interface ImagesState {
   showAddSite: boolean;
   showCreateFolder: boolean;
 
+  // Project Context
+  currentProjectId: string | null;
+
   // Data
   searchTerm: string;
   searchResults: ImageSearchResult[];
@@ -43,6 +46,7 @@ interface ImagesState {
   newFolderName: string;
 
   // Actions
+  setCurrentProjectId: (projectId: string | null) => void;
   setActiveTab: (tab: TabType) => void;
   setSearchTerm: (term: string) => void;
   setSearchResults: (results: ImageSearchResult[]) => void;
@@ -56,7 +60,10 @@ interface ImagesState {
   setIsGenerating: (loading: boolean) => void;
   setIsUploading: (loading: boolean) => void;
   setIsLoadingLibrary: (loading: boolean) => void;
-  fetchLibraryImages: () => Promise<void>;
+  fetchLibraryImages: (
+    projectId?: string,
+    categoryId?: string
+  ) => Promise<void>;
   setEnabledRetailers: (retailers: Partial<RetailerSettings>) => void;
   setCustomRetailers: (retailers: string[]) => void;
   addCustomRetailer: (retailer: string) => void;
@@ -88,6 +95,9 @@ export const useImagesStore = create<ImagesState>()((set, get) => ({
   showAddSite: false,
   showCreateFolder: false,
 
+  // Initial Project Context
+  currentProjectId: null,
+
   // Initial Data
   searchTerm: "",
   searchResults: [],
@@ -115,6 +125,7 @@ export const useImagesStore = create<ImagesState>()((set, get) => ({
   newFolderName: "",
 
   // Actions
+  setCurrentProjectId: (projectId) => set({ currentProjectId: projectId }),
   setActiveTab: (tab) => set({ activeTab: tab }),
   setSearchTerm: (term) => set({ searchTerm: term }),
   setSearchResults: (results) => set({ searchResults: results }),
@@ -150,18 +161,63 @@ export const useImagesStore = create<ImagesState>()((set, get) => ({
   setIsUploading: (loading) => set({ isUploading: loading }),
   setIsLoadingLibrary: (loading) => set({ isLoadingLibrary: loading }),
 
-  fetchLibraryImages: async () => {
+  fetchLibraryImages: async (projectId, categoryId) => {
     set({ isLoadingLibrary: true });
     try {
-      const response = await fetch("/api/images/library");
-      if (response.ok) {
-        const data = await response.json();
-        set({ libraryImages: data.images || [] });
+      const { currentProjectId, selectedFolder } = get();
+      const targetProjectId = projectId || currentProjectId;
+      const targetCategoryId = categoryId || selectedFolder;
+
+      console.log("🔍 Frontend Store Debug:", {
+        projectId,
+        categoryId,
+        currentProjectId,
+        selectedFolder,
+        targetProjectId,
+        targetCategoryId,
+      });
+
+      if (targetProjectId) {
+        // Build API URL with category filter
+        const apiUrl = new URL(
+          `/api/project/${targetProjectId}/images`,
+          window.location.origin
+        );
+        if (targetCategoryId && targetCategoryId !== "all") {
+          apiUrl.searchParams.set("categoryId", targetCategoryId);
+          console.log("🏷️ Adding categoryId to URL:", targetCategoryId);
+        }
+
+        console.log("📡 Fetching from URL:", apiUrl.toString());
+
+        // Only use project-scoped API - never expose other projects' data
+        const response = await fetch(apiUrl.toString());
+        if (response.ok) {
+          const data = await response.json();
+          console.log("📦 Store received data:", {
+            success: data.success,
+            imageCount: data.images?.length || 0,
+            images: data.images?.map((img: any) => ({
+              id: img.id,
+              title: img.title,
+              categoryId: img.categoryId,
+            })),
+          });
+          set({ libraryImages: data.images || [] });
+        } else {
+          console.error("Failed to fetch project images:", response.statusText);
+          set({ libraryImages: [] });
+        }
       } else {
-        console.error("Failed to fetch library images:", response.statusText);
+        // No project context = no images (strict data isolation)
+        console.warn(
+          "No project context - clearing library images for security"
+        );
+        set({ libraryImages: [] });
       }
     } catch (error) {
       console.error("Error fetching library images:", error);
+      set({ libraryImages: [] });
     } finally {
       set({ isLoadingLibrary: false });
     }
