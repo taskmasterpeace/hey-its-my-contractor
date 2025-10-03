@@ -8,7 +8,7 @@
     "shared/types",
     "shared/utils"
   ],
-  "packageManager": "yarn@4.0.0",
+  "packageManager": "yarn@4.10.3",
   "scripts": {
     "dev": "yarn workspace @contractor-platform/web dev",
     "dev:mobile": "yarn workspace @contractor-platform/mobile dev",
