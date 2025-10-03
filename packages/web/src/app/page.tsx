@@ -1,10 +1,6 @@
-import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { db } from "@/db";
-import { companies, companyUsers } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { getUserPermissions } from "@/lib/auth/permissions";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   Building2,
   Users,
@@ -13,41 +9,7 @@ import {
   MessageSquare,
   BarChart3,
   Shield,
-  Zap,
 } from "lucide-react";
-
-async function getDashboardUrl(user: any) {
-  const permissions = await getUserPermissions(user.id);
-
-  if (permissions.systemRole === "super_admin") {
-    // Super admin - redirect to first company
-    const firstCompany = await db
-      .select({ id: companies.id })
-      .from(companies)
-      .limit(1);
-
-    if (firstCompany.length > 0) {
-      return `/dashboard/${firstCompany[0].id}`;
-    } else {
-      return "/admin";
-    }
-  } else {
-    // Regular user - redirect to first company they have access to
-    const userCompany = await db
-      .select({ companyId: companyUsers.companyId })
-      .from(companyUsers)
-      .where(
-        and(eq(companyUsers.userId, user.id), eq(companyUsers.isActive, true))
-      )
-      .limit(1);
-
-    if (userCompany.length > 0) {
-      return `/dashboard/${userCompany[0].companyId}`;
-    } else {
-      return "/account?message=no-company-access";
-    }
-  }
-}
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -55,9 +17,9 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let dashboardUrl = "/login";
+  // If user is logged in, redirect to dashboard (let dashboard handle routing)
   if (user) {
-    dashboardUrl = await getDashboardUrl(user);
+    redirect("/dashboard");
   }
 
   return (
@@ -69,33 +31,24 @@ export default async function HomePage() {
             <div className="flex items-center space-x-2">
               <Building2 className="w-8 h-8 text-blue-600" />
               <span className="text-xl font-bold text-gray-900">
-                Hey, It's My Contractor
+                Hey, It&apos;s My Contractor
               </span>
             </div>
             <div className="flex items-center space-x-4">
-              {user ? (
+              <div className="space-x-2">
                 <Link
-                  href={dashboardUrl}
+                  href="/login"
+                  className="text-gray-600 hover:text-gray-900 px-4 py-2 font-medium"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
-                  Go to Dashboard
+                  Get Started
                 </Link>
-              ) : (
-                <div className="space-x-2">
-                  <Link
-                    href="/login"
-                    className="text-gray-600 hover:text-gray-900 px-4 py-2 font-medium"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                  >
-                    Get Started
-                  </Link>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
@@ -116,7 +69,7 @@ export default async function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-            {user ? (
+            {/* {user ? (
               <Link
                 href={dashboardUrl}
                 className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg shadow-lg hover:shadow-xl"
@@ -138,7 +91,7 @@ export default async function HomePage() {
                   Sign In
                 </Link>
               </>
-            )}
+            )} */}
           </div>
         </div>
 
@@ -232,7 +185,7 @@ export default async function HomePage() {
             Join thousands of construction teams who trust our platform to
             manage their projects efficiently and deliver exceptional results.
           </p>
-          {user ? (
+          {/* {user ? (
             <Link
               href={dashboardUrl}
               className="bg-white text-blue-600 px-8 py-4 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-lg shadow-lg inline-flex items-center"
@@ -248,7 +201,7 @@ export default async function HomePage() {
               <Zap className="w-5 h-5 mr-2" />
               Start Your Free Trial
             </Link>
-          )}
+          )} */}
         </div>
       </main>
 
@@ -258,10 +211,12 @@ export default async function HomePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Building2 className="w-6 h-6" />
-              <span className="font-semibold">Hey, It's My Contractor</span>
+              <span className="font-semibold">
+                Hey, It&apos;s My Contractor
+              </span>
             </div>
             <p className="text-sm">
-              © 2025 Hey, It's My Contractor. All rights reserved.
+              © 2025 Hey, It&apos;s My Contractor. All rights reserved.
             </p>
           </div>
         </div>
