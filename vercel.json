@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "buildCommand": "yarn install --frozen-lockfile && yarn workspace @contractor-platform/web build",
+  "installCommand": "yarn install --frozen-lockfile",
+  "framework": null,
+  "outputDirectory": "packages/web/.next"
+}
