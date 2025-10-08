@@ -42,27 +42,33 @@ export default function DocumentsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
 
-  // Fetch documents from API
-  useEffect(() => {
-    async function fetchDocuments() {
-      if (!projectId) return;
+  // Function to fetch documents from API
+  const fetchDocuments = async () => {
+    if (!projectId) return;
 
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/project/${projectId}/documents`);
-        if (response.ok) {
-          const data = await response.json();
-          setDocuments(data);
-        } else {
-          console.error("Failed to fetch documents");
-        }
-      } catch (error) {
-        console.error("Error fetching documents:", error);
-      } finally {
-        setLoading(false);
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/project/${projectId}/documents`);
+      if (response.ok) {
+        const data = await response.json();
+        // Sort documents by creation date (newest first)
+        const sortedData = data.sort(
+          (a: any, b: any) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setDocuments(sortedData);
+      } else {
+        console.error("Failed to fetch documents");
       }
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+    } finally {
+      setLoading(false);
     }
+  };
 
+  // Fetch documents on component mount
+  useEffect(() => {
     fetchDocuments();
   }, [projectId]);
 
@@ -96,8 +102,8 @@ export default function DocumentsPage() {
 
       const savedDocument = await response.json();
 
-      // Add the new document to the local state
-      setDocuments((prev) => [savedDocument, ...prev]);
+      // Refetch documents to ensure we have complete data with all fields
+      await fetchDocuments();
     } catch (error) {
       console.error("Error saving document:", error);
       // You might want to show an error message to the user
@@ -121,7 +127,6 @@ export default function DocumentsPage() {
     { value: "permit", label: "Permits" },
     { value: "contract", label: "Contracts" },
     { value: "invoice", label: "Invoices" },
-    { value: "photo", label: "Photos" },
     { value: "other", label: "Other" },
   ];
 

@@ -95,7 +95,6 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
     { value: "permit", label: "Permits" },
     { value: "contract", label: "Contracts" },
     { value: "invoice", label: "Invoices" },
-    { value: "photo", label: "Photos" },
     { value: "other", label: "Other" },
   ];
 
