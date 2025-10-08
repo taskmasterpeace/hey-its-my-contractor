@@ -18,6 +18,11 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
 
   const isPDF = document.mime_type === "application/pdf";
   const isImage = document.mime_type?.startsWith("image/");
+  const isWordDoc =
+    document.mime_type?.includes("word") ||
+    document.mime_type?.includes("document") ||
+    document.mime_type?.includes("msword") ||
+    document.mime_type?.includes("officedocument");
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
@@ -47,7 +52,10 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
             <div className="p-2 bg-gray-100 rounded-lg">
               {isPDF && <FileText className="w-6 h-6 text-red-600" />}
               {isImage && <ImageIcon className="w-6 h-6 text-blue-600" />}
-              {!isPDF && !isImage && <File className="w-6 h-6 text-gray-600" />}
+              {isWordDoc && <FileText className="w-6 h-6 text-blue-800" />}
+              {!isPDF && !isImage && !isWordDoc && (
+                <File className="w-6 h-6 text-gray-600" />
+              )}
             </div>
             <div>
               <h3 className="font-semibold text-gray-900 mb-1">
@@ -102,7 +110,30 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
           </div>
         )}
 
-        {!isPDF && !isImage && (
+        {isWordDoc && (
+          <div className="h-full min-h-[600px] flex items-center justify-center">
+            <div className="text-center">
+              <FileText className="w-16 h-16 text-blue-800 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Word Document
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Word documents can be downloaded and opened in Microsoft Word or
+                similar applications.
+              </p>
+              <a
+                href={`/api/documents/${document.id}/preview`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-block"
+              >
+                Download & Open
+              </a>
+            </div>
+          </div>
+        )}
+
+        {!isPDF && !isImage && !isWordDoc && (
           <div className="h-full min-h-[600px] flex items-center justify-center">
             <div className="text-center">
               <File className="w-16 h-16 text-gray-300 mx-auto mb-4" />
