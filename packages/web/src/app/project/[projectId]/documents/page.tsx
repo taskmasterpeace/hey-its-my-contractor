@@ -36,6 +36,8 @@ export default function DocumentsPage() {
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("newest");
+  const [fileTypeFilter, setFileTypeFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isUploading, setIsUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -51,12 +53,7 @@ export default function DocumentsPage() {
       const response = await fetch(`/api/project/${projectId}/documents`);
       if (response.ok) {
         const data = await response.json();
-        // Sort documents by creation date (newest first)
-        const sortedData = data.sort(
-          (a: any, b: any) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-        setDocuments(sortedData);
+        setDocuments(data);
       } else {
         console.error("Failed to fetch documents");
       }
@@ -71,6 +68,36 @@ export default function DocumentsPage() {
   useEffect(() => {
     fetchDocuments();
   }, [projectId]);
+
+  const sortDocuments = (docs: Document[]) => {
+    const sorted = [...docs];
+    switch (sortBy) {
+      case "newest":
+        return sorted.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      case "oldest":
+        return sorted.sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+      case "name-asc":
+        return sorted.sort((a, b) =>
+          a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+        );
+      case "name-desc":
+        return sorted.sort((a, b) =>
+          b.name.toLowerCase().localeCompare(a.name.toLowerCase())
+        );
+      case "size-large":
+        return sorted.sort((a, b) => (b.file_size || 0) - (a.file_size || 0));
+      case "size-small":
+        return sorted.sort((a, b) => (a.file_size || 0) - (b.file_size || 0));
+      default:
+        return sorted;
+    }
+  };
 
   const handleDocumentUpload = async (file: File, metadata: any) => {
     setIsUploading(true);
@@ -112,14 +139,40 @@ export default function DocumentsPage() {
     }
   };
 
-  const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch =
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterType === "all" || doc.type === filterType;
+  const filteredDocuments = sortDocuments(
+    documents.filter((doc) => {
+      const matchesSearch =
+        doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesTypeFilter = filterType === "all" || doc.type === filterType;
 
-    return matchesSearch && matchesFilter;
-  });
+      // File type filter
+      let matchesFileType = true;
+      if (fileTypeFilter !== "all") {
+        const mimeType = doc.mime_type || "";
+        switch (fileTypeFilter) {
+          case "pdf":
+            matchesFileType = mimeType === "application/pdf";
+            break;
+          case "image":
+            matchesFileType = mimeType.startsWith("image/");
+            break;
+          case "document":
+            matchesFileType =
+              mimeType.includes("word") ||
+              mimeType.includes("document") ||
+              mimeType.includes("text") ||
+              mimeType.includes("msword") ||
+              mimeType.includes("officedocument");
+            break;
+          default:
+            matchesFileType = true;
+        }
+      }
+
+      return matchesSearch && matchesTypeFilter && matchesFileType;
+    })
+  );
 
   const documentTypes = [
     { value: "all", label: "All Documents" },
@@ -128,6 +181,22 @@ export default function DocumentsPage() {
     { value: "contract", label: "Contracts" },
     { value: "invoice", label: "Invoices" },
     { value: "other", label: "Other" },
+  ];
+
+  const sortOptions = [
+    { value: "newest", label: "Newest First" },
+    { value: "oldest", label: "Oldest First" },
+    { value: "name-asc", label: "Name A-Z" },
+    { value: "name-desc", label: "Name Z-A" },
+    { value: "size-large", label: "Largest First" },
+    { value: "size-small", label: "Smallest First" },
+  ];
+
+  const fileTypeOptions = [
+    { value: "all", label: "All Files" },
+    { value: "pdf", label: "PDFs" },
+    { value: "image", label: "Images" },
+    { value: "document", label: "Documents" },
   ];
 
   return (
@@ -167,7 +236,7 @@ export default function DocumentsPage() {
               />
             </div>
 
-            {/* Filter */}
+            {/* Document Type Filter */}
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <select
@@ -178,6 +247,36 @@ export default function DocumentsPage() {
                 {documentTypes.map((type) => (
                   <option key={type.value} value={type.value}>
                     {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sort By */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* File Type Filter */}
+            <div className="relative">
+              <select
+                value={fileTypeFilter}
+                onChange={(e) => setFileTypeFilter(e.target.value)}
+                className="pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                {fileTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
