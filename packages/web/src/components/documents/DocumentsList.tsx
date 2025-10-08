@@ -44,9 +44,12 @@ export function DocumentsList({
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "Unknown date";
       return date.toLocaleDateString("en-US", {
+        year: "numeric",
         month: "short",
         day: "numeric",
-        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
       });
     } catch {
       return "Unknown date";
