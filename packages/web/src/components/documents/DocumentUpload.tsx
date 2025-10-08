@@ -1,7 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useRef } from 'react';
-import { Upload, Camera, FileText, X } from 'lucide-react';
+import { useState, useRef } from "react";
+import { useParams } from "next/navigation";
+import { Upload, Camera, FileText, X } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 interface DocumentUploadProps {
   onUpload: (file: File, metadata: any) => void;
@@ -11,12 +13,14 @@ interface DocumentUploadProps {
 export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
   const [showModal, setShowModal] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [metadata, setMetadata] = useState({
-    project_id: '',
-    type: 'other' as const,
-    description: '',
+    type: "other" as const,
+    description: "",
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const params = useParams();
+  const projectId = params.projectId as string;
 
   const handleFileSelect = (files: FileList | null) => {
     if (files) {
@@ -25,32 +29,74 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
     }
   };
 
-  const handleUpload = () => {
-    selectedFiles.forEach(file => {
-      onUpload(file, metadata);
-    });
-    setShowModal(false);
-    setSelectedFiles([]);
-    setMetadata({
-      project_id: '',
-      type: 'other',
-      description: '',
-    });
+  const handleUpload = async () => {
+    if (!projectId || selectedFiles.length === 0) return;
+
+    setUploading(true);
+    const supabase = createClient();
+
+    try {
+      for (const file of selectedFiles) {
+        // Generate unique filename with timestamp and sanitize filename
+        const timestamp = Date.now();
+        const fileExtension = file.name.split(".").pop();
+
+        // Sanitize filename: remove special characters, replace spaces with underscores
+        const sanitizedName = file.name
+          .replace(/[^a-zA-Z0-9.-]/g, "_") // Replace special chars with underscore
+          .replace(/_{2,}/g, "_") // Replace multiple underscores with single
+          .replace(/^_|_$/g, ""); // Remove leading/trailing underscores
+
+        const fileName = `${timestamp}-${sanitizedName}`;
+        const storagePath = `projects/${projectId}/documents/${metadata.type}/${fileName}`;
+
+        // Upload to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("documents")
+          .upload(storagePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          throw uploadError;
+        }
+
+        // Call the onUpload callback with file and metadata including storage info
+        const uploadMetadata = {
+          ...metadata,
+          project_id: projectId,
+          storage_key: storagePath,
+          file_size: file.size,
+          mime_type: file.type,
+        };
+
+        onUpload(file, uploadMetadata);
+      }
+
+      // Reset form
+      setShowModal(false);
+      setSelectedFiles([]);
+      setMetadata({
+        type: "other",
+        description: "",
+      });
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      // You might want to show an error message to the user here
+    } finally {
+      setUploading(false);
+    }
   };
 
   const documentTypes = [
-    { value: 'plan', label: 'Plan/Drawing' },
-    { value: 'permit', label: 'Permit' },
-    { value: 'contract', label: 'Contract' },
-    { value: 'invoice', label: 'Invoice' },
-    { value: 'photo', label: 'Photo' },
-    { value: 'other', label: 'Other' },
-  ];
-
-  const projects = [
-    { id: 'proj-1', name: 'Johnson Kitchen Remodel' },
-    { id: 'proj-2', name: 'Wilson Bathroom' },
-    { id: 'proj-3', name: 'Davis Deck Construction' },
+    { value: "plan", label: "Plans" },
+    { value: "permit", label: "Permits" },
+    { value: "contract", label: "Contracts" },
+    { value: "invoice", label: "Invoices" },
+    { value: "photo", label: "Photos" },
+    { value: "other", label: "Other" },
   ];
 
   return (
@@ -60,8 +106,8 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
         disabled={isUploading}
         className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
           isUploading
-            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            : 'bg-blue-600 text-white hover:bg-blue-700'
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+            : "bg-blue-600 text-white hover:bg-blue-700"
         }`}
       >
         {isUploading ? (
@@ -91,7 +137,9 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Upload Documents</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Upload Documents
+              </h3>
               <button
                 onClick={() => setShowModal(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -108,14 +156,19 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
                 </label>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
                   {selectedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                    >
                       <div className="flex items-center">
-                        {file.type.startsWith('image/') ? (
+                        {file.type.startsWith("image/") ? (
                           <Camera className="w-4 h-4 text-green-600 mr-2" />
                         ) : (
                           <FileText className="w-4 h-4 text-blue-600 mr-2" />
                         )}
-                        <span className="text-sm text-gray-900">{file.name}</span>
+                        <span className="text-sm text-gray-900">
+                          {file.name}
+                        </span>
                       </div>
                       <span className="text-xs text-gray-500">
                         {Math.round(file.size / 1024)} KB
@@ -125,25 +178,6 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
                 </div>
               </div>
 
-              {/* Project Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Project
-                </label>
-                <select
-                  value={metadata.project_id}
-                  onChange={(e) => setMetadata(prev => ({ ...prev, project_id: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select project</option>
-                  {projects.map(project => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {/* Document Type */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -151,10 +185,15 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
                 </label>
                 <select
                   value={metadata.type}
-                  onChange={(e) => setMetadata(prev => ({ ...prev, type: e.target.value as any }))}
+                  onChange={(e) =>
+                    setMetadata((prev) => ({
+                      ...prev,
+                      type: e.target.value as any,
+                    }))
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  {documentTypes.map(type => (
+                  {documentTypes.map((type) => (
                     <option key={type.value} value={type.value}>
                       {type.label}
                     </option>
@@ -169,7 +208,12 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
                 </label>
                 <textarea
                   value={metadata.description}
-                  onChange={(e) => setMetadata(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) =>
+                    setMetadata((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Optional description..."
@@ -186,9 +230,24 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
               </button>
               <button
                 onClick={handleUpload}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                disabled={uploading || selectedFiles.length === 0}
+                className={`px-4 py-2 rounded-lg font-medium ${
+                  uploading || selectedFiles.length === 0
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
               >
-                Upload {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''}
+                {uploading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2 inline-block"></div>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    Upload {selectedFiles.length} file
+                    {selectedFiles.length > 1 ? "s" : ""}
+                  </>
+                )}
               </button>
             </div>
           </div>
