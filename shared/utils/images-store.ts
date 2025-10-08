@@ -66,8 +66,9 @@ interface ImagesState {
   ) => Promise<void>;
   setEnabledRetailers: (retailers: Partial<RetailerSettings>) => void;
   setCustomRetailers: (retailers: string[]) => void;
-  addCustomRetailer: (retailer: string) => void;
-  removeCustomRetailer: (retailer: string) => void;
+  addCustomRetailer: (retailer: string) => Promise<void>;
+  removeCustomRetailer: (retailer: string) => Promise<void>;
+  fetchCustomRetailers: (projectId: string) => Promise<void>;
   setSearchEntireWeb: (enabled: boolean) => void;
   setSelectedModel: (model: AIModel) => void;
   setManualModelOverride: (model: AIModel | null) => void;
@@ -229,14 +230,71 @@ export const useImagesStore = create<ImagesState>()((set, get) => ({
       enabledRetailers: { ...state.enabledRetailers, ...retailers },
     })),
   setCustomRetailers: (retailers) => set({ customRetailers: retailers }),
-  addCustomRetailer: (retailer) =>
-    set((state) => ({
-      customRetailers: [...state.customRetailers, retailer],
-    })),
-  removeCustomRetailer: (retailer) =>
-    set((state) => ({
-      customRetailers: state.customRetailers.filter((r) => r !== retailer),
-    })),
+  addCustomRetailer: async (retailer) => {
+    const { currentProjectId } = get();
+    if (!currentProjectId) return;
+
+    try {
+      const response = await fetch(
+        `/api/project/${currentProjectId}/search-sites`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            siteDomain: retailer,
+            displayName: retailer,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        set((state) => ({
+          customRetailers: [...state.customRetailers, retailer],
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to add custom retailer:", error);
+    }
+  },
+  removeCustomRetailer: async (retailer) => {
+    const { currentProjectId } = get();
+    if (!currentProjectId) return;
+
+    try {
+      const response = await fetch(
+        `/api/project/${currentProjectId}/search-sites?siteDomain=${encodeURIComponent(
+          retailer
+        )}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.ok) {
+        set((state) => ({
+          customRetailers: state.customRetailers.filter((r) => r !== retailer),
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to remove custom retailer:", error);
+    }
+  },
+  fetchCustomRetailers: async (projectId) => {
+    try {
+      const response = await fetch(`/api/project/${projectId}/search-sites`);
+      if (response.ok) {
+        const data = await response.json();
+        const retailers =
+          data.searchSites?.map((site: any) => site.siteDomain) || [];
+        set({ customRetailers: retailers });
+      }
+    } catch (error) {
+      console.error("Failed to fetch custom retailers:", error);
+      set({ customRetailers: [] });
+    }
+  },
   setSearchEntireWeb: (enabled) => set({ searchEntireWeb: enabled }),
   setSelectedModel: (model) => set({ selectedModel: model }),
   setManualModelOverride: (model) => set({ manualModelOverride: model }),

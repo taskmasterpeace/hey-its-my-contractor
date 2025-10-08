@@ -29,6 +29,13 @@
       "when": 1759502549455,
       "tag": "0003_silly_bulldozer",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1759945954590,
+      "tag": "0004_fixed_blue_blade",
+      "breakpoints": true
     }
   ]
 }
