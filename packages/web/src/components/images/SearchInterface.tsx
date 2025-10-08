@@ -141,6 +141,19 @@ export function SearchInterface() {
                   🏪 Menards
                 </span>
               </label>
+              <label className="flex items-center space-x-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={enabledRetailers.pinterest}
+                  onChange={(e) =>
+                    setEnabledRetailers({ pinterest: e.target.checked })
+                  }
+                  className="rounded-md border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                />
+                <span className="text-sm group-hover:text-gray-900 transition-colors">
+                  📌 Pinterest
+                </span>
+              </label>
             </div>
           </div>
         </div>

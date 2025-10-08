@@ -10,6 +10,7 @@ import {
   X,
   History,
   Filter,
+  Image,
 } from "lucide-react";
 
 export interface GoogleImageResult {
@@ -76,6 +77,7 @@ const DEFAULT_SITES = [
   "menards.com",
   "homedepotcanada.ca",
   "rona.ca",
+  "pinterest.com",
 ];
 
 const SEARCH_SYNTAX_HELP: SearchSyntaxHelp[] = [
@@ -317,6 +319,14 @@ export function ImageSearchInterface({
             <div className="flex items-center">
               <Store className="w-3 h-3 mr-1 text-blue-500" />
               <span>Lowe's</span>
+            </div>
+            <div className="flex items-center">
+              <Store className="w-3 h-3 mr-1 text-green-500" />
+              <span>Menards</span>
+            </div>
+            <div className="flex items-center">
+              <Image className="w-3 h-3 mr-1 text-red-500" />
+              <span>Pinterest</span>
             </div>
             {searchConfig.customSites.length > 0 && (
               <span className="text-green-600">

@@ -99,9 +99,21 @@ export function SearchResultsGrid() {
       homedepot: "🏠",
       lowes: "🔨",
       menards: "🏪",
+      pinterest: "📌",
       custom: "🌐",
     };
     return logos[retailer as keyof typeof logos] || "🌐";
+  };
+
+  const getRetailerName = (retailer: string, source?: string) => {
+    const names = {
+      homedepot: "Home Depot",
+      lowes: "Lowe's",
+      menards: "Menards",
+      pinterest: "Pinterest",
+      custom: source || "Custom Site",
+    };
+    return names[retailer as keyof typeof names] || source || retailer;
   };
 
   if (searchResults.length === 0) {
@@ -188,8 +200,8 @@ export function SearchResultsGrid() {
                   <span className="text-xl">
                     {getRetailerLogo(result.retailer)}
                   </span>
-                  <span className="text-sm font-medium text-gray-600 capitalize">
-                    {result.retailer}
+                  <span className="text-sm font-medium text-gray-600">
+                    {getRetailerName(result.retailer, result.source)}
                   </span>
                 </div>
                 {result.price && (

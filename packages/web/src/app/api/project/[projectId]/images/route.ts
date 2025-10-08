@@ -27,21 +27,12 @@ export async function GET(
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
 
-    console.log("🔍 Images API Debug:", {
-      projectId,
-      categoryId,
-      userId: user.id,
-      url: request.url,
-    });
-
     // Build query conditions - filter by project only (shared among all project team members)
     const conditions = [eq(imageLibrary.projectId, projectId)];
 
     if (categoryId && categoryId !== "all") {
       conditions.push(eq(imageLibrary.categoryId, categoryId));
-      console.log("🏷️ Filtering by categoryId:", categoryId);
     } else {
-      console.log("📋 Fetching all images (no category filter)");
     }
 
     // Fetch images with categories, filtered by project
@@ -108,16 +99,6 @@ export async function GET(
       };
     });
 
-    console.log("📦 Images API Response:", {
-      totalImages: imagesWithUrls.length,
-      imageIds: imagesWithUrls.map((img) => ({
-        id: img.id,
-        title: img.title,
-        categoryId: img.category?.id,
-      })),
-      categoryFilter: categoryId || "none",
-    });
-
     return NextResponse.json({
       success: true,
       images: imagesWithUrls,
@@ -129,7 +110,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Fetch project images error:", error);
     return NextResponse.json(
       { error: "Failed to fetch project images" },
       { status: 500 }
@@ -243,7 +223,6 @@ export async function POST(
       });
 
     if (uploadError) {
-      console.error("Upload error:", uploadError);
       throw new Error("Failed to upload image");
     }
 
@@ -267,7 +246,6 @@ export async function POST(
           .returning();
         finalCategoryId = newCategory.id;
       } catch (error) {
-        console.error("Failed to create category:", error);
         // Continue without category if creation fails
       }
     }

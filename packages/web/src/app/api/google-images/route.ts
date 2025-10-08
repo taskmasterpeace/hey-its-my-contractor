@@ -38,7 +38,10 @@ function sanitizeInput(input: string): string {
 
 export async function GET(request: NextRequest) {
   // Rate limiting
-  const ip = request.ip || "unknown";
+  const ip =
+    request.headers.get("x-forwarded-for") ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
   if (isRateLimited(ip)) {
     return NextResponse.json(
       { error: "Rate limit exceeded. Please try again later." },
@@ -97,6 +100,7 @@ export async function GET(request: NextRequest) {
         homedepot: "site:homedepot.com",
         lowes: "site:lowes.com",
         menards: "site:menards.com",
+        pinterest: "site:pinterest.com",
       };
 
       const siteFilters = [
@@ -158,6 +162,9 @@ export async function GET(request: NextRequest) {
         } else if (hostname.includes("menards")) {
           retailer = "menards";
           retailerName = "Menards";
+        } else if (hostname.includes("pinterest")) {
+          retailer = "pinterest";
+          retailerName = "Pinterest";
         }
 
         return {
@@ -262,6 +269,26 @@ function getMockSearchResults(
         height: 400,
         format: "jpeg",
         size: 38000,
+      },
+    },
+    {
+      id: "mock-3",
+      title: `${query} Design Inspiration - Pinterest`,
+      url:
+        "https://via.placeholder.com/400x600/BD081C/FFFFFF?text=Pinterest+" +
+        encodeURIComponent(query),
+      thumbnail: "https://via.placeholder.com/200x300/BD081C/FFFFFF?text=PIN",
+      source: "Pinterest",
+      retailer: "pinterest",
+      originalUrl:
+        "https://www.pinterest.com/pin/design-inspiration-" +
+        query.replace(/\s+/g, "-"),
+      description: `Design inspiration for ${query} from Pinterest`,
+      metadata: {
+        width: 400,
+        height: 600,
+        format: "jpeg",
+        size: 52000,
       },
     },
   ];

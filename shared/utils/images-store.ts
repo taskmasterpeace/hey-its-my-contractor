@@ -111,6 +111,7 @@ export const useImagesStore = create<ImagesState>()((set, get) => ({
     homedepot: true,
     lowes: true,
     menards: false,
+    pinterest: true,
   },
   customRetailers: [],
   searchEntireWeb: false,
