@@ -84,12 +84,10 @@ export async function GET(request: NextRequest) {
       process.env.GOOGLE_SEARCH_API_KEY || process.env.GOOGLE_API_KEY;
 
     if (!GOOGLE_API_KEY || !GOOGLE_CSE_ID) {
-      console.warn("Missing Google Search API configuration. Using mock data.");
-      const mockResponse = getMockSearchResults(query, retailers, customSites);
-      return NextResponse.json({
-        ...mockResponse,
-        note: "Configure GOOGLE_SEARCH_API_KEY and GOOGLE_CSE_ID environment variables for real search results",
-      });
+      return NextResponse.json(
+        { error: "Google Search API configuration missing" },
+        { status: 503 }
+      );
     }
 
     let searchQuery = query;
@@ -199,113 +197,18 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Google Custom Search error:", error);
 
-    // Return proper error response in production, mock data in development
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json(
-        {
-          error: "Search service temporarily unavailable",
-          query,
-          results: [],
-          total: 0,
-          retailers,
-          customSites,
-          timestamp: new Date().toISOString(),
-          source: "error-fallback",
-        },
-        { status: 503 }
-      );
-    }
-
-    // Fallback to mock data in development
-    const mockResponse = getMockSearchResults(query, retailers, customSites);
-    return NextResponse.json({
-      ...mockResponse,
-      error: "Search service error - showing mock data",
-    });
+    return NextResponse.json(
+      {
+        error: "Search service temporarily unavailable",
+        query,
+        results: [],
+        total: 0,
+        retailers,
+        customSites,
+        timestamp: new Date().toISOString(),
+        source: "error-fallback",
+      },
+      { status: 503 }
+    );
   }
-}
-
-// Mock data for development/fallback
-function getMockSearchResults(
-  query: string,
-  retailers: string[],
-  customSites: string[]
-) {
-  const mockResults = [
-    {
-      id: "mock-1",
-      title: `${query} - Home Depot Professional`,
-      url:
-        "https://via.placeholder.com/600x400/FF6900/FFFFFF?text=Home+Depot+" +
-        encodeURIComponent(query),
-      thumbnail: "https://via.placeholder.com/300x200/FF6900/FFFFFF?text=HD",
-      source: "Home Depot",
-      retailer: "homedepot",
-      originalUrl:
-        "https://www.homedepot.com/p/professional-" +
-        query.replace(/\s+/g, "-"),
-      description: `Professional grade ${query} available at Home Depot`,
-      metadata: {
-        width: 600,
-        height: 400,
-        format: "jpeg",
-        size: 45000,
-      },
-    },
-    {
-      id: "mock-2",
-      title: `${query} - Lowe's Pro Series`,
-      url:
-        "https://via.placeholder.com/500x400/004990/FFFFFF?text=Lowes+" +
-        encodeURIComponent(query),
-      thumbnail: "https://via.placeholder.com/250x200/004990/FFFFFF?text=LW",
-      source: "Lowe's",
-      retailer: "lowes",
-      originalUrl:
-        "https://www.lowes.com/pd/pro-series-" + query.replace(/\s+/g, "-"),
-      description: `Contractor series ${query} from Lowe's Professional`,
-      metadata: {
-        width: 500,
-        height: 400,
-        format: "jpeg",
-        size: 38000,
-      },
-    },
-    {
-      id: "mock-3",
-      title: `${query} Design Inspiration - Pinterest`,
-      url:
-        "https://via.placeholder.com/400x600/BD081C/FFFFFF?text=Pinterest+" +
-        encodeURIComponent(query),
-      thumbnail: "https://via.placeholder.com/200x300/BD081C/FFFFFF?text=PIN",
-      source: "Pinterest",
-      retailer: "pinterest",
-      originalUrl:
-        "https://www.pinterest.com/pin/design-inspiration-" +
-        query.replace(/\s+/g, "-"),
-      description: `Design inspiration for ${query} from Pinterest`,
-      metadata: {
-        width: 400,
-        height: 600,
-        format: "jpeg",
-        size: 52000,
-      },
-    },
-  ];
-
-  // Filter by enabled retailers
-  const filteredResults = mockResults.filter((result) =>
-    retailers.includes(result.retailer)
-  );
-
-  return NextResponse.json({
-    query: query,
-    results: filteredResults,
-    total: filteredResults.length,
-    retailers: retailers,
-    customSites: customSites,
-    timestamp: new Date().toISOString(),
-    source: "mock-data",
-    note: "Set GOOGLE_SEARCH_API_KEY environment variable for real Google Custom Search results",
-  });
 }
