@@ -41,6 +41,8 @@ export default function DocumentsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isUploading, setIsUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const params = useParams();
   const projectId = params.projectId as string;
 
@@ -173,6 +175,24 @@ export default function DocumentsPage() {
       return matchesSearch && matchesTypeFilter && matchesFileType;
     })
   );
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedDocuments = filteredDocuments.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  const resetPagination = () => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  };
+
+  // Use effect to reset pagination when filtered results change
+  useEffect(() => {
+    resetPagination();
+  }, [filteredDocuments.length, totalPages, currentPage]);
 
   const documentTypes = [
     { value: "all", label: "All Documents" },
@@ -309,19 +329,30 @@ export default function DocumentsPage() {
         </div>
 
         {/* Stats */}
-        <div className="mt-4 flex items-center space-x-6 text-sm text-gray-600">
-          <span>{filteredDocuments.length} documents</span>
-          <span>
-            {Math.round(
-              filteredDocuments.reduce(
-                (acc, doc) => acc + (doc.file_size || 0),
-                0
-              ) /
-                1024 /
-                1024
-            )}
-            MB total
-          </span>
+        <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center space-x-6 text-sm text-gray-600">
+            <span>{filteredDocuments.length} documents</span>
+            <span>
+              {Math.round(
+                filteredDocuments.reduce(
+                  (acc, doc) => acc + (doc.file_size || 0),
+                  0
+                ) /
+                  1024 /
+                  1024
+              )}
+              MB total
+            </span>
+          </div>
+
+          {/* Pagination Info */}
+          {totalPages > 1 && (
+            <div className="text-sm text-gray-600">
+              Showing {startIndex + 1}-
+              {Math.min(endIndex, filteredDocuments.length)} of{" "}
+              {filteredDocuments.length}
+            </div>
+          )}
         </div>
       </div>
 
@@ -334,12 +365,59 @@ export default function DocumentsPage() {
               <p className="text-gray-600">Loading documents...</p>
             </div>
           ) : (
-            <DocumentsList
-              documents={filteredDocuments}
-              viewMode={viewMode}
-              onSelectDocument={setSelectedDocument}
-              selectedDocument={selectedDocument}
-            />
+            <>
+              <DocumentsList
+                documents={paginatedDocuments}
+                viewMode={viewMode}
+                onSelectDocument={setSelectedDocument}
+                selectedDocument={selectedDocument}
+              />
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="mt-6 flex items-center justify-center">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(1, prev - 1))
+                      }
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                        (page) => (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`px-3 py-2 text-sm font-medium rounded-md ${
+                              currentPage === page
+                                ? "bg-blue-600 text-white"
+                                : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
