@@ -7,6 +7,7 @@ import {
   File,
   Calendar,
   User,
+  MessageCircle,
 } from "lucide-react";
 
 interface DocumentsListProps {
@@ -100,17 +101,36 @@ export function DocumentsList({
               {document.description || "No description"}
             </p>
 
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>
-                {formatFileSize(
-                  (document as any).fileSize || (document as any).file_size
-                )}
-              </span>
-              <span>
-                {formatDate(
-                  (document as any).createdAt || (document as any).created_at
-                )}
-              </span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>
+                  {formatFileSize(
+                    (document as any).fileSize || (document as any).file_size
+                  )}
+                </span>
+                <span>
+                  {formatDate(
+                    (document as any).createdAt || (document as any).created_at
+                  )}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center text-xs text-blue-600 font-medium">
+                  <MessageCircle className="w-4 h-4 mr-1" />
+                  <span>{(document as any).comment_count || 0} comments</span>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectDocument(document);
+                  }}
+                  className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center font-medium"
+                >
+                  <MessageCircle className="w-3 h-3 mr-1" />
+                  Comment
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -143,23 +163,40 @@ export function DocumentsList({
                 <p className="text-sm text-gray-600 truncate">
                   {document.description || "No description"}
                 </p>
-                <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
-                  <span className="flex items-center capitalize">
-                    <User className="w-3 h-3 mr-1" />
-                    {document.type}
-                  </span>
-                  <span className="flex items-center">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {formatDate(
-                      (document as any).createdAt ||
-                        (document as any).created_at
-                    )}
-                  </span>
-                  <span>
-                    {formatFileSize(
-                      (document as any).fileSize || (document as any).file_size
-                    )}
-                  </span>
+                <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center space-x-4 text-xs text-gray-500">
+                    <span className="flex items-center capitalize">
+                      <User className="w-3 h-3 mr-1" />
+                      {document.type}
+                    </span>
+                    <span className="flex items-center">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      {formatDate(
+                        (document as any).createdAt ||
+                          (document as any).created_at
+                      )}
+                    </span>
+                    <span>
+                      {formatFileSize(
+                        (document as any).fileSize ||
+                          (document as any).file_size
+                      )}
+                    </span>
+                    <span className="flex items-center text-blue-600 font-medium">
+                      <MessageCircle className="w-3 h-3 mr-1" />
+                      {(document as any).comment_count || 0} comments
+                    </span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectDocument(document);
+                    }}
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center font-medium"
+                  >
+                    <MessageCircle className="w-3 h-3 mr-1" />
+                    Comment
+                  </button>
                 </div>
               </div>
             </div>

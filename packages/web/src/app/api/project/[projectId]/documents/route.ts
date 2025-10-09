@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { db } from "@/db";
-import { documents } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { documents, documentComments } from "@/db/schema";
+import { eq, count } from "drizzle-orm";
 
 export async function POST(
   request: NextRequest,
@@ -78,7 +78,7 @@ export async function GET(
 
     const { projectId } = await params;
 
-    // Get documents for the project
+    // Get documents for the project with comment counts
     const projectDocuments = await db
       .select({
         id: documents.id,
@@ -96,9 +96,12 @@ export async function GET(
         created_by: documents.createdBy,
         created_at: documents.createdAt,
         updated_at: documents.updatedAt,
+        comment_count: count(documentComments.id),
       })
       .from(documents)
+      .leftJoin(documentComments, eq(documents.id, documentComments.documentId))
       .where(eq(documents.projectId, projectId))
+      .groupBy(documents.id)
       .orderBy(documents.createdAt);
 
     return NextResponse.json(projectDocuments);

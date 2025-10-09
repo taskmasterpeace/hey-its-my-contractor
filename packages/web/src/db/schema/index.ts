@@ -4,6 +4,7 @@ export * from "./projects";
 export * from "./invitations";
 export * from "./field-logs";
 export * from "./documents";
+export * from "./document-comments";
 export * from "./meetings";
 export * from "./tasks";
 export * from "./change-orders";

@@ -1,20 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Document as DocType,
   DocumentAnnotation,
 } from "@contractor-platform/types";
-import { FileText, Image as ImageIcon, File, ExternalLink } from "lucide-react";
+import {
+  FileText,
+  Image as ImageIcon,
+  File,
+  ExternalLink,
+  MessageCircle,
+  Send,
+} from "lucide-react";
 
 interface DocumentViewerProps {
   document: DocType;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  user: {
+    id: string;
+    full_name: string;
+    email: string;
+    avatar_url?: string;
+  };
 }
 
 export function DocumentViewer({ document }: DocumentViewerProps) {
   const [annotations, setAnnotations] = useState<DocumentAnnotation[]>(
     document.annotations || []
   );
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [isLoadingComments, setIsLoadingComments] = useState(true);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
   const isPDF = document.mime_type === "application/pdf";
   const isImage = document.mime_type?.startsWith("image/");
@@ -42,6 +66,60 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
       hour12: true,
     });
   };
+
+  // Fetch comments for the document
+  const fetchComments = async () => {
+    try {
+      setIsLoadingComments(true);
+      const response = await fetch(`/api/documents/${document.id}/comments`);
+      if (response.ok) {
+        const data = await response.json();
+        setComments(data);
+      } else {
+        console.error("Failed to fetch comments");
+      }
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+    } finally {
+      setIsLoadingComments(false);
+    }
+  };
+
+  // Submit a new comment
+  const handleSubmitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || isSubmittingComment) return;
+
+    try {
+      setIsSubmittingComment(true);
+      const response = await fetch(`/api/documents/${document.id}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: newComment.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        const newCommentData = await response.json();
+        setComments((prev) => [newCommentData, ...prev]);
+        setNewComment("");
+      } else {
+        console.error("Failed to submit comment");
+      }
+    } catch (error) {
+      console.error("Error submitting comment:", error);
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  // Load comments when component mounts
+  useEffect(() => {
+    fetchComments();
+  }, [document.id]);
 
   return (
     <div className="bg-white rounded-lg shadow-sm border h-full flex flex-col">
@@ -182,6 +260,83 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
           </div>
         </div>
       )}
+
+      {/* Comments Section */}
+      <div className="border-t p-4">
+        <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+          <MessageCircle className="w-4 h-4 mr-2" />
+          Comments ({comments.length})
+        </h4>
+
+        {/* Add Comment Form */}
+        <form onSubmit={handleSubmitComment} className="mb-4">
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Add a comment..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              disabled={isSubmittingComment}
+            />
+            <button
+              type="submit"
+              disabled={!newComment.trim() || isSubmittingComment}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        </form>
+
+        {/* Comments List */}
+        <div className="space-y-3 max-h-64 overflow-y-auto">
+          {isLoadingComments ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-sm text-gray-500 mt-2">Loading comments...</p>
+            </div>
+          ) : comments.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">
+              No comments yet. Be the first to comment!
+            </p>
+          ) : (
+            comments.map((comment) => (
+              <div key={comment.id} className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  {comment.user.avatar_url ? (
+                    <img
+                      src={comment.user.avatar_url}
+                      alt={comment.user.full_name}
+                      className="w-8 h-8 rounded-full"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-gray-600">
+                        {comment.user.full_name?.charAt(0) ||
+                          comment.user.email.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center space-x-2">
+                    <p className="text-sm font-medium text-gray-900">
+                      {comment.user.full_name || comment.user.email}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {formatDate(comment.created_at)}
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-700 mt-1">
+                    {comment.content}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
