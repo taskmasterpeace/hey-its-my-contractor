@@ -15,6 +15,7 @@ interface DocumentsListProps {
   viewMode: "grid" | "list";
   onSelectDocument: (document: Document) => void;
   selectedDocument?: Document | null;
+  onCommentClick?: (document: Document) => void;
 }
 
 export function DocumentsList({
@@ -22,6 +23,7 @@ export function DocumentsList({
   viewMode,
   onSelectDocument,
   selectedDocument,
+  onCommentClick,
 }: DocumentsListProps) {
   const getFileIcon = (mimeType: string) => {
     if (mimeType === "application/pdf")
@@ -123,7 +125,11 @@ export function DocumentsList({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onSelectDocument(document);
+                    if (onCommentClick) {
+                      onCommentClick(document);
+                    } else {
+                      onSelectDocument(document);
+                    }
                   }}
                   className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center font-medium"
                 >
@@ -190,7 +196,11 @@ export function DocumentsList({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onSelectDocument(document);
+                      if (onCommentClick) {
+                        onCommentClick(document);
+                      } else {
+                        onSelectDocument(document);
+                      }
                     }}
                     className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center font-medium"
                   >

@@ -42,6 +42,7 @@ export default function DocumentsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [focusComments, setFocusComments] = useState(false);
   const itemsPerPage = 10;
   const params = useParams();
   const projectId = params.projectId as string;
@@ -139,6 +140,14 @@ export default function DocumentsPage() {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  // Handler for when comment button is clicked specifically
+  const handleCommentClick = (document: Document) => {
+    setSelectedDocument(document);
+    setFocusComments(true);
+    // Reset focus after DocumentViewer has had time to mount and scroll
+    setTimeout(() => setFocusComments(false), 1200);
   };
 
   const filteredDocuments = sortDocuments(
@@ -371,6 +380,7 @@ export default function DocumentsPage() {
                 viewMode={viewMode}
                 onSelectDocument={setSelectedDocument}
                 selectedDocument={selectedDocument}
+                onCommentClick={handleCommentClick}
               />
 
               {/* Pagination Controls */}
@@ -424,7 +434,10 @@ export default function DocumentsPage() {
         {/* Document Viewer */}
         <div className="lg:col-span-1">
           {selectedDocument ? (
-            <DocumentViewer document={selectedDocument} />
+            <DocumentViewer
+              document={selectedDocument}
+              focusComments={focusComments}
+            />
           ) : (
             <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
               <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />

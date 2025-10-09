@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Document as DocType,
   DocumentAnnotation,
@@ -16,6 +16,7 @@ import {
 
 interface DocumentViewerProps {
   document: DocType;
+  focusComments?: boolean;
 }
 
 interface Comment {
@@ -31,7 +32,10 @@ interface Comment {
   };
 }
 
-export function DocumentViewer({ document }: DocumentViewerProps) {
+export function DocumentViewer({
+  document,
+  focusComments,
+}: DocumentViewerProps) {
   const [annotations, setAnnotations] = useState<DocumentAnnotation[]>(
     document.annotations || []
   );
@@ -39,6 +43,7 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
   const [newComment, setNewComment] = useState("");
   const [isLoadingComments, setIsLoadingComments] = useState(true);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const commentsRef = useRef<HTMLDivElement>(null);
 
   const isPDF = document.mime_type === "application/pdf";
   const isImage = document.mime_type?.startsWith("image/");
@@ -120,6 +125,60 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
   useEffect(() => {
     fetchComments();
   }, [document.id]);
+
+  // Auto-scroll to comments section when focusComments is true
+  useEffect(() => {
+    if (focusComments && commentsRef.current) {
+      // Longer delay to ensure DocumentViewer is fully mounted and rendered
+      setTimeout(() => {
+        commentsRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+          inline: "nearest",
+        });
+        // Add a brief highlight animation
+        commentsRef.current?.classList.add(
+          "ring-2",
+          "ring-blue-500",
+          "ring-opacity-50"
+        );
+        setTimeout(() => {
+          commentsRef.current?.classList.remove(
+            "ring-2",
+            "ring-blue-500",
+            "ring-opacity-50"
+          );
+        }, 2000);
+      }, 500); // Increased delay to ensure component is fully rendered
+    }
+  }, [focusComments]);
+
+  // Also auto-scroll when document changes AND focusComments is true (for new document opening)
+  useEffect(() => {
+    if (focusComments && commentsRef.current) {
+      // Delay to ensure the new document's content has rendered
+      setTimeout(() => {
+        commentsRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+          inline: "nearest",
+        });
+        // Add a brief highlight animation
+        commentsRef.current?.classList.add(
+          "ring-2",
+          "ring-blue-500",
+          "ring-opacity-50"
+        );
+        setTimeout(() => {
+          commentsRef.current?.classList.remove(
+            "ring-2",
+            "ring-blue-500",
+            "ring-opacity-50"
+          );
+        }, 2000);
+      }, 800); // Even longer delay for new document mounting
+    }
+  }, [document.id, focusComments]);
 
   return (
     <div className="bg-white rounded-lg shadow-sm border h-full flex flex-col">
@@ -262,7 +321,10 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
       )}
 
       {/* Comments Section */}
-      <div className="border-t p-4">
+      <div
+        ref={commentsRef}
+        className="border-t p-4 transition-all duration-300"
+      >
         <h4 className="font-medium text-gray-900 mb-3 flex items-center">
           <MessageCircle className="w-4 h-4 mr-2" />
           Comments ({comments.length})
