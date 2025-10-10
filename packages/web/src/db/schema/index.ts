@@ -12,3 +12,4 @@ export * from "./chat";
 export * from "./notifications";
 export * from "./image-library";
 export * from "./search-sites";
+export * from "./saved-research";

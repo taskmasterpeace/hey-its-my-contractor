@@ -23,6 +23,72 @@ export function ResearchInterface({
     }
   };
 
+  const handleQuickSearch = (quickQuery: string, type: string) => {
+    setQuery(quickQuery);
+    onSearch(quickQuery, type);
+  };
+
+  const quickSearches = [
+    {
+      label: "General construction advice",
+      query: "General construction best practices and techniques",
+      icon: "🔍",
+      type: "general",
+      color: "text-blue-600",
+    },
+    {
+      label: "Local lumber suppliers",
+      query:
+        "Find reliable lumber suppliers in my area with competitive pricing",
+      icon: "🏪",
+      type: "supplier",
+      color: "text-green-600",
+    },
+    {
+      label: "Permit requirements",
+      query: "Building permit requirements for home additions",
+      icon: "📋",
+      type: "regulation",
+      color: "text-purple-600",
+    },
+    {
+      label: "Flooring materials",
+      query: "Best flooring materials for high-traffic areas comparison",
+      icon: "🧱",
+      type: "material",
+      color: "text-blue-600",
+    },
+    {
+      label: "Installation techniques",
+      query:
+        "Professional installation techniques for common construction tasks",
+      icon: "🔧",
+      type: "technique",
+      color: "text-green-600",
+    },
+    {
+      label: "Electrical codes",
+      query: "Current electrical code requirements for residential kitchens",
+      icon: "📋",
+      type: "regulation",
+      color: "text-purple-600",
+    },
+    {
+      label: "Tool recommendations",
+      query: "Essential tools for professional contractors and DIY projects",
+      icon: "🔧",
+      type: "technique",
+      color: "text-green-600",
+    },
+    {
+      label: "Cost estimation",
+      query: "Construction cost estimation methods and tools",
+      icon: "🔍",
+      type: "general",
+      color: "text-blue-600",
+    },
+  ];
+
   return (
     <div className="bg-white rounded-lg shadow-sm border">
       {/* Search Form */}
@@ -37,6 +103,22 @@ export function ResearchInterface({
               rows={4}
               className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-base placeholder-gray-500 shadow-sm"
             />
+          </div>
+
+          {/* Quick Search Suggestions */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {quickSearches.map((search, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => handleQuickSearch(search.query, search.type)}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-white border shadow-sm hover:shadow-md ${search.color}`}
+                disabled={isSearching}
+              >
+                <span>{search.icon}</span>
+                <span className="truncate">{search.label}</span>
+              </button>
+            ))}
           </div>
 
           <button

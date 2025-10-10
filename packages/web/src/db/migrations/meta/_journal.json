@@ -43,6 +43,13 @@
       "when": 1759971573845,
       "tag": "0005_loving_the_professor",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1760060783208,
+      "tag": "0006_flat_lightspeed",
+      "breakpoints": true
     }
   ]
 }

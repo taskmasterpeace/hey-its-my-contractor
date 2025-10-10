@@ -8,7 +8,10 @@ import { eq } from "drizzle-orm";
 
 // More lenient schema for research result
 const researchResultSchema = z.object({
-  answer: z.string().describe("Detailed research answer for contractors"),
+  answer: z
+    .string()
+    .min(1)
+    .describe("Detailed research answer for contractors"),
   sources: z
     .array(
       z.object({
@@ -18,12 +21,16 @@ const researchResultSchema = z.object({
         domain: z.string().describe("Domain name of the source"),
       })
     )
-    .length(3)
-    .describe("Exactly 3 relevant sources"),
+    .min(0)
+    .max(5)
+    .describe("Up to 5 relevant sources (can be empty if none available)"),
   related_queries: z
     .array(z.string())
-    .length(5)
-    .describe("Exactly 5 related questions contractors might ask"),
+    .min(0)
+    .max(8)
+    .describe(
+      "Up to 8 related questions contractors might ask (can be empty if none available)"
+    ),
 });
 
 export async function POST(
@@ -132,12 +139,13 @@ When budget is provided, focus on:
 - Highlight important costs or measurements with **bold text**
 - Make the content scannable and professional
 
-**STRICT REQUIREMENTS:**
-- Provide EXACTLY 3 sources (no more, no less)
-- Provide EXACTLY 5 related questions (no more, no less)
+**REQUIREMENTS:**
+- Provide up to 5 relevant sources (fewer is okay if not available)
+- Provide up to 8 related questions contractors might ask (fewer is okay)
 - For URLs, you can use domain names like "example.com" or full URLs
-- Keep source snippets very short (under 80 characters)
-- Make sure all sources are relevant and real`;
+- Keep source snippets concise and informative
+- Ensure all content is relevant and helpful for contractors
+- Prioritize quality over quantity for sources and questions`;
 
     // Stream structured object using Perplexity via OpenRouter
     const { partialObjectStream, object } = streamObject({
@@ -145,7 +153,7 @@ When budget is provided, focus on:
       schema: researchResultSchema,
       schemaName: "ContractorResearchResult",
       schemaDescription:
-        "Structured research result with exactly 3 sources and 5 questions",
+        "Structured research result with flexible sources and related questions",
       prompt: enhancedPrompt,
     });
 

@@ -22,11 +22,37 @@ export default function ResearchPage() {
 
   // Load saved research on component mount
   useEffect(() => {
-    const loadSavedResearch = () => {
+    const loadSavedResearch = async () => {
       try {
-        const saved = localStorage.getItem("contractor_research");
-        if (saved) {
-          setSavedResearch(JSON.parse(saved));
+        const projectId = window.location.pathname.split("/")[2];
+
+        const response = await fetch(
+          `/api/project/${projectId}/saved-research`
+        );
+
+        if (response.ok) {
+          const { success, data } = await response.json();
+          if (success) {
+            // Transform database format to component format
+            const transformedResearch = data.map((item: any) => ({
+              id: item.id,
+              project_id: item.projectId,
+              query: item.query,
+              result: {
+                query: item.query,
+                answer: item.answer,
+                sources: item.sources,
+                related_queries: item.relatedQueries,
+                timestamp: item.createdAt,
+                confidence: parseFloat(item.confidence),
+              },
+              tags: item.tags,
+              notes: item.notes,
+              created_at: item.createdAt,
+              updated_at: item.updatedAt,
+            }));
+            setSavedResearch(transformedResearch);
+          }
         }
       } catch (error) {
         console.error("Failed to load saved research:", error);
@@ -136,31 +162,80 @@ export default function ResearchPage() {
     }
   };
 
-  const handleSaveResearch = (
+  const handleSaveResearch = async (
     result: ResearchResult,
     tags: string[],
     notes?: string
   ) => {
-    const savedItem: SavedResearch = {
-      id: Date.now().toString(),
-      project_id: undefined,
-      query: result.query,
-      result,
-      tags,
-      notes,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      const projectId = window.location.pathname.split("/")[2];
 
-    const updatedSaved = [...savedResearch, savedItem];
-    setSavedResearch(updatedSaved);
-    localStorage.setItem("contractor_research", JSON.stringify(updatedSaved));
+      const response = await fetch(`/api/project/${projectId}/saved-research`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: result.query,
+          answer: result.answer,
+          sources: result.sources,
+          relatedQueries: result.related_queries,
+          title: result.query,
+          tags,
+          notes,
+          confidence: result.confidence,
+        }),
+      });
+
+      if (response.ok) {
+        const { success, data } = await response.json();
+        if (success) {
+          // Transform and add to local state
+          const newSavedItem: SavedResearch = {
+            id: data.id,
+            project_id: data.projectId,
+            query: data.query,
+            result,
+            tags: data.tags,
+            notes: data.notes,
+            created_at: data.createdAt,
+            updated_at: data.updatedAt,
+          };
+
+          setSavedResearch((prev) => [newSavedItem, ...prev]);
+        }
+      } else {
+        throw new Error("Failed to save research");
+      }
+    } catch (error) {
+      console.error("Failed to save research:", error);
+      // TODO: Show error notification to user
+    }
   };
 
-  const handleDeleteSaved = (id: string) => {
-    const updatedSaved = savedResearch.filter((item) => item.id !== id);
-    setSavedResearch(updatedSaved);
-    localStorage.setItem("contractor_research", JSON.stringify(updatedSaved));
+  const handleDeleteSaved = async (id: string) => {
+    try {
+      const projectId = window.location.pathname.split("/")[2];
+
+      const response = await fetch(
+        `/api/project/${projectId}/saved-research?id=${id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.ok) {
+        const { success } = await response.json();
+        if (success) {
+          setSavedResearch((prev) => prev.filter((item) => item.id !== id));
+        }
+      } else {
+        throw new Error("Failed to delete research");
+      }
+    } catch (error) {
+      console.error("Failed to delete research:", error);
+      // TODO: Show error notification to user
+    }
   };
 
   return (
