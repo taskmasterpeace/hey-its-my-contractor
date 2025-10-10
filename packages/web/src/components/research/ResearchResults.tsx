@@ -84,31 +84,30 @@ export function ResearchResults({
       <div className="px-6 py-4 border-b bg-gray-50">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 mb-1">
-              Research Results
-            </h3>
             <p className="text-sm text-gray-600 truncate">
               &ldquo;{result.query}&rdquo;
             </p>
           </div>
-          <div className="flex items-center space-x-2 ml-4">
+          <div className="flex items-center space-x-3 ml-4">
             <div className={`text-xs font-medium ${confidenceColor}`}>
               {confidencePercent}% confidence
             </div>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-2">
               <button
                 onClick={handleCopy}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="flex items-center space-x-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors border border-blue-200"
                 title="Copy to clipboard"
               >
                 <Copy className="w-4 h-4" />
+                <span className="text-sm font-medium">Copy</span>
               </button>
               <button
                 onClick={() => setShowSaveDialog(true)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="flex items-center space-x-1 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg transition-colors border border-purple-200"
                 title="Save research"
               >
                 <Save className="w-4 h-4" />
+                <span className="text-sm font-medium">Save</span>
               </button>
             </div>
           </div>
