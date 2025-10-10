@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Search, Plus, X } from "lucide-react";
 import { useImagesStore } from "@contractor-platform/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -21,7 +22,16 @@ export function SearchInterface() {
     newSite,
     setNewSite,
     addCustomRetailer,
+    currentProjectId,
+    fetchCustomRetailers,
   } = useImagesStore();
+
+  // Fetch custom retailers when project changes
+  useEffect(() => {
+    if (currentProjectId) {
+      fetchCustomRetailers(currentProjectId);
+    }
+  }, [currentProjectId, fetchCustomRetailers]);
 
   const handleSearch = async () => {
     if (!searchTerm.trim()) return;
@@ -58,11 +68,23 @@ export function SearchInterface() {
     }
   };
 
-  const handleAddSite = () => {
+  const handleAddSite = async () => {
     if (newSite.trim()) {
-      addCustomRetailer(newSite.trim());
-      setNewSite("");
-      setShowAddSite(false);
+      try {
+        await addCustomRetailer(newSite.trim());
+        setNewSite("");
+        setShowAddSite(false);
+        toast({
+          title: "Custom site added",
+          description: `${newSite.trim()} has been added to your search sites.`,
+        });
+      } catch (error) {
+        toast({
+          title: "Error adding site",
+          description: "Failed to add custom site. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -141,6 +163,19 @@ export function SearchInterface() {
                   🏪 Menards
                 </span>
               </label>
+              <label className="flex items-center space-x-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={enabledRetailers.pinterest}
+                  onChange={(e) =>
+                    setEnabledRetailers({ pinterest: e.target.checked })
+                  }
+                  className="rounded-md border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                />
+                <span className="text-sm group-hover:text-gray-900 transition-colors">
+                  📌 Pinterest
+                </span>
+              </label>
             </div>
           </div>
         </div>
@@ -159,7 +194,22 @@ export function SearchInterface() {
                 >
                   {site}
                   <button
-                    onClick={() => removeCustomRetailer(site)}
+                    onClick={async () => {
+                      try {
+                        await removeCustomRetailer(site);
+                        toast({
+                          title: "Custom site removed",
+                          description: `${site} has been removed from your search sites.`,
+                        });
+                      } catch (error) {
+                        toast({
+                          title: "Error removing site",
+                          description:
+                            "Failed to remove custom site. Please try again.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
                     className="ml-2 text-purple-600 hover:text-purple-800 transition-colors"
                   >
                     <X className="w-3 h-3" />

@@ -1,167 +1,231 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { FolderOpen, Upload, Search, Filter, Grid, List } from 'lucide-react';
-import { Document } from '@contractor-platform/types';
-import dynamic from 'next/dynamic';
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { FolderOpen, Upload, Search, Filter, Grid, List } from "lucide-react";
+import { Document } from "@contractor-platform/types";
+import dynamic from "next/dynamic";
 
 // Dynamically import components that use DOM APIs to avoid SSR issues
-const DocumentUpload = dynamic(() => import('@/components/documents/DocumentUpload').then(mod => ({ default: mod.DocumentUpload })), { ssr: false });
-const DocumentsList = dynamic(() => import('@/components/documents/DocumentsList').then(mod => ({ default: mod.DocumentsList })), { ssr: false });
-const DocumentViewer = dynamic(() => import('@/components/documents/DocumentViewer').then(mod => ({ default: mod.DocumentViewer })), { ssr: false });
+const DocumentUpload = dynamic(
+  () =>
+    import("@/components/documents/DocumentUpload").then((mod) => ({
+      default: mod.DocumentUpload,
+    })),
+  { ssr: false }
+);
+const DocumentsList = dynamic(
+  () =>
+    import("@/components/documents/DocumentsList").then((mod) => ({
+      default: mod.DocumentsList,
+    })),
+  { ssr: false }
+);
+const DocumentViewer = dynamic(
+  () =>
+    import("@/components/documents/DocumentViewer").then((mod) => ({
+      default: mod.DocumentViewer,
+    })),
+  { ssr: false }
+);
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(
+    null
+  );
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("newest");
+  const [fileTypeFilter, setFileTypeFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isUploading, setIsUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [focusComments, setFocusComments] = useState(false);
+  const itemsPerPage = 10;
+  const params = useParams();
+  const projectId = params.projectId as string;
 
-  // Sample documents data
+  // Function to fetch documents from API
+  const fetchDocuments = async () => {
+    if (!projectId) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/project/${projectId}/documents`);
+      if (response.ok) {
+        const data = await response.json();
+        setDocuments(data);
+      } else {
+        console.error("Failed to fetch documents");
+      }
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch documents on component mount
   useEffect(() => {
-    const sampleDocuments: Document[] = [
-      {
-        id: '1',
-        project_id: 'proj-1',
-        name: 'Kitchen Plans v3.pdf',
-        description: 'Final approved kitchen renovation plans',
-        type: 'plan',
-        version: 3,
-        storage_key: 'projects/johnson-kitchen/plans-v3.pdf',
-        file_size: 2457600,
-        mime_type: 'application/pdf',
-        annotations: [],
-        linked_to: {
-          meeting_id: 'meet-1',
-        },
-        created_by: 'contractor-1',
-        created_at: '2025-01-15T10:30:00Z',
-        updated_at: '2025-01-15T10:30:00Z',
-      },
-      {
-        id: '2',
-        project_id: 'proj-1',
-        name: 'Electrical Permit',
-        description: 'City electrical permit for kitchen renovation',
-        type: 'permit',
-        version: 1,
-        storage_key: 'permits/electrical-permit-2025.pdf',
-        file_size: 890000,
-        mime_type: 'application/pdf',
-        annotations: [],
-        expiration_date: '2025-12-31',
-        created_by: 'staff-1',
-        created_at: '2025-01-10T14:20:00Z',
-        updated_at: '2025-01-10T14:20:00Z',
-      },
-      {
-        id: '3',
-        project_id: 'proj-1',
-        name: 'Progress Photo - Drywall Complete',
-        description: 'Drywall installation completed in kitchen area',
-        type: 'photo',
-        version: 1,
-        storage_key: 'photos/drywall-complete-20250218.jpg',
-        file_size: 1800000,
-        mime_type: 'image/jpeg',
-        annotations: [],
-        linked_to: {
-          task_id: 'task-1',
-        },
-        created_by: 'contractor-1',
-        created_at: '2025-02-18T16:45:00Z',
-        updated_at: '2025-02-18T16:45:00Z',
-      },
-      {
-        id: '4',
-        project_id: 'proj-2',
-        name: 'Bathroom Contract.pdf',
-        description: 'Signed contract for bathroom renovation project',
-        type: 'contract',
-        version: 1,
-        storage_key: 'contracts/wilson-bathroom-contract.pdf',
-        file_size: 1200000,
-        mime_type: 'application/pdf',
-        annotations: [
-          {
-            id: 'ann-1',
-            page_number: 1,
-            x: 100,
-            y: 200,
-            width: 200,
-            height: 50,
-            type: 'highlight',
-            content: 'Payment schedule section',
-            created_by: 'contractor-1',
-            created_at: '2025-01-12T09:15:00Z',
-          },
-        ],
-        created_by: 'contractor-1',
-        created_at: '2025-01-08T11:00:00Z',
-        updated_at: '2025-01-12T09:15:00Z',
-      },
-      {
-        id: '5',
-        project_id: 'proj-1',
-        name: 'Invoice #2025-001.pdf',
-        description: 'First progress invoice for Johnson kitchen project',
-        type: 'invoice',
-        version: 1,
-        storage_key: 'invoices/invoice-2025-001.pdf',
-        file_size: 450000,
-        mime_type: 'application/pdf',
-        annotations: [],
-        created_by: 'staff-1',
-        created_at: '2025-02-01T10:00:00Z',
-        updated_at: '2025-02-01T10:00:00Z',
-      },
-    ];
-    setDocuments(sampleDocuments);
-  }, []);
+    fetchDocuments();
+  }, [projectId]);
+
+  const sortDocuments = (docs: Document[]) => {
+    const sorted = [...docs];
+    switch (sortBy) {
+      case "newest":
+        return sorted.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      case "oldest":
+        return sorted.sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+      case "name-asc":
+        return sorted.sort((a, b) =>
+          a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+        );
+      case "name-desc":
+        return sorted.sort((a, b) =>
+          b.name.toLowerCase().localeCompare(a.name.toLowerCase())
+        );
+      case "size-large":
+        return sorted.sort((a, b) => (b.file_size || 0) - (a.file_size || 0));
+      case "size-small":
+        return sorted.sort((a, b) => (a.file_size || 0) - (b.file_size || 0));
+      default:
+        return sorted;
+    }
+  };
 
   const handleDocumentUpload = async (file: File, metadata: any) => {
     setIsUploading(true);
-    
-    // Simulate upload process
-    setTimeout(() => {
-      const newDocument: Document = {
-        id: Date.now().toString(),
-        project_id: metadata.project_id || 'default-project',
-        name: file.name,
-        description: metadata.description || '',
-        type: metadata.type || 'other',
-        version: 1,
-        storage_key: `uploads/${file.name}`,
-        file_size: file.size,
-        mime_type: file.type,
-        annotations: [],
-        created_by: 'current-user',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      
-      setDocuments(prev => [newDocument, ...prev]);
+
+    try {
+      // The file has already been uploaded to Supabase Storage by the DocumentUpload component
+      // Now we need to save the document metadata to the database
+      const response = await fetch(
+        `/api/project/${metadata.project_id}/documents`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: file.name,
+            description: metadata.description || "",
+            type: metadata.type,
+            storageKey: metadata.storage_key,
+            fileSize: metadata.file_size,
+            mimeType: metadata.mime_type,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to save document metadata");
+      }
+
+      const savedDocument = await response.json();
+
+      // Refetch documents to ensure we have complete data with all fields
+      await fetchDocuments();
+    } catch (error) {
+      console.error("Error saving document:", error);
+      // You might want to show an error message to the user
+    } finally {
       setIsUploading(false);
-    }, 2000);
+    }
   };
 
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterType === 'all' || doc.type === filterType;
-    
-    return matchesSearch && matchesFilter;
-  });
+  // Handler for when comment button is clicked specifically
+  const handleCommentClick = (document: Document) => {
+    setSelectedDocument(document);
+    setFocusComments(true);
+    // Reset focus after DocumentViewer has had time to mount and scroll
+    setTimeout(() => setFocusComments(false), 1200);
+  };
+
+  const filteredDocuments = sortDocuments(
+    documents.filter((doc) => {
+      const matchesSearch =
+        doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesTypeFilter = filterType === "all" || doc.type === filterType;
+
+      // File type filter
+      let matchesFileType = true;
+      if (fileTypeFilter !== "all") {
+        const mimeType = doc.mime_type || "";
+        switch (fileTypeFilter) {
+          case "pdf":
+            matchesFileType = mimeType === "application/pdf";
+            break;
+          case "image":
+            matchesFileType = mimeType.startsWith("image/");
+            break;
+          case "document":
+            matchesFileType =
+              mimeType.includes("word") ||
+              mimeType.includes("document") ||
+              mimeType.includes("text") ||
+              mimeType.includes("msword") ||
+              mimeType.includes("officedocument");
+            break;
+          default:
+            matchesFileType = true;
+        }
+      }
+
+      return matchesSearch && matchesTypeFilter && matchesFileType;
+    })
+  );
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedDocuments = filteredDocuments.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  const resetPagination = () => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  };
+
+  // Use effect to reset pagination when filtered results change
+  useEffect(() => {
+    resetPagination();
+  }, [filteredDocuments.length, totalPages, currentPage]);
 
   const documentTypes = [
-    { value: 'all', label: 'All Documents' },
-    { value: 'plan', label: 'Plans' },
-    { value: 'permit', label: 'Permits' },
-    { value: 'contract', label: 'Contracts' },
-    { value: 'invoice', label: 'Invoices' },
-    { value: 'photo', label: 'Photos' },
-    { value: 'other', label: 'Other' },
+    { value: "all", label: "All Documents" },
+    { value: "plan", label: "Plans" },
+    { value: "permit", label: "Permits" },
+    { value: "contract", label: "Contracts" },
+    { value: "invoice", label: "Invoices" },
+    { value: "other", label: "Other" },
+  ];
+
+  const sortOptions = [
+    { value: "newest", label: "Newest First" },
+    { value: "oldest", label: "Oldest First" },
+    { value: "name-asc", label: "Name A-Z" },
+    { value: "name-desc", label: "Name Z-A" },
+    { value: "size-large", label: "Largest First" },
+    { value: "size-small", label: "Smallest First" },
+  ];
+
+  const fileTypeOptions = [
+    { value: "all", label: "All Files" },
+    { value: "pdf", label: "PDFs" },
+    { value: "image", label: "Images" },
+    { value: "document", label: "Documents" },
   ];
 
   return (
@@ -172,12 +236,13 @@ export default function DocumentsPage() {
             Document Management
           </h1>
           <p className="text-gray-600">
-            Manage project documents, plans, permits, and photos with version control
+            Manage project documents, plans, permits, and photos with version
+            control
           </p>
         </div>
-        
+
         <div className="flex items-center space-x-3">
-          <DocumentUpload 
+          <DocumentUpload
             onUpload={handleDocumentUpload}
             isUploading={isUploading}
           />
@@ -200,7 +265,7 @@ export default function DocumentsPage() {
               />
             </div>
 
-            {/* Filter */}
+            {/* Document Type Filter */}
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <select
@@ -208,9 +273,39 @@ export default function DocumentsPage() {
                 onChange={(e) => setFilterType(e.target.value)}
                 className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               >
-                {documentTypes.map(type => (
+                {documentTypes.map((type) => (
                   <option key={type.value} value={type.value}>
                     {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sort By */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* File Type Filter */}
+            <div className="relative">
+              <select
+                value={fileTypeFilter}
+                onChange={(e) => setFileTypeFilter(e.target.value)}
+                className="pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                {fileTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -220,21 +315,21 @@ export default function DocumentsPage() {
           {/* View Mode Toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
-              onClick={() => setViewMode('grid')}
+              onClick={() => setViewMode("grid")}
               className={`px-3 py-1 rounded text-sm font-medium ${
-                viewMode === 'grid'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                viewMode === "grid"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
               }`}
             >
               <Grid className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setViewMode('list')}
+              onClick={() => setViewMode("list")}
               className={`px-3 py-1 rounded text-sm font-medium ${
-                viewMode === 'list'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                viewMode === "list"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
               }`}
             >
               <List className="w-4 h-4" />
@@ -243,29 +338,106 @@ export default function DocumentsPage() {
         </div>
 
         {/* Stats */}
-        <div className="mt-4 flex items-center space-x-6 text-sm text-gray-600">
-          <span>{filteredDocuments.length} documents</span>
-          <span>
-            {Math.round(filteredDocuments.reduce((acc, doc) => acc + doc.file_size, 0) / 1024 / 1024)}MB total
-          </span>
+        <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center space-x-6 text-sm text-gray-600">
+            <span>{filteredDocuments.length} documents</span>
+            <span>
+              {Math.round(
+                filteredDocuments.reduce(
+                  (acc, doc) => acc + (doc.file_size || 0),
+                  0
+                ) /
+                  1024 /
+                  1024
+              )}
+              MB total
+            </span>
+          </div>
+
+          {/* Pagination Info */}
+          {totalPages > 1 && (
+            <div className="text-sm text-gray-600">
+              Showing {startIndex + 1}-
+              {Math.min(endIndex, filteredDocuments.length)} of{" "}
+              {filteredDocuments.length}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Documents List */}
         <div className="lg:col-span-2">
-          <DocumentsList
-            documents={filteredDocuments}
-            viewMode={viewMode}
-            onSelectDocument={setSelectedDocument}
-            selectedDocument={selectedDocument}
-          />
+          {loading ? (
+            <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading documents...</p>
+            </div>
+          ) : (
+            <>
+              <DocumentsList
+                documents={paginatedDocuments}
+                viewMode={viewMode}
+                onSelectDocument={setSelectedDocument}
+                selectedDocument={selectedDocument}
+                onCommentClick={handleCommentClick}
+              />
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="mt-6 flex items-center justify-center">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(1, prev - 1))
+                      }
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                        (page) => (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`px-3 py-2 text-sm font-medium rounded-md ${
+                              currentPage === page
+                                ? "bg-blue-600 text-white"
+                                : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Document Viewer */}
         <div className="lg:col-span-1">
           {selectedDocument ? (
-            <DocumentViewer document={selectedDocument} />
+            <DocumentViewer
+              document={selectedDocument}
+              focusComments={focusComments}
+            />
           ) : (
             <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
               <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />

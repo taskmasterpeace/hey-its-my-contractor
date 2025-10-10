@@ -1,90 +1,68 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+import { db } from "@/db";
+import { documents } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  
+
   try {
-    // In a real app, this would:
-    // 1. Fetch document metadata from database
-    // 2. Get file from Supabase Storage or S3
-    // 3. Stream the file content back
-    
-    // For now, return a sample PDF or placeholder
-    if (id === '1' || id === '2' || id === '4') {
-      // Return a simple PDF placeholder
-      const pdfContent = Buffer.from(`%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>
-endobj
-4 0 obj
-<< /Length 44 >>
-stream
-BT
-/F1 24 Tf
-100 700 Td
-(Sample Document) Tj
-ET
-endstream
-endobj
-xref
-0 5
-0000000000 65535 f 
-0000000010 00000 n 
-0000000053 00000 n 
-0000000125 00000 n 
-0000000185 00000 n 
-trailer
-<< /Size 5 /Root 1 0 R >>
-startxref
-279
-%%EOF`);
+    const supabase = await createClient();
 
-      return new NextResponse(pdfContent, {
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `inline; filename="document-${id}.pdf"`,
-          'Cache-Control': 'public, max-age=3600',
-        },
-      });
+    // Get the current user for authentication
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // For image documents, return a placeholder image
-    if (id === '3') {
-      // Return a 1x1 pixel PNG placeholder
-      const pngData = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
-      
-      return new NextResponse(pngData, {
-        headers: {
-          'Content-Type': 'image/png',
-          'Content-Disposition': `inline; filename="photo-${id}.png"`,
-          'Cache-Control': 'public, max-age=3600',
-        },
-      });
+    // Fetch document metadata from database
+    const [document] = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.id, id))
+      .limit(1);
+
+    if (!document) {
+      return new NextResponse("Document not found", { status: 404 });
     }
 
-    // For other documents, return placeholder content
-    return new NextResponse('Document content not available', {
-      status: 404,
+    // Get file from Supabase Storage
+    const { data: fileData, error: storageError } = await supabase.storage
+      .from("documents")
+      .download(document.storageKey);
+
+    if (storageError || !fileData) {
+      console.error("Storage error:", storageError);
+      return new NextResponse("File not found in storage", { status: 404 });
+    }
+
+    // Convert blob to buffer
+    const arrayBuffer = await fileData.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Return the file with appropriate headers
+    const encodedFilename = encodeURIComponent(document.name);
+    return new NextResponse(buffer, {
       headers: {
-        'Content-Type': 'text/plain',
+        "Content-Type": document.mimeType || "application/octet-stream",
+        "Content-Disposition": `inline; filename*=UTF-8''${encodedFilename}`,
+        "Cache-Control": "public, max-age=3600",
       },
     });
-
   } catch (error) {
-    console.error('Document preview error:', error);
-    return new NextResponse('Internal server error', {
+    console.error("Document preview error:", error);
+    return new NextResponse("Internal server error", {
       status: 500,
       headers: {
-        'Content-Type': 'text/plain',
+        "Content-Type": "text/plain",
       },
     });
   }

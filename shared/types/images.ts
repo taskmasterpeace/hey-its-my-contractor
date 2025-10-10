@@ -4,7 +4,7 @@ export interface ImageSearchResult {
   thumbnail: string;
   title: string;
   source: string;
-  retailer: "homedepot" | "lowes" | "menards" | "custom";
+  retailer: "homedepot" | "lowes" | "menards" | "pinterest" | "custom";
   originalUrl: string;
   price?: string;
   rating?: number;
@@ -44,6 +44,7 @@ export interface RetailerSettings {
   homedepot: boolean;
   lowes: boolean;
   menards: boolean;
+  pinterest: boolean;
 }
 
 export type AIModel = "nano-banana" | "gen4-turbo" | "auto";

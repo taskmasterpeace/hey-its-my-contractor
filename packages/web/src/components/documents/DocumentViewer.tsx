@@ -1,356 +1,402 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Document as DocType, DocumentAnnotation } from '@contractor-platform/types';
-import { Document, Page, pdfjs } from 'react-pdf';
-import { 
-  ZoomIn, 
-  ZoomOut, 
-  RotateCw, 
-  Download, 
-  Share2, 
-  MessageSquare,
-  ChevronLeft,
-  ChevronRight,
+import { useState, useEffect, useRef } from "react";
+import {
+  Document as DocType,
+  DocumentAnnotation,
+} from "@contractor-platform/types";
+import {
   FileText,
   Image as ImageIcon,
   File,
-} from 'lucide-react';
-
-// Set up PDF.js worker for React-PDF v10
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+  ExternalLink,
+  MessageCircle,
+  Send,
+} from "lucide-react";
 
 interface DocumentViewerProps {
   document: DocType;
+  focusComments?: boolean;
 }
 
-export function DocumentViewer({ document }: DocumentViewerProps) {
-  const [numPages, setNumPages] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [scale, setScale] = useState<number>(1.0);
-  const [rotation, setRotation] = useState<number>(0);
-  const [annotations, setAnnotations] = useState<DocumentAnnotation[]>(document.annotations || []);
-  const [showAnnotations, setShowAnnotations] = useState<boolean>(true);
-
-  const isPDF = document.mime_type === 'application/pdf';
-  const isImage = document.mime_type?.startsWith('image/');
-
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
-    setCurrentPage(1);
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  user: {
+    id: string;
+    full_name: string;
+    email: string;
+    avatar_url?: string;
   };
+}
 
-  const handlePreviousPage = () => {
-    setCurrentPage(prev => Math.max(1, prev - 1));
-  };
+export function DocumentViewer({
+  document,
+  focusComments,
+}: DocumentViewerProps) {
+  const [annotations, setAnnotations] = useState<DocumentAnnotation[]>(
+    document.annotations || []
+  );
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [isLoadingComments, setIsLoadingComments] = useState(true);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const commentsRef = useRef<HTMLDivElement>(null);
 
-  const handleNextPage = () => {
-    setCurrentPage(prev => Math.min(numPages, prev + 1));
-  };
+  const isPDF = document.mime_type === "application/pdf";
+  const isImage = document.mime_type?.startsWith("image/");
+  const isWordDoc =
+    document.mime_type?.includes("word") ||
+    document.mime_type?.includes("document") ||
+    document.mime_type?.includes("msword") ||
+    document.mime_type?.includes("officedocument");
 
-  const handleZoomIn = () => {
-    setScale(prev => Math.min(3.0, prev + 0.2));
-  };
-
-  const handleZoomOut = () => {
-    setScale(prev => Math.max(0.3, prev - 0.2));
-  };
-
-  const handleRotate = () => {
-    setRotation(prev => (prev + 90) % 360);
-  };
-
-  const handleDownload = () => {
-    // In a real app, this would download from the storage_key
-    const link = window.document.createElement('a');
-    link.href = `/api/documents/${document.id}/download`;
-    link.download = document.name;
-    window.document.body.appendChild(link);
-    link.click();
-    window.document.body.removeChild(link);
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const getFileIcon = () => {
-    if (isPDF) return <FileText className="w-5 h-5" />;
-    if (isImage) return <ImageIcon className="w-5 h-5" />;
-    return <File className="w-5 h-5" />;
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
   };
 
-  const getTypeColor = (type: string) => {
-    const colors = {
-      plan: 'bg-blue-100 text-blue-800',
-      permit: 'bg-green-100 text-green-800',
-      contract: 'bg-purple-100 text-purple-800',
-      invoice: 'bg-orange-100 text-orange-800',
-      photo: 'bg-pink-100 text-pink-800',
-      other: 'bg-gray-100 text-gray-800',
-    };
-    return colors[type as keyof typeof colors] || colors.other;
+  // Fetch comments for the document
+  const fetchComments = async () => {
+    try {
+      setIsLoadingComments(true);
+      const response = await fetch(`/api/documents/${document.id}/comments`);
+      if (response.ok) {
+        const data = await response.json();
+        setComments(data);
+      } else {
+        console.error("Failed to fetch comments");
+      }
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+    } finally {
+      setIsLoadingComments(false);
+    }
   };
+
+  // Submit a new comment
+  const handleSubmitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || isSubmittingComment) return;
+
+    try {
+      setIsSubmittingComment(true);
+      const response = await fetch(`/api/documents/${document.id}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: newComment.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        const newCommentData = await response.json();
+        setComments((prev) => [newCommentData, ...prev]);
+        setNewComment("");
+      } else {
+        console.error("Failed to submit comment");
+      }
+    } catch (error) {
+      console.error("Error submitting comment:", error);
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  // Load comments when component mounts
+  useEffect(() => {
+    fetchComments();
+  }, [document.id]);
+
+  // Auto-scroll to comments section when focusComments is true
+  useEffect(() => {
+    if (focusComments && commentsRef.current) {
+      // Longer delay to ensure DocumentViewer is fully mounted and rendered
+      setTimeout(() => {
+        commentsRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+          inline: "nearest",
+        });
+        // Add a brief highlight animation
+        commentsRef.current?.classList.add(
+          "ring-2",
+          "ring-blue-500",
+          "ring-opacity-50"
+        );
+        setTimeout(() => {
+          commentsRef.current?.classList.remove(
+            "ring-2",
+            "ring-blue-500",
+            "ring-opacity-50"
+          );
+        }, 2000);
+      }, 500); // Increased delay to ensure component is fully rendered
+    }
+  }, [focusComments]);
+
+  // Also auto-scroll when document changes AND focusComments is true (for new document opening)
+  useEffect(() => {
+    if (focusComments && commentsRef.current) {
+      // Delay to ensure the new document's content has rendered
+      setTimeout(() => {
+        commentsRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+          inline: "nearest",
+        });
+        // Add a brief highlight animation
+        commentsRef.current?.classList.add(
+          "ring-2",
+          "ring-blue-500",
+          "ring-opacity-50"
+        );
+        setTimeout(() => {
+          commentsRef.current?.classList.remove(
+            "ring-2",
+            "ring-blue-500",
+            "ring-opacity-50"
+          );
+        }, 2000);
+      }, 800); // Even longer delay for new document mounting
+    }
+  }, [document.id, focusComments]);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border h-full flex flex-col">
       {/* Header */}
-      <div className="px-6 py-4 border-b bg-gray-50">
+      <div className="p-4 border-b">
         <div className="flex items-start justify-between">
-          <div className="flex items-center min-w-0 flex-1">
-            <div className="text-gray-600 mr-3">
-              {getFileIcon()}
+          <div className="flex items-start space-x-3">
+            <div className="p-2 bg-gray-100 rounded-lg">
+              {isPDF && <FileText className="w-6 h-6 text-red-600" />}
+              {isImage && <ImageIcon className="w-6 h-6 text-blue-600" />}
+              {isWordDoc && <FileText className="w-6 h-6 text-blue-800" />}
+              {!isPDF && !isImage && !isWordDoc && (
+                <File className="w-6 h-6 text-gray-600" />
+              )}
             </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-gray-900 truncate">
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-1">
                 {document.name}
               </h3>
-              <div className="flex items-center space-x-2 mt-1">
-                <span className={`px-2 py-1 rounded text-xs font-medium ${getTypeColor(document.type)}`}>
-                  {document.type}
-                </span>
-                <span className="text-xs text-gray-500">
-                  v{document.version}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {formatFileSize(document.file_size)}
-                </span>
+              {document.description && (
+                <p className="text-sm text-gray-600 mb-2">
+                  {document.description}
+                </p>
+              )}
+              <div className="flex items-center space-x-4 text-xs text-gray-500">
+                <span>{formatFileSize(document.file_size)}</span>
+                <span>{formatDate(document.created_at)}</span>
               </div>
             </div>
           </div>
-        </div>
 
-        {document.description && (
-          <p className="text-sm text-gray-600 mt-2">
-            {document.description}
-          </p>
-        )}
-
-        {document.expiration_date && (
-          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm">
-            <span className="text-yellow-800 font-medium">
-              Expires: {new Date(document.expiration_date).toLocaleDateString()}
-            </span>
+          {/* Actions */}
+          <div className="flex items-center space-x-2">
+            <a
+              href={`/api/documents/${document.id}/preview`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Open in new tab"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Toolbar */}
-      {(isPDF || isImage) && (
-        <div className="px-6 py-3 border-b bg-gray-50 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {isPDF && (
-              <>
-                <button
-                  onClick={handlePreviousPage}
-                  disabled={currentPage <= 1}
-                  className="p-1 text-gray-600 hover:text-gray-800 disabled:text-gray-400"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                
-                <span className="text-sm text-gray-600 px-2">
-                  {currentPage} of {numPages}
-                </span>
-                
-                <button
-                  onClick={handleNextPage}
-                  disabled={currentPage >= numPages}
-                  className="p-1 text-gray-600 hover:text-gray-800 disabled:text-gray-400"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </>
-            )}
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleZoomOut}
-              className="p-1 text-gray-600 hover:text-gray-800"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
-            
-            <span className="text-sm text-gray-600 px-2">
-              {Math.round(scale * 100)}%
-            </span>
-            
-            <button
-              onClick={handleZoomIn}
-              className="p-1 text-gray-600 hover:text-gray-800"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-            
-            <button
-              onClick={handleRotate}
-              className="p-1 text-gray-600 hover:text-gray-800"
-            >
-              <RotateCw className="w-4 h-4" />
-            </button>
-
-            {annotations.length > 0 && (
-              <button
-                onClick={() => setShowAnnotations(!showAnnotations)}
-                className={`p-1 ${showAnnotations ? 'text-blue-600' : 'text-gray-600'} hover:text-blue-800`}
-              >
-                <MessageSquare className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleDownload}
-              className="p-1 text-gray-600 hover:text-gray-800"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-            
-            <button className="p-1 text-gray-600 hover:text-gray-800">
-              <Share2 className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Document Content */}
-      <div className="p-6 bg-gray-100 min-h-96 max-h-[600px] overflow-auto">
-        <div className="flex justify-center">
-          {isPDF && (
-            <div className="relative">
-              <Document
-                file={`/api/documents/${document.id}/preview`}
-                onLoadSuccess={onDocumentLoadSuccess}
-                loading={
-                  <div className="flex items-center justify-center h-64">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                }
-                error={
-                  <div className="flex items-center justify-center h-64 text-red-600">
-                    Failed to load PDF
-                  </div>
-                }
-              >
-                <Page
-                  pageNumber={currentPage}
-                  scale={scale}
-                  rotate={rotation}
-                  renderTextLayer={true}
-                  renderAnnotationLayer={showAnnotations}
-                  loading={
-                    <div className="flex items-center justify-center h-64 bg-white border">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                    </div>
-                  }
-                />
-              </Document>
+      <div className="flex-1 p-4">
+        {isPDF && (
+          <div className="h-full min-h-[600px]">
+            <iframe
+              src={`/api/documents/${document.id}/preview`}
+              className="w-full h-full min-h-[600px] border border-gray-200 rounded-lg"
+              title={document.name}
+            />
+          </div>
+        )}
 
-              {/* Custom Annotations Overlay */}
-              {showAnnotations && annotations.filter(ann => ann.page_number === currentPage).map(annotation => (
-                <div
-                  key={annotation.id}
-                  className="absolute border-2 border-yellow-400 bg-yellow-100 bg-opacity-50 pointer-events-auto cursor-pointer group"
-                  style={{
-                    left: `${annotation.x * scale}px`,
-                    top: `${annotation.y * scale}px`,
-                    width: `${(annotation.width || 100) * scale}px`,
-                    height: `${(annotation.height || 20) * scale}px`,
-                  }}
-                  title={annotation.content}
-                >
-                  <div className="absolute -top-8 left-0 bg-yellow-500 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                    {annotation.content}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {isImage && (
+        {isImage && (
+          <div className="h-full min-h-[600px] flex items-center justify-center">
             <img
               src={`/api/documents/${document.id}/preview`}
               alt={document.name}
-              className="max-w-full h-auto"
-              style={{
-                transform: `scale(${scale}) rotate(${rotation}deg)`,
-                transformOrigin: 'center',
-              }}
+              className="max-w-full max-h-full object-contain rounded-lg"
             />
-          )}
+          </div>
+        )}
 
-          {!isPDF && !isImage && (
-            <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
-                {getFileIcon()}
-              </div>
+        {isWordDoc && (
+          <div className="h-full min-h-[600px] flex items-center justify-center">
+            <div className="text-center">
+              <FileText className="w-16 h-16 text-blue-800 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Word Document
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Word documents can be downloaded and opened in Microsoft Word or
+                similar applications.
+              </p>
+              <a
+                href={`/api/documents/${document.id}/preview`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-block"
+              >
+                Download & Open
+              </a>
+            </div>
+          </div>
+        )}
+
+        {!isPDF && !isImage && !isWordDoc && (
+          <div className="h-full min-h-[600px] flex items-center justify-center">
+            <div className="text-center">
+              <File className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 Preview not available
               </h3>
               <p className="text-gray-600 mb-4">
-                This file type cannot be previewed in the browser
+                This file type cannot be previewed in the browser.
               </p>
-              <button
-                onClick={handleDownload}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              <a
+                href={`/api/documents/${document.id}/preview`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-block"
               >
-                <Download className="w-4 h-4 mr-2" />
-                Download File
-              </button>
+                Open file
+              </a>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Annotations Panel */}
+      {/* Annotations Section */}
       {annotations.length > 0 && (
-        <div className="border-t bg-gray-50">
-          <div className="px-6 py-3">
-            <h4 className="font-medium text-gray-900 mb-2">
-              Annotations ({annotations.length})
-            </h4>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
-              {annotations.map(annotation => (
-                <div
-                  key={annotation.id}
-                  className="flex items-start space-x-2 p-2 bg-white rounded border text-sm"
-                >
-                  <MessageSquare className="w-4 h-4 text-yellow-500 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-gray-900">{annotation.content}</p>
-                    {annotation.page_number && (
-                      <p className="text-gray-500 text-xs">
-                        Page {annotation.page_number}
-                      </p>
-                    )}
-                  </div>
+        <div className="border-t p-4">
+          <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+            <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+            Annotations ({annotations.length})
+          </h4>
+          <div className="space-y-2 max-h-32 overflow-y-auto">
+            {annotations.map((annotation) => (
+              <div
+                key={annotation.id}
+                className="flex items-start space-x-2 text-sm"
+              >
+                <div className="w-1 h-4 bg-yellow-500 rounded-full mt-0.5 flex-shrink-0"></div>
+                <div>
+                  <p className="text-gray-900">{annotation.content}</p>
+                  <p className="text-xs text-gray-500">
+                    Page {annotation.page_number} •{" "}
+                    {formatDate(annotation.created_at)}
+                  </p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Document Info */}
-      <div className="px-6 py-3 border-t bg-gray-50 text-xs text-gray-600">
-        <div className="flex items-center justify-between">
-          <div>
-            Created {new Date(document.created_at).toLocaleDateString()}
-            {document.linked_to && (
-              <span className="ml-2">
-                • Linked to {document.linked_to.meeting_id ? 'meeting' : 'task'}
-              </span>
-            )}
+      {/* Comments Section */}
+      <div
+        ref={commentsRef}
+        className="border-t p-4 transition-all duration-300"
+      >
+        <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+          <MessageCircle className="w-4 h-4 mr-2" />
+          Comments ({comments.length})
+        </h4>
+
+        {/* Add Comment Form */}
+        <form onSubmit={handleSubmitComment} className="mb-4">
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Add a comment..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              disabled={isSubmittingComment}
+            />
+            <button
+              type="submit"
+              disabled={!newComment.trim() || isSubmittingComment}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              <Send className="w-4 h-4" />
+            </button>
           </div>
-          <div>
-            Last updated {new Date(document.updated_at).toLocaleDateString()}
-          </div>
+        </form>
+
+        {/* Comments List */}
+        <div className="space-y-3 max-h-64 overflow-y-auto">
+          {isLoadingComments ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-sm text-gray-500 mt-2">Loading comments...</p>
+            </div>
+          ) : comments.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">
+              No comments yet. Be the first to comment!
+            </p>
+          ) : (
+            comments.map((comment) => (
+              <div key={comment.id} className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  {comment.user.avatar_url ? (
+                    <img
+                      src={comment.user.avatar_url}
+                      alt={comment.user.full_name}
+                      className="w-8 h-8 rounded-full"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-gray-600">
+                        {comment.user.full_name?.charAt(0) ||
+                          comment.user.email.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center space-x-2">
+                    <p className="text-sm font-medium text-gray-900">
+                      {comment.user.full_name || comment.user.email}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {formatDate(comment.created_at)}
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-700 mt-1">
+                    {comment.content}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

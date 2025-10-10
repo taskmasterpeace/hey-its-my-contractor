@@ -99,9 +99,21 @@ export function SearchResultsGrid() {
       homedepot: "🏠",
       lowes: "🔨",
       menards: "🏪",
+      pinterest: "📌",
       custom: "🌐",
     };
     return logos[retailer as keyof typeof logos] || "🌐";
+  };
+
+  const getRetailerName = (retailer: string, source?: string) => {
+    const names = {
+      homedepot: "Home Depot",
+      lowes: "Lowe's",
+      menards: "Menards",
+      pinterest: "Pinterest",
+      custom: source || "Custom Site",
+    };
+    return names[retailer as keyof typeof names] || source || retailer;
   };
 
   if (searchResults.length === 0) {
@@ -127,7 +139,11 @@ export function SearchResultsGrid() {
             key={result.id}
             className="group bg-white rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.03] border border-gray-100"
           >
-            <div className="relative aspect-[4/5] bg-gray-50 overflow-hidden">
+            <div
+              className="relative aspect-[4/5] bg-gray-50 overflow-hidden cursor-pointer"
+              onClick={() => handleSaveClick(result)}
+              title="Click to save image"
+            >
               <img
                 src={result.url}
                 alt={result.title}
@@ -142,7 +158,10 @@ export function SearchResultsGrid() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300">
                 <div className="absolute bottom-4 left-4 right-4 flex items-center justify-center space-x-3">
                   <button
-                    onClick={() => handleSaveClick(result)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSaveClick(result);
+                    }}
                     disabled={savingImages.has(result.id)}
                     className="flex-1 flex items-center justify-center px-3 py-2 bg-white/95 hover:bg-white rounded-lg transition-colors duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     title={
@@ -162,7 +181,10 @@ export function SearchResultsGrid() {
                   </button>
 
                   <button
-                    onClick={() => handleMagicWandClick(result)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMagicWandClick(result);
+                    }}
                     className="p-2 bg-purple-600/90 hover:bg-purple-600 rounded-lg transition-colors duration-200 shadow-lg"
                     title="AI Magic Wand"
                   >
@@ -173,6 +195,7 @@ export function SearchResultsGrid() {
                     href={result.originalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
                     className="p-2 bg-blue-600/90 hover:bg-blue-600 rounded-lg transition-colors duration-200 shadow-lg"
                     title="View Original"
                   >
@@ -188,8 +211,8 @@ export function SearchResultsGrid() {
                   <span className="text-xl">
                     {getRetailerLogo(result.retailer)}
                   </span>
-                  <span className="text-sm font-medium text-gray-600 capitalize">
-                    {result.retailer}
+                  <span className="text-sm font-medium text-gray-600">
+                    {getRetailerName(result.retailer, result.source)}
                   </span>
                 </div>
                 {result.price && (

@@ -1,5 +1,6 @@
 {
   "buildCommand": "yarn workspace @contractor-platform/web build",
   "installCommand": "yarn install --frozen-lockfile",
-  "outputDirectory": "packages/web/.next"
+  "outputDirectory": "packages/web/.next",
+  "rootDirectory": "packages/web"
 }
