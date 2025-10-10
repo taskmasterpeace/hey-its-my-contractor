@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { streamObject } from "ai";
 import { z } from "zod";
+import { db } from "@/db";
+import { projects } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 // More lenient schema for research result
 const researchResultSchema = z.object({
@@ -25,10 +28,11 @@ const researchResultSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
     const { query, type, context } = await request.json();
+    const { projectId } = await params;
 
     if (!query) {
       return new Response(JSON.stringify({ error: "Query is required" }), {
@@ -45,6 +49,44 @@ export async function POST(
       );
     }
 
+    // Fetch project context from database
+    let projectContext = "";
+    try {
+      const [project] = await db
+        .select({
+          name: projects.name,
+          address: projects.address,
+          budget: projects.budget,
+          startDate: projects.startDate,
+          estimatedEndDate: projects.estimatedEndDate,
+          metadata: projects.metadata,
+        })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+
+      if (project) {
+        const timeline =
+          project.startDate && project.estimatedEndDate
+            ? `${project.startDate} to ${project.estimatedEndDate}`
+            : project.startDate
+            ? `Starting ${project.startDate}`
+            : "Timeline not specified";
+
+        projectContext = `
+PROJECT CONTEXT:
+- Project: ${project.name}
+- Location: ${project.address}
+- Budget: ${project.budget ? `$${project.budget}` : "Budget not specified"}
+- Timeline: ${timeline}
+
+Use this context to provide location-specific recommendations, budget-appropriate options, and timeline-conscious advice.`;
+      }
+    } catch (error) {
+      console.warn("Could not fetch project context:", error);
+      // Continue without project context if database query fails
+    }
+
     // Create OpenRouter client
     const openrouter = createOpenRouter({
       apiKey: process.env.OPENROUTER_API_KEY,
@@ -55,17 +97,42 @@ export async function POST(
 
 ${type ? `This is specifically related to: ${type}` : ""}
 ${context ? `Additional context: ${JSON.stringify(context)}` : ""}
+${projectContext}
 
+Format your response in clear, well-structured markdown for easy reading. Include:
+
+## Key Information
 Provide comprehensive contractor-focused information including:
-1. Practical information for contractors
-2. Cost considerations and budget ranges  
-3. Local supplier recommendations when applicable
-4. Building code and permit requirements
-5. Installation timelines and best practices
-6. Tools and materials needed
-7. Common challenges and solutions
+1. **Practical information** for contractors
+2. **Cost considerations** and budget ranges (consider the project budget if provided)
+3. **Local supplier recommendations** (use the project location if provided)
+4. **Building code and permit requirements** (specific to the project location)
+5. **Installation timelines** and best practices (consider the project timeline)
+6. **Tools and materials** needed
+7. **Common challenges** and solutions
 
-STRICT REQUIREMENTS:
+## Location-Specific Guidance
+When project location is provided, prioritize:
+- Local building codes and regulations
+- Regional supplier recommendations
+- Area-specific climate considerations
+- Local permit requirements
+
+## Budget Considerations
+When budget is provided, focus on:
+- Budget-appropriate options and alternatives
+- Cost-effective solutions within the range
+- Value engineering opportunities
+
+**FORMATTING REQUIREMENTS:**
+- Use markdown formatting with headers (##, ###), bold (**text**), and bullet points
+- Structure content with clear sections and subsections
+- Use numbered lists for step-by-step processes
+- Use bullet points for item lists
+- Highlight important costs or measurements with **bold text**
+- Make the content scannable and professional
+
+**STRICT REQUIREMENTS:**
 - Provide EXACTLY 3 sources (no more, no less)
 - Provide EXACTLY 5 related questions (no more, no less)
 - For URLs, you can use domain names like "example.com" or full URLs

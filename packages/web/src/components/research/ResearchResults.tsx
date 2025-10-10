@@ -10,6 +10,10 @@ import {
   ThumbsUp,
   ThumbsDown,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface ResearchResultsProps {
   result: ResearchResult;
@@ -113,10 +117,81 @@ export function ResearchResults({
 
       {/* Answer */}
       <div className="p-6">
-        <div className="prose prose-sm max-w-none">
-          <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+        <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-800 prose-p:leading-relaxed prose-strong:text-gray-900 prose-ul:text-gray-800 prose-ol:text-gray-800 prose-li:text-gray-800">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code({ node, inline, className, children, ...props }: any) {
+                const match = /language-(\w+)/.exec(className || "");
+                return !inline && match ? (
+                  <SyntaxHighlighter
+                    style={oneDark}
+                    language={match[1]}
+                    PreTag="div"
+                    className="rounded-lg text-sm"
+                    {...props}
+                  >
+                    {String(children).replace(/\n$/, "")}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code
+                    className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono"
+                    {...props}
+                  >
+                    {children}
+                  </code>
+                );
+              },
+              h1: ({ children }) => (
+                <h1 className="text-xl font-bold text-gray-900 mb-4">
+                  {children}
+                </h1>
+              ),
+              h2: ({ children }) => (
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                  {children}
+                </h2>
+              ),
+              h3: ({ children }) => (
+                <h3 className="text-base font-medium text-gray-900 mb-2">
+                  {children}
+                </h3>
+              ),
+              ul: ({ children }) => (
+                <ul className="list-disc list-inside space-y-1 mb-4">
+                  {children}
+                </ul>
+              ),
+              ol: ({ children }) => (
+                <ol className="list-decimal list-inside space-y-1 mb-4">
+                  {children}
+                </ol>
+              ),
+              li: ({ children }) => (
+                <li className="text-gray-800">{children}</li>
+              ),
+              p: ({ children }) => (
+                <p className="text-gray-800 leading-relaxed mb-3">{children}</p>
+              ),
+              strong: ({ children }) => (
+                <strong className="font-semibold text-gray-900">
+                  {children}
+                </strong>
+              ),
+              a: ({ href, children }) => (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline"
+                >
+                  {children}
+                </a>
+              ),
+            }}
+          >
             {result.answer}
-          </div>
+          </ReactMarkdown>
         </div>
       </div>
 

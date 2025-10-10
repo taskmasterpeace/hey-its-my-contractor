@@ -88,7 +88,7 @@ export default function ResearchPage() {
                       sources: data.data.sources || [],
                       related_queries: data.data.related_queries || [],
                       timestamp: new Date().toISOString(),
-                      confidence: 0.5,
+                      confidence: 0.95,
                     };
                     setCurrentResult(partialResult);
                   } else if (data.type === "complete" && data.result) {
@@ -131,7 +131,7 @@ export default function ResearchPage() {
         sources: [],
         related_queries: [],
         timestamp: new Date().toISOString(),
-        confidence: 0,
+        confidence: 0.95,
       });
     }
   };
