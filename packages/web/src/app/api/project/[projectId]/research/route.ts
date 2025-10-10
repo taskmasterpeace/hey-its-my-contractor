@@ -1,74 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { generateText } from "ai";
+import { streamObject } from "ai";
+import { z } from "zod";
 
-// Function to parse Perplexity response and extract sources and related questions
-function parsePerplexityResponse(text: string) {
-  const sources: any[] = [];
-  let cleanedText = text;
-  let relatedQueries: string[] = [];
-
-  // Extract related questions if they exist
-  const relatedQuestionsMatch = text.match(
-    /RELATED_QUESTIONS:\s*([\s\S]*?)(?:\n\n|$)/
-  );
-  if (relatedQuestionsMatch) {
-    const questionsText = relatedQuestionsMatch[1];
-    const questionMatches = questionsText.match(/- (.+)/g);
-    if (questionMatches) {
-      relatedQueries = questionMatches
-        .map((q) => q.replace(/^- /, "").trim())
-        .slice(0, 5);
-    }
-    // Remove the related questions section from the main text
-    cleanedText = text.replace(/RELATED_QUESTIONS:[\s\S]*$/, "").trim();
-  }
-
-  // Pattern to match URLs in the text
-  const urlPattern = /https?:\/\/[^\s\)]+/g;
-  const urls = cleanedText.match(urlPattern) || [];
-
-  // Pattern to match citation numbers like [1], (1), etc.
-  const citationPattern = /\[(\d+)\]|\((\d+)\)/g;
-  const citations = cleanedText.match(citationPattern) || [];
-
-  // Extract URLs and create source objects (limit to 3)
-  const uniqueUrls = [...new Set(urls)].slice(0, 3);
-
-  uniqueUrls.forEach((url, index) => {
-    try {
-      const urlObj = new URL(url);
-      const domain = urlObj.hostname.replace("www.", "");
-
-      sources.push({
-        title: `Source from ${domain}`,
-        url: url,
-        snippet: `Information sourced from ${domain}`,
-        domain: domain,
-      });
-    } catch (error) {
-      // Skip invalid URLs
-    }
-  });
-
-  // If we have citations but no direct URLs, create placeholder sources (limit to 3)
-  if (citations.length > 0 && sources.length === 0) {
-    citations.slice(0, 3).forEach((citation, index) => {
-      sources.push({
-        title: `Citation ${citation}`,
-        url: "#",
-        snippet: "Information from referenced source",
-        domain: "referenced-source.com",
-      });
-    });
-  }
-
-  // Clean the text by removing excessive URLs and citation markers
-  cleanedText = cleanedText.replace(/https?:\/\/[^\s\)]+/g, "");
-  cleanedText = cleanedText.replace(/\s+/g, " ").trim();
-
-  return { cleanedText, sources, relatedQueries };
-}
+// More lenient schema for research result
+const researchResultSchema = z.object({
+  answer: z.string().describe("Detailed research answer for contractors"),
+  sources: z
+    .array(
+      z.object({
+        title: z.string().describe("Title of the source"),
+        url: z.string().describe("URL to the source (can be domain only)"),
+        snippet: z.string().describe("Brief description of the source content"),
+        domain: z.string().describe("Domain name of the source"),
+      })
+    )
+    .length(3)
+    .describe("Exactly 3 relevant sources"),
+  related_queries: z
+    .array(z.string())
+    .length(5)
+    .describe("Exactly 5 related questions contractors might ask"),
+});
 
 export async function POST(
   request: NextRequest,
@@ -78,14 +31,17 @@ export async function POST(
     const { query, type, context } = await request.json();
 
     if (!query) {
-      return NextResponse.json({ error: "Query is required" }, { status: 400 });
+      return new Response(JSON.stringify({ error: "Query is required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // Check for API key
     if (!process.env.OPENROUTER_API_KEY) {
-      return NextResponse.json(
-        { error: "OpenRouter API key not configured" },
-        { status: 500 }
+      return new Response(
+        JSON.stringify({ error: "OpenRouter API key not configured" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -94,58 +50,112 @@ export async function POST(
       apiKey: process.env.OPENROUTER_API_KEY,
     });
 
-    // Enhance the prompt for contractor-specific research with explicit source requirements
-    const enhancedPrompt = `As a professional contractor research assistant, please provide detailed information about: ${query}
+    // Enhanced prompt for structured contractor research
+    const enhancedPrompt = `As a professional contractor research assistant, research and provide detailed information about: ${query}
 
 ${type ? `This is specifically related to: ${type}` : ""}
 ${context ? `Additional context: ${JSON.stringify(context)}` : ""}
 
-Please include:
+Provide comprehensive contractor-focused information including:
 1. Practical information for contractors
-2. Cost considerations and budget ranges
+2. Cost considerations and budget ranges  
 3. Local supplier recommendations when applicable
 4. Building code and permit requirements
 5. Installation timelines and best practices
 6. Tools and materials needed
 7. Common challenges and solutions
 
-IMPORTANT: Please include specific website URLs and sources in your response where you found this information. This is critical for verification and further research.
+STRICT REQUIREMENTS:
+- Provide EXACTLY 3 sources (no more, no less)
+- Provide EXACTLY 5 related questions (no more, no less)
+- For URLs, you can use domain names like "example.com" or full URLs
+- Keep source snippets very short (under 80 characters)
+- Make sure all sources are relevant and real`;
 
-At the end of your response, please provide 5 related questions that contractors might ask about this topic. Format them exactly like this:
-
-RELATED_QUESTIONS:
-- Question 1 here
-- Question 2 here
-- Question 3 here
-- Question 4 here
-- Question 5 here`;
-
-    // Generate text using Perplexity via OpenRouter
-    const { text } = await generateText({
+    // Stream structured object using Perplexity via OpenRouter
+    const { partialObjectStream, object } = streamObject({
       model: openrouter.chat("perplexity/sonar-pro"),
+      schema: researchResultSchema,
+      schemaName: "ContractorResearchResult",
+      schemaDescription:
+        "Structured research result with exactly 3 sources and 5 questions",
       prompt: enhancedPrompt,
     });
 
-    // Parse sources and related questions from Perplexity response
-    const { cleanedText, sources, relatedQueries } =
-      parsePerplexityResponse(text);
+    // Create a readable stream for the response
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Stream partial updates
+          for await (const partialObject of partialObjectStream) {
+            const streamData = {
+              type: "partial",
+              data: partialObject,
+            };
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(streamData)}\n\n`)
+            );
+          }
 
-    // Format the response to match the expected ResearchResult type
-    const result = {
-      query,
-      answer: cleanedText || text, // Use cleaned text if available, fallback to original
-      sources,
-      related_queries: relatedQueries,
-      timestamp: new Date().toISOString(),
-      confidence: sources.length > 0 ? 0.95 : 0.85, // Higher confidence with sources
-    };
+          // Get final complete object
+          const finalObject = await object;
 
-    return NextResponse.json({ result });
+          // Process URLs to ensure they're clickable and truncate snippets
+          const processedSources = finalObject.sources.map((source: any) => ({
+            ...source,
+            url: source.url.startsWith("http")
+              ? source.url
+              : `https://${source.url}`,
+            snippet:
+              source.snippet.length > 80
+                ? source.snippet.substring(0, 80) + "..."
+                : source.snippet,
+          }));
+
+          // Send final complete result
+          const result = {
+            query,
+            answer: finalObject.answer,
+            sources: processedSources,
+            related_queries: finalObject.related_queries,
+            timestamp: new Date().toISOString(),
+            confidence: 0.95,
+          };
+
+          const finalData = {
+            type: "complete",
+            result: result,
+          };
+
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(finalData)}\n\n`)
+          );
+          controller.close();
+        } catch (error) {
+          console.error("Streaming error:", error);
+          controller.enqueue(
+            encoder.encode(
+              `data: {"type":"error","error":"Failed to process research query"}\n\n`
+            )
+          );
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   } catch (error) {
     console.error("Research API error:", error);
-    return NextResponse.json(
-      { error: "Failed to process research query" },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: "Failed to process research query" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }

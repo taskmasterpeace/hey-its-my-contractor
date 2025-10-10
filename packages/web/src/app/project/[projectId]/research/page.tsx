@@ -39,6 +39,7 @@ export default function ResearchPage() {
   const handleSearch = async (query: string, type?: string, context?: any) => {
     setIsSearching(true);
     setActiveQuery(query);
+    setCurrentResult(null); // Clear previous results
 
     try {
       // Get projectId from the URL
@@ -60,14 +61,63 @@ export default function ResearchPage() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      // Handle streaming response
+      if (response.headers.get("content-type")?.includes("text/event-stream")) {
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
 
-      if (data.error) {
-        throw new Error(data.error);
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split("\n");
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+
+                  if (data.type === "partial" && data.data) {
+                    // Update with partial data for real-time feedback
+                    const partialResult = {
+                      query,
+                      answer: data.data.answer || "Researching...",
+                      sources: data.data.sources || [],
+                      related_queries: data.data.related_queries || [],
+                      timestamp: new Date().toISOString(),
+                      confidence: 0.5,
+                    };
+                    setCurrentResult(partialResult);
+                  } else if (data.type === "complete" && data.result) {
+                    // Final complete result
+                    setCurrentResult(data.result);
+                    setIsSearching(false);
+                    return;
+                  } else if (data.type === "error") {
+                    throw new Error(data.error);
+                  }
+                } catch (parseError) {
+                  console.warn("Failed to parse streaming data:", parseError);
+                }
+              }
+            }
+          }
+        }
+        setIsSearching(false);
+      } else {
+        // Fallback to regular JSON response
+        const data = await response.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        setCurrentResult(data.result);
+        setIsSearching(false);
       }
-
-      setCurrentResult(data.result);
-      setIsSearching(false);
     } catch (error) {
       console.error("Research failed:", error);
       setIsSearching(false);
