@@ -231,16 +231,21 @@ export function SavedResearchPanel({
                 </div>
 
                 <div className="flex items-center space-x-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(item.id);
-                    }}
-                    className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                    title="Delete research"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {/* Only show delete button if current user owns this research */}
+                  {currentUserId &&
+                    item.userId &&
+                    String(currentUserId) === String(item.userId) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(item.id);
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                        title="Delete research"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                 </div>
               </div>
             </div>

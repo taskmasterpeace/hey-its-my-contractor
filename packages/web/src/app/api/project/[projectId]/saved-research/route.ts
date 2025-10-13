@@ -199,21 +199,37 @@ export async function DELETE(
       );
     }
 
-    // 🔒 SECURITY: Check if user has access to this project
-    const isSuper = await isSuperAdmin(user.id);
-    const userProjectRole = await getUserProjectRole(user.id, projectId);
+    // Get the existing research to check ownership
+    const existingResearch = await db
+      .select()
+      .from(savedResearch)
+      .where(eq(savedResearch.id, researchId))
+      .limit(1);
 
-    if (!isSuper && !userProjectRole) {
+    if (existingResearch.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          error: "You don't have access to this project",
+          error: "Research not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    const research = existingResearch[0];
+
+    // Only allow the original creator to delete their research
+    if (research.userId !== user.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You can only delete your own research",
         },
         { status: 403 }
       );
     }
 
-    // Delete research (users can delete any research in projects they have access to)
+    // Delete research (only owner can delete)
     await db.delete(savedResearch).where(eq(savedResearch.id, researchId));
 
     return NextResponse.json({
