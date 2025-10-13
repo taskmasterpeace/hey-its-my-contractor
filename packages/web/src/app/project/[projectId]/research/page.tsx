@@ -9,6 +9,7 @@ import {
 import { ResearchInterface } from "@/components/research/ResearchInterface";
 import { ResearchResults } from "@/components/research/ResearchResults";
 import { SavedResearchPanel } from "@/components/research/SavedResearchPanel";
+import { ProjectContext } from "@/components/research/ProjectContext";
 import { Search, History, Sparkles } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
@@ -25,13 +26,15 @@ export default function ResearchPage() {
   const [suggestedQuery, setSuggestedQuery] = useState<string>("");
   const [abortController, setAbortController] =
     useState<AbortController | null>(null);
+  const [projectId, setProjectId] = useState<string>("");
 
   // Load current user and saved research on component mount
   useEffect(() => {
     const loadUserAndResearch = async () => {
       try {
         setIsLoadingSavedResearch(true);
-        const projectId = window.location.pathname.split("/")[2];
+        const currentProjectId = window.location.pathname.split("/")[2];
+        setProjectId(currentProjectId);
 
         // Get current user info from Supabase
         const supabase = createClient();
@@ -41,7 +44,7 @@ export default function ResearchPage() {
         setCurrentUserId(user?.id || null);
 
         const response = await fetch(
-          `/api/project/${projectId}/saved-research`
+          `/api/project/${currentProjectId}/saved-research`
         );
 
         if (response.ok) {
@@ -213,7 +216,7 @@ export default function ResearchPage() {
     isPrivate?: boolean
   ) => {
     try {
-      const projectId = window.location.pathname.split("/")[2];
+      if (!projectId) return;
 
       const response = await fetch(`/api/project/${projectId}/saved-research`, {
         method: "POST",
@@ -263,7 +266,7 @@ export default function ResearchPage() {
 
   const handleDeleteSaved = async (id: string) => {
     try {
-      const projectId = window.location.pathname.split("/")[2];
+      if (!projectId) return;
 
       const response = await fetch(
         `/api/project/${projectId}/saved-research?id=${id}`,
@@ -288,7 +291,7 @@ export default function ResearchPage() {
 
   const handleUpdatePrivacy = async (id: string, isPrivate: boolean) => {
     try {
-      const projectId = window.location.pathname.split("/")[2];
+      if (!projectId) return;
 
       const response = await fetch(
         `/api/project/${projectId}/saved-research?id=${id}`,
@@ -367,6 +370,9 @@ export default function ResearchPage() {
           Saved ({savedResearch.length})
         </button>
       </div>
+
+      {/* Project Context */}
+      {projectId && <ProjectContext projectId={projectId} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
