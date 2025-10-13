@@ -60,6 +60,7 @@ src/app/
 │       ├── dashboard/page.tsx # Project overview
 │       ├── calendar/page.tsx  # Project calendar
 │       ├── chat/page.tsx      # Project chat
+│       ├── research/page.tsx  # AI research assistant
 │       ├── team/page.tsx      # Project team
 │       └── .../page.tsx       # Other project features
 ├── admin/
@@ -227,6 +228,7 @@ interface Invitation {
    ```
 
 3. **Implement project-scoped logic**:
+
    ```typescript
    export default function NewFeaturePage() {
      const params = useParams();
@@ -335,6 +337,8 @@ Example implementations:
 - `/api/project/[projectId]/team` - Project team management
 - `/api/project/[projectId]/calendar` - Project calendar events
 - `/api/project/[projectId]/chat` - Project chat rooms
+- `/api/project/[projectId]/research` - AI research queries
+- `/api/project/[projectId]/saved-research` - Saved research management
 
 ### Company-Scoped APIs
 
@@ -385,6 +389,245 @@ Company management APIs:
 - Invitation acceptance for existing users
 - Layout rendering for different route types
 
+## Research System
+
+### Overview
+
+The AI Research Assistant provides project-scoped research capabilities with privacy controls and ownership-based permissions. Users can perform AI-powered research and save results with granular privacy settings.
+
+### Research Privacy Model
+
+The research system implements a dual-level privacy model:
+
+```typescript
+interface SavedResearch {
+  id: string;
+  userId: string; // Creator/owner of the research
+  projectId: string; // Project scope
+  isPrivate: boolean; // Privacy setting
+  // ... other fields
+}
+```
+
+### Privacy Levels
+
+1. **Private Research** (`isPrivate: true`)
+
+   - Only visible to the creator
+   - Not visible to other project members
+   - Super admins cannot access private research
+
+2. **Shared Research** (`isPrivate: false`)
+   - Visible to all project members
+   - Shared knowledge base for the project
+   - Default setting for new research
+
+### Ownership Permissions
+
+The research system enforces strict ownership controls:
+
+#### Viewing Permissions
+
+```typescript
+// API filtering logic
+const research = await db
+  .select()
+  .from(savedResearch)
+  .where(
+    and(
+      eq(savedResearch.projectId, projectId),
+      or(
+        eq(savedResearch.isPrivate, false), // Shared research
+        and(
+          eq(savedResearch.isPrivate, true), // Private research
+          eq(savedResearch.userId, currentUserId) // owned by user
+        )
+      )
+    )
+  );
+```
+
+#### Edit/Delete Permissions
+
+- **Edit Privacy**: Only creator can change privacy settings
+- **Delete Research**: Only creator can delete their research
+- **Super Admin**: Treated as regular user (no special privileges)
+
+### Database Schema
+
+```sql
+-- Research table with privacy and ownership
+CREATE TABLE saved_research (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+
+  -- Research content
+  query TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  sources JSONB DEFAULT '[]' NOT NULL,
+  related_queries TEXT[] DEFAULT ARRAY[]::TEXT[],
+
+  -- User organization
+  title VARCHAR(255),
+  tags VARCHAR[] DEFAULT ARRAY[]::VARCHAR[],
+  notes TEXT,
+
+  -- Privacy & ownership
+  is_private BOOLEAN DEFAULT FALSE NOT NULL,
+
+  -- Metadata
+  confidence VARCHAR(10) DEFAULT '0.95',
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+### API Endpoints
+
+#### Research Operations
+
+```typescript
+// Perform AI research
+POST /api/project/[projectId]/research
+{
+  query: string;
+  type?: string;
+  context?: any;
+}
+
+// Save research with privacy setting
+POST /api/project/[projectId]/saved-research
+{
+  query: string;
+  answer: string;
+  sources: Array<Source>;
+  relatedQueries: string[];
+  tags: string[];
+  notes?: string;
+  isPrivate: boolean;  // Privacy setting
+}
+
+// Update privacy settings (owner only)
+PATCH /api/project/[projectId]/saved-research?id=<researchId>
+{
+  isPrivate: boolean;
+}
+
+// Delete research (owner only)
+DELETE /api/project/[projectId]/saved-research?id=<researchId>
+```
+
+#### Security Validation
+
+```typescript
+// Ownership validation for edit/delete operations
+const existingResearch = await db
+  .select()
+  .from(savedResearch)
+  .where(eq(savedResearch.id, researchId))
+  .limit(1);
+
+if (existingResearch[0].userId !== user.id) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "You can only modify your own research",
+    },
+    { status: 403 }
+  );
+}
+```
+
+### Frontend Components
+
+#### Research Interface Structure
+
+```
+src/components/research/
+├── ResearchInterface.tsx     # AI query interface
+├── ResearchResults.tsx       # Results with privacy toggle
+├── SavedResearchPanel.tsx    # Saved research management
+└── ResearchSuggestions.tsx   # Query suggestions
+```
+
+#### Privacy Controls
+
+```typescript
+// Save dialog with privacy toggle
+<div className="privacy-controls">
+  <input
+    type="radio"
+    checked={!isPrivate}
+    onChange={() => setIsPrivate(false)}
+  />
+  <label>Share with project members</label>
+
+  <input type="radio" checked={isPrivate} onChange={() => setIsPrivate(true)} />
+  <label>Keep private</label>
+</div>
+```
+
+#### Ownership-Based UI
+
+```typescript
+// Show edit/delete only for owned research
+{
+  currentUserId === item.userId && (
+    <button onClick={() => editPrivacy(item.id)}>
+      <Edit3 className="w-3 h-3" />
+    </button>
+  );
+}
+
+{
+  currentUserId === item.userId && (
+    <button onClick={() => deleteResearch(item.id)}>
+      <Trash2 className="w-4 h-4" />
+    </button>
+  );
+}
+```
+
+### Key Features
+
+#### Privacy Management
+
+- ✅ Privacy toggle during save (Private vs Shared)
+- ✅ Visual privacy indicators with badges
+- ✅ Inline privacy editing for owned research
+- ✅ Real-time updates without page refresh
+
+#### Ownership Controls
+
+- ✅ Edit permissions limited to creator
+- ✅ Delete permissions limited to creator
+- ✅ UI elements hidden for non-owned research
+- ✅ API validation for all ownership operations
+
+#### Security Implementation
+
+- ✅ Project-scoped access validation
+- ✅ Ownership-based operation permissions
+- ✅ Privacy filtering in database queries
+- ✅ Super admin limitations for private content
+
+### Development Guidelines
+
+#### Adding Research Features
+
+1. All research data must be filtered by `projectId`
+2. Implement ownership checks for modifications
+3. Respect privacy settings in all queries
+4. Use consistent ownership validation patterns
+
+#### Privacy Best Practices
+
+- Default to shared research for collaboration
+- Validate ownership before any modification
+- Filter private research at database level
+- Provide clear privacy indicators in UI
+
 ---
 
-This architecture provides a scalable, secure, and user-friendly foundation for the contractor management platform with proper multi-tenancy and project isolation.
+This architecture provides a scalable, secure, and user-friendly foundation for the contractor management platform with proper multi-tenancy, project isolation, and advanced research privacy controls.
