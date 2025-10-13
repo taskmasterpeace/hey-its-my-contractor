@@ -21,11 +21,13 @@ export default function ResearchPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState<"search" | "saved">("search");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isLoadingSavedResearch, setIsLoadingSavedResearch] = useState(true);
 
   // Load current user and saved research on component mount
   useEffect(() => {
     const loadUserAndResearch = async () => {
       try {
+        setIsLoadingSavedResearch(true);
         const projectId = window.location.pathname.split("/")[2];
 
         // Get current user info from Supabase
@@ -67,6 +69,8 @@ export default function ResearchPage() {
         }
       } catch (error) {
         console.error("Failed to load saved research:", error);
+      } finally {
+        setIsLoadingSavedResearch(false);
       }
     };
 
@@ -367,6 +371,7 @@ export default function ResearchPage() {
               }}
               currentUserId={currentUserId}
               selectedProject=""
+              isLoading={isLoadingSavedResearch}
             />
           )}
         </div>
