@@ -230,3 +230,90 @@ export async function DELETE(
     );
   }
 }
+
+// PATCH - Update saved research privacy settings
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  try {
+    const user = await getCurrentUser(request);
+    const { projectId } = await params;
+    const { searchParams } = new URL(request.url);
+    const researchId = searchParams.get("id");
+
+    if (!projectId || !researchId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Project ID and Research ID are required",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { isPrivate } = await request.json();
+
+    if (typeof isPrivate !== "boolean") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "isPrivate must be a boolean value",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Get the existing research to check ownership
+    const existingResearch = await db
+      .select()
+      .from(savedResearch)
+      .where(eq(savedResearch.id, researchId))
+      .limit(1);
+
+    if (existingResearch.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Research not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    const research = existingResearch[0];
+
+    // Only allow the original creator to update privacy settings
+    if (research.userId !== user.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You can only update your own research privacy settings",
+        },
+        { status: 403 }
+      );
+    }
+
+    // Update the privacy setting
+    await db
+      .update(savedResearch)
+      .set({
+        isPrivate,
+        updatedAt: new Date(),
+      })
+      .where(eq(savedResearch.id, researchId));
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error("Failed to update research privacy:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to update research privacy",
+      },
+      { status: 500 }
+    );
+  }
+}

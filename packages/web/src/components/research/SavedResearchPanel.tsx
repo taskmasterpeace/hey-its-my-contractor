@@ -14,6 +14,9 @@ import {
   Copy,
   Lock,
   Users,
+  Edit3,
+  Check,
+  X,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -22,6 +25,8 @@ interface SavedResearchPanelProps {
   savedResearch: SavedResearch[];
   onDelete: (id: string) => void;
   onResearch: (query: string) => void;
+  onUpdatePrivacy: (id: string, isPrivate: boolean) => void;
+  currentUserId: string | null;
   selectedProject?: string;
 }
 
@@ -29,9 +34,12 @@ export function SavedResearchPanel({
   savedResearch,
   onDelete,
   onResearch,
+  onUpdatePrivacy,
+  currentUserId,
   selectedProject,
 }: SavedResearchPanelProps) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [editingPrivacy, setEditingPrivacy] = useState<string | null>(null);
 
   const filteredResearch = savedResearch.filter(
     (item) => !selectedProject || item.project_id === selectedProject
@@ -120,16 +128,73 @@ export function SavedResearchPanel({
                       <h3 className="font-medium text-gray-900 truncate">
                         {item.query}
                       </h3>
-                      {item.isPrivate && (
-                        <div className="flex items-center px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs">
-                          <Lock className="w-3 h-3 mr-1" />
-                          Private
+
+                      {/* Privacy Status/Editor */}
+                      {editingPrivacy === item.id ? (
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => {
+                              onUpdatePrivacy(item.id, false);
+                              setEditingPrivacy(null);
+                            }}
+                            className={`flex items-center px-2 py-0.5 rounded-full text-xs transition-colors ${
+                              !item.isPrivate
+                                ? "bg-blue-100 text-blue-700 ring-2 ring-blue-300"
+                                : "bg-gray-100 text-gray-600 hover:bg-blue-50"
+                            }`}
+                          >
+                            <Users className="w-3 h-3 mr-1" />
+                            Shared
+                          </button>
+                          <button
+                            onClick={() => {
+                              onUpdatePrivacy(item.id, true);
+                              setEditingPrivacy(null);
+                            }}
+                            className={`flex items-center px-2 py-0.5 rounded-full text-xs transition-colors ${
+                              item.isPrivate
+                                ? "bg-orange-100 text-orange-700 ring-2 ring-orange-300"
+                                : "bg-gray-100 text-gray-600 hover:bg-orange-50"
+                            }`}
+                          >
+                            <Lock className="w-3 h-3 mr-1" />
+                            Private
+                          </button>
+                          <button
+                            onClick={() => setEditingPrivacy(null)}
+                            className="p-0.5 text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
                         </div>
-                      )}
-                      {!item.isPrivate && (
-                        <div className="flex items-center px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
-                          <Users className="w-3 h-3 mr-1" />
-                          Shared
+                      ) : (
+                        <div className="flex items-center space-x-1">
+                          {item.isPrivate ? (
+                            <div className="flex items-center px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs">
+                              <Lock className="w-3 h-3 mr-1" />
+                              Private
+                            </div>
+                          ) : (
+                            <div className="flex items-center px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+                              <Users className="w-3 h-3 mr-1" />
+                              Shared
+                            </div>
+                          )}
+                          {/* Show edit button for research owned by current user */}
+                          {currentUserId &&
+                            item.userId &&
+                            String(currentUserId) === String(item.userId) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingPrivacy(item.id);
+                                }}
+                                className="p-0.5 text-gray-400 hover:text-gray-600"
+                                title="Edit privacy settings"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                              </button>
+                            )}
                         </div>
                       )}
                     </div>
@@ -149,15 +214,18 @@ export function SavedResearchPanel({
                   </div>
                 </div>
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(item.id);
-                  }}
-                  className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center space-x-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(item.id);
+                    }}
+                    className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                    title="Delete research"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
 

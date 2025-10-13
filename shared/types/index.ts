@@ -371,6 +371,7 @@ export interface SavedResearch {
   created_at: string;
   updated_at: string;
   isPrivate?: boolean; // Privacy setting for the research
+  userId?: string; // User who created the research
 }
 
 // Weather Types

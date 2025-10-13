@@ -10,6 +10,7 @@ import { ResearchInterface } from "@/components/research/ResearchInterface";
 import { ResearchResults } from "@/components/research/ResearchResults";
 import { SavedResearchPanel } from "@/components/research/SavedResearchPanel";
 import { Search, History, Sparkles } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 export default function ResearchPage() {
   const [activeQuery, setActiveQuery] = useState("");
@@ -19,12 +20,20 @@ export default function ResearchPage() {
   const [savedResearch, setSavedResearch] = useState<SavedResearch[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState<"search" | "saved">("search");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Load saved research on component mount
+  // Load current user and saved research on component mount
   useEffect(() => {
-    const loadSavedResearch = async () => {
+    const loadUserAndResearch = async () => {
       try {
         const projectId = window.location.pathname.split("/")[2];
+
+        // Get current user info from Supabase
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        setCurrentUserId(user?.id || null);
 
         const response = await fetch(
           `/api/project/${projectId}/saved-research`
@@ -51,6 +60,7 @@ export default function ResearchPage() {
               created_at: item.createdAt,
               updated_at: item.updatedAt,
               isPrivate: item.isPrivate || false,
+              userId: item.userId, // Include userId for ownership check
             }));
             setSavedResearch(transformedResearch);
           }
@@ -60,7 +70,7 @@ export default function ResearchPage() {
       }
     };
 
-    loadSavedResearch();
+    loadUserAndResearch();
   }, []);
 
   const handleSearch = async (query: string, type?: string, context?: any) => {
@@ -204,6 +214,7 @@ export default function ResearchPage() {
             created_at: data.createdAt,
             updated_at: data.updatedAt,
             isPrivate: data.isPrivate || false,
+            userId: currentUserId || data.userId, // Include current user as owner
           };
 
           setSavedResearch((prev) => [newSavedItem, ...prev]);
@@ -238,6 +249,40 @@ export default function ResearchPage() {
       }
     } catch (error) {
       console.error("Failed to delete research:", error);
+      // TODO: Show error notification to user
+    }
+  };
+
+  const handleUpdatePrivacy = async (id: string, isPrivate: boolean) => {
+    try {
+      const projectId = window.location.pathname.split("/")[2];
+
+      const response = await fetch(
+        `/api/project/${projectId}/saved-research?id=${id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            isPrivate,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const { success } = await response.json();
+        if (success) {
+          // Update local state
+          setSavedResearch((prev) =>
+            prev.map((item) => (item.id === id ? { ...item, isPrivate } : item))
+          );
+        }
+      } else {
+        throw new Error("Failed to update privacy settings");
+      }
+    } catch (error) {
+      console.error("Failed to update privacy settings:", error);
       // TODO: Show error notification to user
     }
   };
@@ -315,10 +360,12 @@ export default function ResearchPage() {
             <SavedResearchPanel
               savedResearch={savedResearch}
               onDelete={handleDeleteSaved}
+              onUpdatePrivacy={handleUpdatePrivacy}
               onResearch={(query) => {
                 setActiveTab("search");
                 handleSearch(query);
               }}
+              currentUserId={currentUserId}
               selectedProject=""
             />
           )}
