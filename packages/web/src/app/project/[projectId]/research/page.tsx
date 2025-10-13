@@ -50,6 +50,7 @@ export default function ResearchPage() {
               notes: item.notes,
               created_at: item.createdAt,
               updated_at: item.updatedAt,
+              isPrivate: item.isPrivate || false,
             }));
             setSavedResearch(transformedResearch);
           }
@@ -165,7 +166,8 @@ export default function ResearchPage() {
   const handleSaveResearch = async (
     result: ResearchResult,
     tags: string[],
-    notes?: string
+    notes?: string,
+    isPrivate?: boolean
   ) => {
     try {
       const projectId = window.location.pathname.split("/")[2];
@@ -184,6 +186,7 @@ export default function ResearchPage() {
           tags,
           notes,
           confidence: result.confidence,
+          isPrivate: isPrivate || false,
         }),
       });
 
@@ -200,6 +203,7 @@ export default function ResearchPage() {
             notes: data.notes,
             created_at: data.createdAt,
             updated_at: data.updatedAt,
+            isPrivate: data.isPrivate || false,
           };
 
           setSavedResearch((prev) => [newSavedItem, ...prev]);

@@ -370,6 +370,7 @@ export interface SavedResearch {
   notes?: string;
   created_at: string;
   updated_at: string;
+  isPrivate?: boolean; // Privacy setting for the research
 }
 
 // Weather Types

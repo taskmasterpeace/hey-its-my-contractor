@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { db } from "@/db";
 import { savedResearch } from "@/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 import { getUserProjectRole, isSuperAdmin } from "@/lib/auth/permissions";
 
 async function getCurrentUser(request: NextRequest) {
@@ -52,11 +52,26 @@ export async function GET(
       );
     }
 
-    // Get all saved research for this project (project-scoped, not user-scoped)
+    // Get saved research for this project with privacy filtering
+    // Show:
+    // 1. All non-private research (shared with project members)
+    // 2. Private research ONLY if created by the current user (even super admin can't see others' private research)
     const research = await db
       .select()
       .from(savedResearch)
-      .where(eq(savedResearch.projectId, projectId))
+      .where(
+        and(
+          eq(savedResearch.projectId, projectId),
+          // Show non-private research OR private research owned by current user
+          or(
+            eq(savedResearch.isPrivate, false),
+            and(
+              eq(savedResearch.isPrivate, true),
+              eq(savedResearch.userId, user.id)
+            )
+          )
+        )
+      )
       .orderBy(desc(savedResearch.createdAt));
 
     return NextResponse.json({
@@ -117,6 +132,7 @@ export async function POST(
       tags,
       notes,
       confidence,
+      isPrivate,
     } = await request.json();
 
     if (!query || !answer) {
@@ -142,6 +158,7 @@ export async function POST(
         tags: tags || [],
         notes,
         confidence: confidence?.toString() || "0.95",
+        isPrivate: isPrivate || false, // Default to shared (false)
       })
       .returning();
 

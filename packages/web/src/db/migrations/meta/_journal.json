@@ -50,6 +50,13 @@
       "when": 1760060783208,
       "tag": "0006_flat_lightspeed",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1760379054468,
+      "tag": "0007_public_titania",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,8 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Lock,
+  Users,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -114,9 +116,23 @@ export function SavedResearchPanel({
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-gray-900 truncate">
-                      {item.query}
-                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-medium text-gray-900 truncate">
+                        {item.query}
+                      </h3>
+                      {item.isPrivate && (
+                        <div className="flex items-center px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs">
+                          <Lock className="w-3 h-3 mr-1" />
+                          Private
+                        </div>
+                      )}
+                      {!item.isPrivate && (
+                        <div className="flex items-center px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+                          <Users className="w-3 h-3 mr-1" />
+                          Shared
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center space-x-3 text-xs text-gray-500 mt-1">
                       <div className="flex items-center">
                         <Calendar className="w-3 h-3 mr-1" />
