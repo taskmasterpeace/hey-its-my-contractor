@@ -164,13 +164,27 @@ When budget is provided, focus on:
         try {
           // Stream partial updates
           for await (const partialObject of partialObjectStream) {
-            const streamData = {
-              type: "partial",
-              data: partialObject,
-            };
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(streamData)}\n\n`)
-            );
+            // Check if controller is still writable (client hasn't disconnected)
+            if (controller.desiredSize === null) {
+              return;
+            }
+
+            try {
+              const streamData = {
+                type: "partial",
+                data: partialObject,
+              };
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify(streamData)}\n\n`)
+              );
+            } catch (enqueueError) {
+              return;
+            }
+          }
+
+          // Check if controller is still writable before sending final result
+          if (controller.desiredSize === null) {
+            return;
           }
 
           // Get final complete object
@@ -203,18 +217,33 @@ When budget is provided, focus on:
             result: result,
           };
 
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(finalData)}\n\n`)
-          );
-          controller.close();
+          try {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(finalData)}\n\n`)
+            );
+            controller.close();
+          } catch (enqueueError) {
+            console.log(
+              "Client disconnected before final result could be sent:",
+              enqueueError instanceof Error
+                ? enqueueError.message
+                : String(enqueueError)
+            );
+          }
         } catch (error) {
           console.error("Streaming error:", error);
-          controller.enqueue(
-            encoder.encode(
-              `data: {"type":"error","error":"Failed to process research query"}\n\n`
-            )
-          );
-          controller.close();
+
+          // Only try to send error if controller is still writable
+          if (controller.desiredSize !== null) {
+            try {
+              controller.enqueue(
+                encoder.encode(
+                  `data: {"type":"error","error":"Failed to process research query"}\n\n`
+                )
+              );
+              controller.close();
+            } catch (enqueueError) {}
+          }
         }
       },
     });

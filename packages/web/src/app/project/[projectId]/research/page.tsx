@@ -22,6 +22,9 @@ export default function ResearchPage() {
   const [activeTab, setActiveTab] = useState<"search" | "saved">("search");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoadingSavedResearch, setIsLoadingSavedResearch] = useState(true);
+  const [suggestedQuery, setSuggestedQuery] = useState<string>("");
+  const [abortController, setAbortController] =
+    useState<AbortController | null>(null);
 
   // Load current user and saved research on component mount
   useEffect(() => {
@@ -82,6 +85,10 @@ export default function ResearchPage() {
     setActiveQuery(query);
     setCurrentResult(null); // Clear previous results
 
+    // Create abort controller for cancellation
+    const controller = new AbortController();
+    setAbortController(controller);
+
     try {
       // Get projectId from the URL
       const projectId = window.location.pathname.split("/")[2];
@@ -96,6 +103,7 @@ export default function ResearchPage() {
           type,
           context,
         }),
+        signal: controller.signal, // Add abort signal
       });
 
       if (!response.ok) {
@@ -109,6 +117,12 @@ export default function ResearchPage() {
 
         if (reader) {
           while (true) {
+            // Check if request was aborted
+            if (controller.signal.aborted) {
+              reader.cancel();
+              break;
+            }
+
             const { done, value } = await reader.read();
 
             if (done) break;
@@ -158,22 +172,37 @@ export default function ResearchPage() {
 
         setCurrentResult(data.result);
         setIsSearching(false);
+        setAbortController(null);
       }
     } catch (error) {
-      console.error("Research failed:", error);
-      setIsSearching(false);
+      if (error instanceof Error && error.name === "AbortError") {
+        // Don't show error message for user-initiated stops
+        // Keep whatever partial result was already set
+      } else {
+        console.error("Research failed:", error);
 
-      // Show user-friendly error message
-      setCurrentResult({
-        query,
-        answer: `Sorry, I encountered an error while researching "${query}". Please try again or contact support if the issue persists.\n\nError: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-        sources: [],
-        related_queries: [],
-        timestamp: new Date().toISOString(),
-        confidence: 0.95,
-      });
+        // Only show error message for actual errors
+        setCurrentResult({
+          query,
+          answer: `Sorry, I encountered an error while researching "${query}". Please try again or contact support if the issue persists.\n\nError: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+          sources: [],
+          related_queries: [],
+          timestamp: new Date().toISOString(),
+          confidence: 0.95,
+        });
+      }
+      setIsSearching(false);
+      setAbortController(null);
+    }
+  };
+
+  const handleStopSearch = () => {
+    if (abortController) {
+      abortController.abort();
+      setIsSearching(false);
+      setAbortController(null);
     }
   };
 
@@ -302,7 +331,7 @@ export default function ResearchPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                AI Research Assistant
+                Research Assistant
               </h1>
               <p className="text-gray-600">
                 Get instant answers about suppliers, building codes, materials,
@@ -346,15 +375,18 @@ export default function ResearchPage() {
             <div className="space-y-6">
               <ResearchInterface
                 onSearch={handleSearch}
+                onStopSearch={handleStopSearch}
                 isSearching={isSearching}
                 currentQuery={activeQuery}
+                suggestedQuery={suggestedQuery}
+                onQueryChange={() => setSuggestedQuery("")}
               />
 
               {currentResult && (
                 <ResearchResults
                   result={currentResult}
                   onSave={handleSaveResearch}
-                  onRelatedQuery={handleSearch}
+                  onRelatedQuery={(query) => setSuggestedQuery(query)}
                 />
               )}
             </div>
@@ -367,7 +399,7 @@ export default function ResearchPage() {
               onUpdatePrivacy={handleUpdatePrivacy}
               onResearch={(query) => {
                 setActiveTab("search");
-                handleSearch(query);
+                setSuggestedQuery(query);
               }}
               currentUserId={currentUserId}
               selectedProject=""
@@ -420,7 +452,7 @@ export default function ResearchPage() {
                   {currentResult.related_queries.map((query, index) => (
                     <button
                       key={index}
-                      onClick={() => handleSearch(query)}
+                      onClick={() => setSuggestedQuery(query)}
                       className="text-left text-sm text-gray-600 hover:text-green-600 hover:bg-green-50 p-2 rounded-lg block w-full transition-colors border border-transparent hover:border-green-200"
                     >
                       {query}
