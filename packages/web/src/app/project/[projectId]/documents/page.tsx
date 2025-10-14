@@ -38,6 +38,7 @@ export default function DocumentsPage() {
   const [filterType, setFilterType] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("newest");
   const [fileTypeFilter, setFileTypeFilter] = useState<string>("all");
+  const [privacyFilter, setPrivacyFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isUploading, setIsUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -182,7 +183,27 @@ export default function DocumentsPage() {
         }
       }
 
-      return matchesSearch && matchesTypeFilter && matchesFileType;
+      // Privacy filter
+      let matchesPrivacyFilter = true;
+      if (privacyFilter !== "all") {
+        switch (privacyFilter) {
+          case "shared":
+            matchesPrivacyFilter = !doc.is_private;
+            break;
+          case "private":
+            matchesPrivacyFilter = doc.is_private === true;
+            break;
+          default:
+            matchesPrivacyFilter = true;
+        }
+      }
+
+      return (
+        matchesSearch &&
+        matchesTypeFilter &&
+        matchesFileType &&
+        matchesPrivacyFilter
+      );
     })
   );
 
@@ -227,6 +248,12 @@ export default function DocumentsPage() {
     { value: "pdf", label: "PDFs" },
     { value: "image", label: "Images" },
     { value: "document", label: "Documents" },
+  ];
+
+  const privacyOptions = [
+    { value: "all", label: "All Documents" },
+    { value: "shared", label: "📁 Shared" },
+    { value: "private", label: "🔒 Private" },
   ];
 
   return (
@@ -305,6 +332,21 @@ export default function DocumentsPage() {
                 className="pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               >
                 {fileTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Privacy Filter */}
+            <div className="relative">
+              <select
+                value={privacyFilter}
+                onChange={(e) => setPrivacyFilter(e.target.value)}
+                className="pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                {privacyOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
