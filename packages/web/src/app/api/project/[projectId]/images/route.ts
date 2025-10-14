@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { db } from "@/db";
 import { imageLibrary, imageLibraryCategories } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 
 // GET: Fetch project-scoped image library
 export async function GET(
@@ -27,8 +27,17 @@ export async function GET(
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
 
-    // Build query conditions - filter by project only (shared among all project team members)
-    const conditions = [eq(imageLibrary.projectId, projectId)];
+    // Build query conditions - filter by project and privacy
+    // Private images: only visible to their creator
+    // Public images: visible to all project members
+    const conditions = [
+      eq(imageLibrary.projectId, projectId),
+      // Show public images OR private images owned by current user
+      or(
+        eq(imageLibrary.isPrivate, false),
+        and(eq(imageLibrary.isPrivate, true), eq(imageLibrary.userId, user.id))
+      ),
+    ];
 
     if (categoryId && categoryId !== "all") {
       conditions.push(eq(imageLibrary.categoryId, categoryId));
@@ -53,6 +62,8 @@ export async function GET(
         categoryId: imageLibrary.categoryId,
         categoryName: imageLibraryCategories.name,
         categoryColor: imageLibraryCategories.color,
+        isPrivate: imageLibrary.isPrivate,
+        userId: imageLibrary.userId,
       })
       .from(imageLibrary)
       .leftJoin(
@@ -88,6 +99,8 @@ export async function GET(
         mimeType: image.metadata,
         fileSize: image.metadata,
         metadata: image.metadata,
+        isPrivate: image.isPrivate,
+        userId: image.userId,
         // Format category as expected by LibraryImage type
         category: image.categoryId
           ? {
@@ -151,6 +164,7 @@ export async function POST(
       retailer,
       originalUrl,
       metadata = {},
+      isPrivate = false,
     } = body;
 
     if (!title) {
@@ -268,6 +282,7 @@ export async function POST(
         originalUrl,
         retailer,
         tags,
+        isPrivate,
         metadata: {
           ...metadata,
           uploadedAt: new Date().toISOString(),

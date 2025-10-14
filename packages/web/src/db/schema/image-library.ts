@@ -7,6 +7,7 @@ import {
   jsonb,
   bigint,
   pgEnum,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { projects } from "./projects";
@@ -65,6 +66,9 @@ export const imageLibrary = pgTable("image_library", {
   aiPrompt: text("ai_prompt"),
   aiModel: varchar("ai_model", { length: 50 }),
   referenceImages: uuid("reference_images").array().default([]), // Reference to other library images
+
+  // Privacy control
+  isPrivate: boolean("is_private").default(false).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
