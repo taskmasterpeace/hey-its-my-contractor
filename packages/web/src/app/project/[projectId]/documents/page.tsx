@@ -122,6 +122,7 @@ export default function DocumentsPage() {
             storageKey: metadata.storage_key,
             fileSize: metadata.file_size,
             mimeType: metadata.mime_type,
+            isPrivate: metadata.isPrivate,
           }),
         }
       );
