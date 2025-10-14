@@ -145,7 +145,10 @@ When budget is provided, focus on:
 - For URLs, you can use domain names like "example.com" or full URLs
 - Keep source snippets concise and informative
 - Ensure all content is relevant and helpful for contractors
-- Prioritize quality over quantity for sources and questions`;
+- Prioritize quality over quantity for sources and questions
+- DO NOT include source citations like [1], [2], etc. in the answer text
+- DO NOT include a "Sources" section in the answer - sources will be handled separately
+- Focus the answer content on practical information without source references`;
 
     // Stream structured object using Perplexity via OpenRouter
     const { partialObjectStream, object } = streamObject({
@@ -164,20 +167,63 @@ When budget is provided, focus on:
         try {
           // Stream partial updates
           for await (const partialObject of partialObjectStream) {
-            const streamData = {
-              type: "partial",
-              data: partialObject,
-            };
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(streamData)}\n\n`)
-            );
+            // Check if controller is still writable (client hasn't disconnected)
+            if (controller.desiredSize === null) {
+              return;
+            }
+
+            try {
+              const streamData = {
+                type: "partial",
+                data: partialObject,
+              };
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify(streamData)}\n\n`)
+              );
+            } catch (enqueueError) {
+              return;
+            }
+          }
+
+          // Check if controller is still writable before sending final result
+          if (controller.desiredSize === null) {
+            return;
           }
 
           // Get final complete object
           const finalObject = await object;
 
+          // Clean answer text to remove any source citations and duplicate sections
+          let cleanedAnswer = finalObject.answer;
+
+          // Remove source citations like [1], [2], [1][2][3], etc.
+          cleanedAnswer = cleanedAnswer.replace(/\[[\d,\s]+\]/g, "");
+
+          // Remove any "Sources" or "References" sections at the end
+          cleanedAnswer = cleanedAnswer.replace(
+            /\n\s*#{1,6}\s*(Sources?|References?)\s*\n[\s\S]*$/i,
+            ""
+          );
+
+          // Remove duplicate URLs that might appear in the text
+          cleanedAnswer = cleanedAnswer.replace(/https?:\/\/[^\s\)]+/g, "");
+
+          // Deduplicate sources by domain to avoid showing the same site multiple times
+          const uniqueSources = finalObject.sources.reduce(
+            (acc: any[], source: any) => {
+              const existingSource = acc.find(
+                (s) => s.domain === source.domain
+              );
+              if (!existingSource) {
+                acc.push(source);
+              }
+              return acc;
+            },
+            []
+          );
+
           // Process URLs to ensure they're clickable and truncate snippets
-          const processedSources = finalObject.sources.map((source: any) => ({
+          const processedSources = uniqueSources.map((source: any) => ({
             ...source,
             url: source.url.startsWith("http")
               ? source.url
@@ -203,18 +249,33 @@ When budget is provided, focus on:
             result: result,
           };
 
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(finalData)}\n\n`)
-          );
-          controller.close();
+          try {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(finalData)}\n\n`)
+            );
+            controller.close();
+          } catch (enqueueError) {
+            console.log(
+              "Client disconnected before final result could be sent:",
+              enqueueError instanceof Error
+                ? enqueueError.message
+                : String(enqueueError)
+            );
+          }
         } catch (error) {
           console.error("Streaming error:", error);
-          controller.enqueue(
-            encoder.encode(
-              `data: {"type":"error","error":"Failed to process research query"}\n\n`
-            )
-          );
-          controller.close();
+
+          // Only try to send error if controller is still writable
+          if (controller.desiredSize !== null) {
+            try {
+              controller.enqueue(
+                encoder.encode(
+                  `data: {"type":"error","error":"Failed to process research query"}\n\n`
+                )
+              );
+              controller.close();
+            } catch (enqueueError) {}
+          }
         }
       },
     });

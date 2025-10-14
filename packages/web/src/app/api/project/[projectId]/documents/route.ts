@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { db } from "@/db";
 import { documents, documentComments } from "@/db/schema";
-import { eq, count } from "drizzle-orm";
+import { eq, count, and, or } from "drizzle-orm";
 
 export async function POST(
   request: NextRequest,
@@ -24,7 +24,15 @@ export async function POST(
     const { projectId } = await params;
     const body = await request.json();
 
-    const { name, description, type, storageKey, fileSize, mimeType } = body;
+    const {
+      name,
+      description,
+      type,
+      storageKey,
+      fileSize,
+      mimeType,
+      isPrivate,
+    } = body;
 
     // Validate required fields
     if (!name || !type || !storageKey) {
@@ -46,6 +54,7 @@ export async function POST(
         fileSize: fileSize ? Number(fileSize) : null,
         mimeType: mimeType || null,
         createdBy: user.id,
+        isPrivate: isPrivate || false,
       })
       .returning();
 
@@ -79,6 +88,8 @@ export async function GET(
     const { projectId } = await params;
 
     // Get documents for the project with comment counts
+    // Private documents: only visible to their creator
+    // Public documents: visible to all project members
     const projectDocuments = await db
       .select({
         id: documents.id,
@@ -94,13 +105,23 @@ export async function GET(
         linked_to: documents.linkedTo,
         expiration_date: documents.expirationDate,
         created_by: documents.createdBy,
+        is_private: documents.isPrivate,
         created_at: documents.createdAt,
         updated_at: documents.updatedAt,
         comment_count: count(documentComments.id),
       })
       .from(documents)
       .leftJoin(documentComments, eq(documents.id, documentComments.documentId))
-      .where(eq(documents.projectId, projectId))
+      .where(
+        and(
+          eq(documents.projectId, projectId),
+          // Show public documents OR private documents owned by current user
+          or(
+            eq(documents.isPrivate, false),
+            and(eq(documents.isPrivate, true), eq(documents.createdBy, user.id))
+          )
+        )
+      )
       .groupBy(documents.id)
       .orderBy(documents.createdAt);
 

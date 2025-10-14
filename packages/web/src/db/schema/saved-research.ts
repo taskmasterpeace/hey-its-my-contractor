@@ -5,6 +5,7 @@ import {
   text,
   timestamp,
   jsonb,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./users";
@@ -29,6 +30,9 @@ export const savedResearch = pgTable("saved_research", {
   title: varchar("title", { length: 255 }), // User-defined title, defaults to query
   tags: varchar("tags").array().default([]), // User tags for organization
   notes: text("notes"), // User's personal notes
+
+  // Privacy & Sharing
+  isPrivate: boolean("is_private").default(false).notNull(), // If true, only visible to the creator
 
   // Metadata
   confidence: varchar("confidence", { length: 10 }).default("0.95"), // AI confidence score

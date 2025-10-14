@@ -38,6 +38,8 @@ export interface LibraryImage {
   mimeType?: string;
   fileSize?: number;
   metadata?: Record<string, any>;
+  isPrivate?: boolean;
+  userId?: string;
 }
 
 export interface RetailerSettings {

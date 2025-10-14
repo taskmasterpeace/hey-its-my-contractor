@@ -41,6 +41,10 @@ export const documents = pgTable("documents", {
   createdBy: uuid("created_by")
     .references(() => users.id)
     .notNull(),
+
+  // Privacy control
+  isPrivate: boolean("is_private").default(false).notNull(),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

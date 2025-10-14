@@ -9,7 +9,9 @@ import {
 import { ResearchInterface } from "@/components/research/ResearchInterface";
 import { ResearchResults } from "@/components/research/ResearchResults";
 import { SavedResearchPanel } from "@/components/research/SavedResearchPanel";
+import { ProjectContext } from "@/components/research/ProjectContext";
 import { Search, History, Sparkles } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 export default function ResearchPage() {
   const [activeQuery, setActiveQuery] = useState("");
@@ -19,15 +21,30 @@ export default function ResearchPage() {
   const [savedResearch, setSavedResearch] = useState<SavedResearch[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState<"search" | "saved">("search");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isLoadingSavedResearch, setIsLoadingSavedResearch] = useState(true);
+  const [suggestedQuery, setSuggestedQuery] = useState<string>("");
+  const [abortController, setAbortController] =
+    useState<AbortController | null>(null);
+  const [projectId, setProjectId] = useState<string>("");
 
-  // Load saved research on component mount
+  // Load current user and saved research on component mount
   useEffect(() => {
-    const loadSavedResearch = async () => {
+    const loadUserAndResearch = async () => {
       try {
-        const projectId = window.location.pathname.split("/")[2];
+        setIsLoadingSavedResearch(true);
+        const currentProjectId = window.location.pathname.split("/")[2];
+        setProjectId(currentProjectId);
+
+        // Get current user info from Supabase
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        setCurrentUserId(user?.id || null);
 
         const response = await fetch(
-          `/api/project/${projectId}/saved-research`
+          `/api/project/${currentProjectId}/saved-research`
         );
 
         if (response.ok) {
@@ -50,22 +67,30 @@ export default function ResearchPage() {
               notes: item.notes,
               created_at: item.createdAt,
               updated_at: item.updatedAt,
+              isPrivate: item.isPrivate || false,
+              userId: item.userId, // Include userId for ownership check
             }));
             setSavedResearch(transformedResearch);
           }
         }
       } catch (error) {
         console.error("Failed to load saved research:", error);
+      } finally {
+        setIsLoadingSavedResearch(false);
       }
     };
 
-    loadSavedResearch();
+    loadUserAndResearch();
   }, []);
 
   const handleSearch = async (query: string, type?: string, context?: any) => {
     setIsSearching(true);
     setActiveQuery(query);
     setCurrentResult(null); // Clear previous results
+
+    // Create abort controller for cancellation
+    const controller = new AbortController();
+    setAbortController(controller);
 
     try {
       // Get projectId from the URL
@@ -81,6 +106,7 @@ export default function ResearchPage() {
           type,
           context,
         }),
+        signal: controller.signal, // Add abort signal
       });
 
       if (!response.ok) {
@@ -94,6 +120,12 @@ export default function ResearchPage() {
 
         if (reader) {
           while (true) {
+            // Check if request was aborted
+            if (controller.signal.aborted) {
+              reader.cancel();
+              break;
+            }
+
             const { done, value } = await reader.read();
 
             if (done) break;
@@ -143,32 +175,48 @@ export default function ResearchPage() {
 
         setCurrentResult(data.result);
         setIsSearching(false);
+        setAbortController(null);
       }
     } catch (error) {
-      console.error("Research failed:", error);
-      setIsSearching(false);
+      if (error instanceof Error && error.name === "AbortError") {
+        // Don't show error message for user-initiated stops
+        // Keep whatever partial result was already set
+      } else {
+        console.error("Research failed:", error);
 
-      // Show user-friendly error message
-      setCurrentResult({
-        query,
-        answer: `Sorry, I encountered an error while researching "${query}". Please try again or contact support if the issue persists.\n\nError: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-        sources: [],
-        related_queries: [],
-        timestamp: new Date().toISOString(),
-        confidence: 0.95,
-      });
+        // Only show error message for actual errors
+        setCurrentResult({
+          query,
+          answer: `Sorry, I encountered an error while researching "${query}". Please try again or contact support if the issue persists.\n\nError: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+          sources: [],
+          related_queries: [],
+          timestamp: new Date().toISOString(),
+          confidence: 0.95,
+        });
+      }
+      setIsSearching(false);
+      setAbortController(null);
+    }
+  };
+
+  const handleStopSearch = () => {
+    if (abortController) {
+      abortController.abort();
+      setIsSearching(false);
+      setAbortController(null);
     }
   };
 
   const handleSaveResearch = async (
     result: ResearchResult,
     tags: string[],
-    notes?: string
+    notes?: string,
+    isPrivate?: boolean
   ) => {
     try {
-      const projectId = window.location.pathname.split("/")[2];
+      if (!projectId) return;
 
       const response = await fetch(`/api/project/${projectId}/saved-research`, {
         method: "POST",
@@ -184,6 +232,7 @@ export default function ResearchPage() {
           tags,
           notes,
           confidence: result.confidence,
+          isPrivate: isPrivate || false,
         }),
       });
 
@@ -200,6 +249,8 @@ export default function ResearchPage() {
             notes: data.notes,
             created_at: data.createdAt,
             updated_at: data.updatedAt,
+            isPrivate: data.isPrivate || false,
+            userId: currentUserId || data.userId, // Include current user as owner
           };
 
           setSavedResearch((prev) => [newSavedItem, ...prev]);
@@ -215,7 +266,7 @@ export default function ResearchPage() {
 
   const handleDeleteSaved = async (id: string) => {
     try {
-      const projectId = window.location.pathname.split("/")[2];
+      if (!projectId) return;
 
       const response = await fetch(
         `/api/project/${projectId}/saved-research?id=${id}`,
@@ -238,6 +289,40 @@ export default function ResearchPage() {
     }
   };
 
+  const handleUpdatePrivacy = async (id: string, isPrivate: boolean) => {
+    try {
+      if (!projectId) return;
+
+      const response = await fetch(
+        `/api/project/${projectId}/saved-research?id=${id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            isPrivate,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const { success } = await response.json();
+        if (success) {
+          // Update local state
+          setSavedResearch((prev) =>
+            prev.map((item) => (item.id === id ? { ...item, isPrivate } : item))
+          );
+        }
+      } else {
+        throw new Error("Failed to update privacy settings");
+      }
+    } catch (error) {
+      console.error("Failed to update privacy settings:", error);
+      // TODO: Show error notification to user
+    }
+  };
+
   return (
     <div className="p-6">
       {/* Research Header */}
@@ -249,7 +334,7 @@ export default function ResearchPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                AI Research Assistant
+                Research Assistant
               </h1>
               <p className="text-gray-600">
                 Get instant answers about suppliers, building codes, materials,
@@ -286,6 +371,9 @@ export default function ResearchPage() {
         </button>
       </div>
 
+      {/* Project Context */}
+      {projectId && <ProjectContext projectId={projectId} />}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2">
@@ -293,15 +381,18 @@ export default function ResearchPage() {
             <div className="space-y-6">
               <ResearchInterface
                 onSearch={handleSearch}
+                onStopSearch={handleStopSearch}
                 isSearching={isSearching}
                 currentQuery={activeQuery}
+                suggestedQuery={suggestedQuery}
+                onQueryChange={() => setSuggestedQuery("")}
               />
 
               {currentResult && (
                 <ResearchResults
                   result={currentResult}
                   onSave={handleSaveResearch}
-                  onRelatedQuery={handleSearch}
+                  onRelatedQuery={(query) => setSuggestedQuery(query)}
                 />
               )}
             </div>
@@ -311,11 +402,14 @@ export default function ResearchPage() {
             <SavedResearchPanel
               savedResearch={savedResearch}
               onDelete={handleDeleteSaved}
+              onUpdatePrivacy={handleUpdatePrivacy}
               onResearch={(query) => {
                 setActiveTab("search");
-                handleSearch(query);
+                setSuggestedQuery(query);
               }}
+              currentUserId={currentUserId}
               selectedProject=""
+              isLoading={isLoadingSavedResearch}
             />
           )}
         </div>
@@ -364,7 +458,7 @@ export default function ResearchPage() {
                   {currentResult.related_queries.map((query, index) => (
                     <button
                       key={index}
-                      onClick={() => handleSearch(query)}
+                      onClick={() => setSuggestedQuery(query)}
                       className="text-left text-sm text-gray-600 hover:text-green-600 hover:bg-green-50 p-2 rounded-lg block w-full transition-colors border border-transparent hover:border-green-200"
                     >
                       {query}

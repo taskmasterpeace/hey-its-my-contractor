@@ -194,6 +194,7 @@ export interface Document {
   };
   expiration_date?: string; // For permits
   created_by: string;
+  is_private?: boolean; // Privacy setting
   created_at: string;
   updated_at: string;
 }
@@ -370,6 +371,8 @@ export interface SavedResearch {
   notes?: string;
   created_at: string;
   updated_at: string;
+  isPrivate?: boolean; // Privacy setting for the research
+  userId?: string; // User who created the research
 }
 
 // Weather Types

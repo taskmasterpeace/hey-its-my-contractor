@@ -1,20 +1,35 @@
 "use client";
 
 import { useState } from "react";
+import React from "react";
 import { Search, Sparkles, Zap } from "lucide-react";
 
 interface ResearchInterfaceProps {
   onSearch: (query: string, type?: string, context?: any) => void;
+  onStopSearch?: () => void;
   isSearching: boolean;
   currentQuery: string;
+  suggestedQuery?: string;
+  onQueryChange?: (query: string) => void;
 }
 
 export function ResearchInterface({
   onSearch,
+  onStopSearch,
   isSearching,
   currentQuery,
+  suggestedQuery,
+  onQueryChange,
 }: ResearchInterfaceProps) {
   const [query, setQuery] = useState("");
+
+  // Update query when suggestedQuery prop changes
+  React.useEffect(() => {
+    if (suggestedQuery) {
+      setQuery(suggestedQuery);
+      onQueryChange?.(suggestedQuery);
+    }
+  }, [suggestedQuery, onQueryChange]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +40,7 @@ export function ResearchInterface({
 
   const handleQuickSearch = (quickQuery: string, type: string) => {
     setQuery(quickQuery);
-    onSearch(quickQuery, type);
+    // Don't auto-send, let user edit and send manually
   };
 
   const quickSearches = [
@@ -121,27 +136,44 @@ export function ResearchInterface({
             ))}
           </div>
 
-          <button
-            type="submit"
-            disabled={!query.trim() || isSearching}
-            className={`w-full flex items-center justify-center space-x-2 py-4 px-6 rounded-xl font-medium transition-all duration-200 ${
-              !query.trim() || isSearching
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105"
-            }`}
-          >
-            {isSearching ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+          {isSearching && onStopSearch ? (
+            <div className="flex items-center space-x-3">
+              <button
+                type="button"
+                onClick={onStopSearch}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-700 text-white hover:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-200"
+                title="Stop Research"
+              >
+                <div className="w-3 h-3 bg-white rounded-sm"></div>
+              </button>
+              <div className="flex-1 flex items-center justify-center space-x-2 py-4 px-6 rounded-xl font-medium bg-gray-100 text-gray-500">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-500"></div>
                 <span>Researching...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5" />
-                <span>Get AI Research</span>
-              </>
-            )}
-          </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="submit"
+              disabled={!query.trim() || isSearching}
+              className={`w-full flex items-center justify-center space-x-2 py-4 px-6 rounded-xl font-medium transition-all duration-200 ${
+                !query.trim() || isSearching
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105"
+              }`}
+            >
+              {isSearching ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Researching...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5" />
+                  <span>Get AI Research</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </form>
     </div>

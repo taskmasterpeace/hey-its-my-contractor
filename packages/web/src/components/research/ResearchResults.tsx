@@ -17,7 +17,12 @@ import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface ResearchResultsProps {
   result: ResearchResult;
-  onSave: (result: ResearchResult, tags: string[], notes?: string) => void;
+  onSave: (
+    result: ResearchResult,
+    tags: string[],
+    notes?: string,
+    isPrivate?: boolean
+  ) => void;
   onRelatedQuery: (query: string, type?: string) => void;
 }
 
@@ -31,6 +36,7 @@ export function ResearchResults({
   const [saveTags, setSaveTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [copied, setCopied] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   const handleCopy = async () => {
     try {
@@ -43,10 +49,11 @@ export function ResearchResults({
   };
 
   const handleSave = () => {
-    onSave(result, saveTags, saveNotes.trim() || undefined);
+    onSave(result, saveTags, saveNotes.trim() || undefined, isPrivate);
     setShowSaveDialog(false);
     setSaveNotes("");
     setSaveTags([]);
+    setIsPrivate(false);
   };
 
   const addTag = () => {
@@ -259,6 +266,48 @@ export function ResearchResults({
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 />
+              </div>
+
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Sharing & Privacy
+                </label>
+                <div className="space-y-3">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="privacy"
+                      checked={!isPrivate}
+                      onChange={() => setIsPrivate(false)}
+                      className="w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                    />
+                    <div className="ml-3">
+                      <div className="text-sm font-medium text-gray-700">
+                        Share with project members
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        All team members can view this research
+                      </div>
+                    </div>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="privacy"
+                      checked={isPrivate}
+                      onChange={() => setIsPrivate(true)}
+                      className="w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                    />
+                    <div className="ml-3">
+                      <div className="text-sm font-medium text-gray-700">
+                        Keep private
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Only you can view this research
+                      </div>
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
 

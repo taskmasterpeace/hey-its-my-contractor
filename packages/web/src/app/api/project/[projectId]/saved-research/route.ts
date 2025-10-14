@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { db } from "@/db";
 import { savedResearch } from "@/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 import { getUserProjectRole, isSuperAdmin } from "@/lib/auth/permissions";
 
 async function getCurrentUser(request: NextRequest) {
@@ -52,11 +52,26 @@ export async function GET(
       );
     }
 
-    // Get all saved research for this project (project-scoped, not user-scoped)
+    // Get saved research for this project with privacy filtering
+    // Show:
+    // 1. All non-private research (shared with project members)
+    // 2. Private research ONLY if created by the current user (even super admin can't see others' private research)
     const research = await db
       .select()
       .from(savedResearch)
-      .where(eq(savedResearch.projectId, projectId))
+      .where(
+        and(
+          eq(savedResearch.projectId, projectId),
+          // Show non-private research OR private research owned by current user
+          or(
+            eq(savedResearch.isPrivate, false),
+            and(
+              eq(savedResearch.isPrivate, true),
+              eq(savedResearch.userId, user.id)
+            )
+          )
+        )
+      )
       .orderBy(desc(savedResearch.createdAt));
 
     return NextResponse.json({
@@ -117,6 +132,7 @@ export async function POST(
       tags,
       notes,
       confidence,
+      isPrivate,
     } = await request.json();
 
     if (!query || !answer) {
@@ -142,6 +158,7 @@ export async function POST(
         tags: tags || [],
         notes,
         confidence: confidence?.toString() || "0.95",
+        isPrivate: isPrivate || false, // Default to shared (false)
       })
       .returning();
 
@@ -182,21 +199,37 @@ export async function DELETE(
       );
     }
 
-    // 🔒 SECURITY: Check if user has access to this project
-    const isSuper = await isSuperAdmin(user.id);
-    const userProjectRole = await getUserProjectRole(user.id, projectId);
+    // Get the existing research to check ownership
+    const existingResearch = await db
+      .select()
+      .from(savedResearch)
+      .where(eq(savedResearch.id, researchId))
+      .limit(1);
 
-    if (!isSuper && !userProjectRole) {
+    if (existingResearch.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          error: "You don't have access to this project",
+          error: "Research not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    const research = existingResearch[0];
+
+    // Only allow the original creator to delete their research
+    if (research.userId !== user.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You can only delete your own research",
         },
         { status: 403 }
       );
     }
 
-    // Delete research (users can delete any research in projects they have access to)
+    // Delete research (only owner can delete)
     await db.delete(savedResearch).where(eq(savedResearch.id, researchId));
 
     return NextResponse.json({
@@ -208,6 +241,93 @@ export async function DELETE(
       {
         success: false,
         error: "Failed to delete research",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH - Update saved research privacy settings
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  try {
+    const user = await getCurrentUser(request);
+    const { projectId } = await params;
+    const { searchParams } = new URL(request.url);
+    const researchId = searchParams.get("id");
+
+    if (!projectId || !researchId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Project ID and Research ID are required",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { isPrivate } = await request.json();
+
+    if (typeof isPrivate !== "boolean") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "isPrivate must be a boolean value",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Get the existing research to check ownership
+    const existingResearch = await db
+      .select()
+      .from(savedResearch)
+      .where(eq(savedResearch.id, researchId))
+      .limit(1);
+
+    if (existingResearch.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Research not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    const research = existingResearch[0];
+
+    // Only allow the original creator to update privacy settings
+    if (research.userId !== user.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You can only update your own research privacy settings",
+        },
+        { status: 403 }
+      );
+    }
+
+    // Update the privacy setting
+    await db
+      .update(savedResearch)
+      .set({
+        isPrivate,
+        updatedAt: new Date(),
+      })
+      .where(eq(savedResearch.id, researchId));
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error("Failed to update research privacy:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to update research privacy",
       },
       { status: 500 }
     );

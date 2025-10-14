@@ -19,6 +19,7 @@ export interface SaveImageData {
   categoryName?: string; // For creating new category
   tags: string[];
   description?: string;
+  isPrivate?: boolean; // Privacy setting
 }
 
 interface Category {
@@ -44,6 +45,7 @@ export function SaveImageDialog({
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [description, setDescription] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
 
@@ -74,6 +76,7 @@ export function SaveImageDialog({
       setTitle(image.title || "");
       setTags(image.retailer ? [image.retailer] : []);
       setDescription("");
+      setIsPrivate(false); // Default to public (false)
       // Use defaultCategoryId if provided and not "all"
       setSelectedCategoryId(
         defaultCategoryId && defaultCategoryId !== "all"
@@ -108,6 +111,7 @@ export function SaveImageDialog({
         categoryName: showNewCategory ? newCategoryName.trim() : undefined,
         tags,
         description: description.trim() || undefined,
+        isPrivate,
       });
       onClose();
     } catch (error) {
@@ -120,10 +124,10 @@ export function SaveImageDialog({
   if (!isOpen || !image) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <h2 className="text-xl font-semibold text-gray-900">
             Save to Library
           </h2>
@@ -135,15 +139,16 @@ export function SaveImageDialog({
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Image Preview */}
-          <div className="space-y-4">
-            {/* Large Image Preview */}
-            <div className="relative w-full max-w-lg mx-auto">
+        {/* Main Content - Two Columns */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Column - Image Preview */}
+          <div className="w-1/2 p-6 border-r border-gray-200 flex flex-col">
+            {/* Image */}
+            <div className="flex-1 flex items-center justify-center">
               <img
                 src={image.url}
                 alt={image.title}
-                className="w-full max-h-96 object-contain rounded-xl border border-gray-200 shadow-sm bg-gray-50"
+                className="max-w-full max-h-full object-contain rounded-xl border border-gray-200 shadow-sm bg-gray-50"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src =
                     image.thumbnail || image.url;
@@ -152,7 +157,7 @@ export function SaveImageDialog({
             </div>
 
             {/* Image Details */}
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-gray-50 rounded-lg p-4 mt-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium text-gray-700">Source:</span>
@@ -186,192 +191,237 @@ export function SaveImageDialog({
             </div>
           </div>
 
-          {/* Title */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Image Title *
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter a descriptive title"
-            />
-          </div>
-
-          {/* Category Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category
-            </label>
-
-            <div className="space-y-3">
-              {/* Existing Categories */}
-              <div className="grid grid-cols-2 gap-2">
-                {categories.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => {
-                      setSelectedCategoryId(category.id);
-                      setShowNewCategory(false);
-                    }}
-                    className={`flex items-center p-3 border rounded-lg text-left transition-colors ${
-                      selectedCategoryId === category.id && !showNewCategory
-                        ? "border-blue-500 bg-blue-50 text-blue-900"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <div
-                      className="w-3 h-3 rounded-full mr-2"
-                      style={{ backgroundColor: category.color }}
-                    />
-                    <span className="text-sm">{category.name}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* New Category Option */}
-              <div className="border-t border-gray-200 pt-3">
-                {!showNewCategory ? (
-                  <button
-                    onClick={() => {
-                      setShowNewCategory(true);
-                      setSelectedCategoryId(null);
-                    }}
-                    className="flex items-center text-blue-600 hover:text-blue-800 text-sm"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Create New Category
-                  </button>
-                ) : (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="New category name"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={async () => {
-                          if (newCategoryName.trim() && currentProjectId) {
-                            try {
-                              const response = await fetch(
-                                `/api/project/${currentProjectId}/categories`,
-                                {
-                                  method: "POST",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({
-                                    name: newCategoryName.trim(),
-                                    description: `Category: ${newCategoryName.trim()}`,
-                                  }),
-                                }
-                              );
-                              const data = await response.json();
-                              if (data.success) {
-                                setCategories((prev) => [
-                                  ...prev,
-                                  data.category,
-                                ]);
-                                setSelectedCategoryId(data.category.id);
-                                setShowNewCategory(false);
-                                setNewCategoryName("");
-                              }
-                            } catch (error) {
-                              console.error(
-                                "Failed to create category:",
-                                error
-                              );
-                            }
-                          }
-                        }}
-                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                      >
-                        Create
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowNewCategory(false);
-                          setNewCategoryName("");
-                        }}
-                        className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+          {/* Right Column - Form Fields */}
+          <div className="w-1/2 p-6 flex flex-col space-y-6 overflow-y-auto">
+            {/* Title */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Image Title *
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter a descriptive title"
+              />
             </div>
-          </div>
 
-          {/* Tags */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tags
-            </label>
-            <div className="space-y-3">
-              {/* Existing Tags */}
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
+            {/* Category Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category
+              </label>
+              <div className="space-y-3">
+                {/* Existing Categories */}
+                <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => {
+                        setSelectedCategoryId(category.id);
+                        setShowNewCategory(false);
+                      }}
+                      className={`flex items-center p-2 border rounded-lg text-left transition-colors ${
+                        selectedCategoryId === category.id && !showNewCategory
+                          ? "border-blue-500 bg-blue-50 text-blue-900"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
                     >
-                      {tag}
-                      <button
-                        onClick={() => handleRemoveTag(tag)}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
+                      <div
+                        className="w-3 h-3 rounded-full mr-2"
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <span className="text-sm">{category.name}</span>
+                    </button>
                   ))}
                 </div>
-              )}
 
-              {/* Add New Tag */}
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
-                  placeholder="Add tag..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <button
-                  onClick={handleAddTag}
-                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <Tag className="w-4 h-4" />
-                </button>
+                {/* New Category Option */}
+                <div className="border-t border-gray-200 pt-3">
+                  {!showNewCategory ? (
+                    <button
+                      onClick={() => {
+                        setShowNewCategory(true);
+                        setSelectedCategoryId(null);
+                      }}
+                      className="flex items-center text-blue-600 hover:text-blue-800 text-sm"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Create New Category
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="New category name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={async () => {
+                            if (newCategoryName.trim() && currentProjectId) {
+                              try {
+                                const response = await fetch(
+                                  `/api/project/${currentProjectId}/categories`,
+                                  {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                      name: newCategoryName.trim(),
+                                      description: `Category: ${newCategoryName.trim()}`,
+                                    }),
+                                  }
+                                );
+                                const data = await response.json();
+                                if (data.success) {
+                                  setCategories((prev) => [
+                                    ...prev,
+                                    data.category,
+                                  ]);
+                                  setSelectedCategoryId(data.category.id);
+                                  setShowNewCategory(false);
+                                  setNewCategoryName("");
+                                }
+                              } catch (error) {
+                                console.error(
+                                  "Failed to create category:",
+                                  error
+                                );
+                              }
+                            }
+                          }}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                        >
+                          Create
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowNewCategory(false);
+                            setNewCategoryName("");
+                          }}
+                          className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description (Optional)
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Add notes or description..."
-            />
+            {/* Tags */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tags
+              </label>
+              <div className="space-y-3">
+                {/* Existing Tags */}
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
+                      >
+                        {tag}
+                        <button
+                          onClick={() => handleRemoveTag(tag)}
+                          className="ml-1 text-blue-600 hover:text-blue-800"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add New Tag */}
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
+                    placeholder="Add tag..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button
+                    onClick={handleAddTag}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    <Tag className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description (Optional)
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Add notes or description..."
+              />
+            </div>
+
+            {/* Privacy Settings */}
+            <div className="border-t pt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Sharing & Privacy
+              </label>
+              <div className="space-y-3">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="privacy"
+                    checked={!isPrivate}
+                    onChange={() => setIsPrivate(false)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div className="ml-3">
+                    <div className="text-sm font-medium text-gray-700">
+                      Share with project members
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      All team members can view this image
+                    </div>
+                  </div>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="privacy"
+                    checked={isPrivate}
+                    onChange={() => setIsPrivate(true)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div className="ml-3">
+                    <div className="text-sm font-medium text-gray-700">
+                      Keep private
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Only you can view this image
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl flex-shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"

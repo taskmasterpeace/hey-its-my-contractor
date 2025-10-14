@@ -14,6 +14,9 @@ import {
   Loader2,
   ImageIcon,
   X,
+  Lock,
+  Users,
+  Settings,
 } from "lucide-react";
 import { useImagesStore } from "@contractor-platform/utils";
 import type { LibraryImage } from "@contractor-platform/types";
@@ -147,12 +150,21 @@ export function LibraryView() {
   const [pendingUploads, setPendingUploads] = useState<File[]>([]);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<LibraryImage | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load categories and library images on mount
+  // Load categories, library images, and current user on mount
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Get current user from Supabase
+        const supabaseModule = await import("@/utils/supabase/client");
+        const supabase = supabaseModule.createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        setCurrentUserId(user?.id || null);
+
         if (currentProjectId) {
           // Load project-scoped categories
           const categoriesResponse = await fetch(
@@ -284,6 +296,7 @@ export function LibraryView() {
           categoryName: saveData.categoryName,
           tags: saveData.tags,
           description: saveData.description,
+          isPrivate: saveData.isPrivate,
           source: "upload",
           retailer: "custom",
           metadata: {
@@ -376,13 +389,71 @@ export function LibraryView() {
     if (!confirm("Are you sure you want to delete this image?")) return;
 
     try {
-      // You would call your delete API here
-      // await deleteImage(imageId);
+      const response = await fetch(
+        `/api/project/${currentProjectId}/images/${imageId}`,
+        {
+          method: "DELETE",
+        }
+      );
 
-      // For now, just refresh the library
-      await fetchLibraryImages();
+      if (response.ok) {
+        toast({
+          title: "Image Deleted",
+          description: "The image has been deleted successfully.",
+        });
+        // Refresh the library
+        if (currentProjectId) {
+          await fetchLibraryImages(currentProjectId, "all");
+        }
+      } else {
+        throw new Error("Failed to delete image");
+      }
     } catch (error) {
       console.error("Failed to delete image:", error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete the image. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdatePrivacy = async (imageId: string, isPrivate: boolean) => {
+    try {
+      const response = await fetch(
+        `/api/project/${currentProjectId}/images/${imageId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            isPrivate,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        toast({
+          title: "Privacy Updated",
+          description: `Image is now ${
+            isPrivate ? "private" : "shared with project members"
+          }.`,
+        });
+        // Refresh the library to show updated privacy status
+        if (currentProjectId) {
+          await fetchLibraryImages(currentProjectId, "all");
+        }
+      } else {
+        throw new Error("Failed to update privacy settings");
+      }
+    } catch (error) {
+      console.error("Failed to update privacy settings:", error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update privacy settings. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -661,6 +732,7 @@ export function LibraryView() {
                     <button
                       onClick={() => handleMagicWandClick(image)}
                       className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                      title="AI Magic Wand"
                     >
                       <Wand2 className="w-3 h-3" />
                     </button>
@@ -670,16 +742,41 @@ export function LibraryView() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        title="View Original"
                       >
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     )}
-                    <button
-                      onClick={() => handleDeleteImage(image.id)}
-                      className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    {/* Privacy Toggle - only show for image owner */}
+                    {image.userId === currentUserId && (
+                      <button
+                        onClick={() =>
+                          handleUpdatePrivacy(image.id, !image.isPrivate)
+                        }
+                        className={`p-2 text-white rounded-lg transition-colors ${
+                          image.isPrivate
+                            ? "bg-orange-600 hover:bg-orange-700"
+                            : "bg-green-600 hover:bg-green-700"
+                        }`}
+                        title={`Make ${image.isPrivate ? "shared" : "private"}`}
+                      >
+                        {image.isPrivate ? (
+                          <Users className="w-3 h-3" />
+                        ) : (
+                          <Lock className="w-3 h-3" />
+                        )}
+                      </button>
+                    )}
+                    {/* Delete Button - only show for image owner */}
+                    {image.userId === currentUserId && (
+                      <button
+                        onClick={() => handleDeleteImage(image.id)}
+                        className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                        title="Delete Image"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -705,8 +802,22 @@ export function LibraryView() {
                       )}
                     </div>
                   )}
-                  <div className="text-xs text-gray-500">
-                    {new Date(image.addedDate).toLocaleDateString()}
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>
+                      {new Date(image.addedDate).toLocaleDateString()}
+                    </span>
+                    {/* Privacy indicator */}
+                    {image.isPrivate ? (
+                      <div className="flex items-center px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs">
+                        <Lock className="w-3 h-3 mr-1" />
+                        Private
+                      </div>
+                    ) : (
+                      <div className="flex items-center px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+                        <Users className="w-3 h-3 mr-1" />
+                        Shared
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
