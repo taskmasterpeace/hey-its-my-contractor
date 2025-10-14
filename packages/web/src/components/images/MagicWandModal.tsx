@@ -14,6 +14,8 @@ interface LibraryImage {
   addedDate: string;
   projectId?: string;
   folder?: string;
+  isPrivate?: boolean;
+  userId?: string;
 }
 
 interface MagicWandModalProps {
@@ -54,6 +56,7 @@ export function MagicWandModal({
   const [showAddPreset, setShowAddPreset] = useState(false);
   const [newPreset, setNewPreset] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   const defaultPresets = [
     "Add modern window trim",
@@ -133,6 +136,7 @@ export function MagicWandModal({
           description: `AI-enhanced version of ${sourceImage.title} using prompt: "${prompt}"`,
           tags: ["ai-generated", "enhanced", "magic-wand"],
           source: "ai_generated",
+          isPrivate: isPrivate,
           metadata: {
             originalImage: sourceImage,
             referenceImage: selectedReference,
@@ -215,11 +219,17 @@ export function MagicWandModal({
                     className="w-full object-contain rounded-lg bg-gray-50 max-h-48"
                   />
                   <div className="mt-3">
-                    <h4 className="font-medium text-gray-900">
+                    <h4
+                      className="font-medium text-gray-900 truncate"
+                      title={sourceImage.title}
+                    >
                       {sourceImage.title}
                     </h4>
                     {sourceImage.source && (
-                      <p className="text-sm text-gray-600">
+                      <p
+                        className="text-sm text-gray-600 truncate"
+                        title={`From: ${sourceImage.source}`}
+                      >
                         From: {sourceImage.source}
                       </p>
                     )}
@@ -356,6 +366,39 @@ export function MagicWandModal({
                     </div>
 
                     <div className="space-y-3">
+                      {/* Privacy Selection */}
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Privacy Setting
+                        </label>
+                        <div className="flex space-x-4">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="privacy"
+                              checked={!isPrivate}
+                              onChange={() => setIsPrivate(false)}
+                              className="mr-2 text-blue-600"
+                            />
+                            <span className="text-sm text-gray-700">
+                              📁 Shared with project team
+                            </span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="privacy"
+                              checked={isPrivate}
+                              onChange={() => setIsPrivate(true)}
+                              className="mr-2 text-blue-600"
+                            />
+                            <span className="text-sm text-gray-700">
+                              🔒 Keep private
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+
                       <div className="flex space-x-2">
                         <button
                           onClick={handleSaveToLibrary}
@@ -370,7 +413,7 @@ export function MagicWandModal({
                           ) : (
                             <>
                               <Download className="w-4 h-4 mr-1" />
-                              Save
+                              Save {isPrivate ? "Privately" : "to Project"}
                             </>
                           )}
                         </button>
@@ -390,7 +433,8 @@ export function MagicWandModal({
 
                       <div className="text-center">
                         <p className="text-sm text-gray-600">
-                          ✨ AI Enhanced • 🏢 Company Branded • 📁 Ready to Save
+                          ✨ AI Enhanced • 🏢 Company Branded •{" "}
+                          {isPrivate ? "🔒 Private" : "📁 Shared"}
                         </p>
                       </div>
                     </div>
