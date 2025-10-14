@@ -4,10 +4,12 @@ import { useState } from "react";
 import { Wand2, Sparkles, Image as ImageIcon, X } from "lucide-react";
 import { useImagesStore } from "@contractor-platform/utils";
 import { useToast } from "@/hooks/use-toast";
+import { SaveImageDialog, type SaveImageData } from "./SaveImageDialog";
 
 export function AIGeneratorView() {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const {
     selectedReferences,
     toggleReferenceSelection,
@@ -95,7 +97,7 @@ export function AIGeneratorView() {
     }
   };
 
-  const handleSaveGenerated = async () => {
+  const handleSaveGenerated = async (saveData: SaveImageData) => {
     if (!generatedImage || !currentProjectId) return;
 
     setIsSaving(true);
@@ -108,14 +110,16 @@ export function AIGeneratorView() {
         },
         body: JSON.stringify({
           imageUrl: generatedImage,
-          title: `AI Generated: ${prompt.substring(0, 50)}${
-            prompt.length > 50 ? "..." : ""
-          }`,
+          title: saveData.title,
+          categoryId: saveData.categoryId,
+          categoryName: saveData.categoryName,
+          tags: saveData.tags,
+          description: saveData.description,
+          isPrivate: saveData.isPrivate,
           source: "ai_generated",
           aiPrompt: prompt,
           aiModel: manualModelOverride || getSmartModel(),
           referenceImages: selectedReferences.map((ref) => ref.id),
-          tags: ["ai-generated", "replicate"],
           metadata: {
             generatedAt: new Date().toISOString(),
             model: manualModelOverride || getSmartModel(),
@@ -136,6 +140,7 @@ export function AIGeneratorView() {
         setGeneratedImage(null);
         setPrompt("");
         clearSelectedReferences();
+        setShowSaveDialog(false);
 
         // Refresh the library to show the new image
         await fetchLibraryImages(currentProjectId);
@@ -149,6 +154,8 @@ export function AIGeneratorView() {
         description: "Failed to save generated image. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -172,21 +179,12 @@ export function AIGeneratorView() {
 
             <div className="flex justify-center space-x-4">
               <button
-                onClick={handleSaveGenerated}
+                onClick={() => setShowSaveDialog(true)}
                 disabled={isSaving}
                 className="flex items-center px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors"
               >
-                {isSaving ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    Save to Library
-                  </>
-                )}
+                <ImageIcon className="w-4 h-4 mr-2" />
+                Save to Library
               </button>
 
               <button
@@ -363,6 +361,27 @@ export function AIGeneratorView() {
           </div>
         </div>
       </div>
+
+      {/* Save Dialog for Generated Images */}
+      {generatedImage && (
+        <SaveImageDialog
+          isOpen={showSaveDialog}
+          onClose={() => setShowSaveDialog(false)}
+          image={{
+            id: `generated-${Date.now()}`,
+            url: generatedImage,
+            title: `AI Generated: ${prompt.substring(0, 50)}${
+              prompt.length > 50 ? "..." : ""
+            }`,
+            source: "ai_generated",
+            retailer: "custom",
+            originalUrl: generatedImage,
+            thumbnail: generatedImage,
+          }}
+          onSave={handleSaveGenerated}
+          currentProjectId={currentProjectId || undefined}
+        />
+      )}
     </div>
   );
 }
