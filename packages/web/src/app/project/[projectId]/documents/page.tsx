@@ -381,6 +381,7 @@ export default function DocumentsPage() {
                 onSelectDocument={setSelectedDocument}
                 selectedDocument={selectedDocument}
                 onCommentClick={handleCommentClick}
+                onDocumentsChange={fetchDocuments}
               />
 
               {/* Pagination Controls */}

@@ -64,6 +64,13 @@
       "when": 1760396258263,
       "tag": "0008_solid_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1760403515348,
+      "tag": "0009_daffy_hellcat",
+      "breakpoints": true
     }
   ]
 }

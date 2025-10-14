@@ -194,6 +194,7 @@ export interface Document {
   };
   expiration_date?: string; // For permits
   created_by: string;
+  is_private?: boolean; // Privacy setting
   created_at: string;
   updated_at: string;
 }
