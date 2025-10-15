@@ -5,13 +5,11 @@ import {
   text,
   timestamp,
   boolean,
-  json,
-  integer,
   pgEnum,
   jsonb,
 } from "drizzle-orm/pg-core";
-import { users } from "./users";
 import { projects } from "./projects";
+import { users } from "./users";
 
 export const meetingTypeEnum = pgEnum("meeting_type", [
   "consultation",
@@ -33,13 +31,18 @@ export const meetings = pgTable("meetings", {
   projectId: uuid("project_id")
     .references(() => projects.id, { onDelete: "cascade" })
     .notNull(),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   startsAt: timestamp("starts_at").notNull(),
   endsAt: timestamp("ends_at"),
   type: meetingTypeEnum("type").notNull(),
   participants: uuid("participants").array().default([]), // Array of user IDs
+  tags: text("tags").array().default([]), // Array of tags (optional)
   externalProvider: varchar("external_provider", { length: 20 }), // zoom, meet, jitsi
   recordingUrl: text("recording_url"),
+  transcript: text("transcript"),
   consentGiven: boolean("consent_given").default(false),
   status: meetingStatusEnum("status").default("scheduled"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -57,5 +60,6 @@ export const transcripts = pgTable("transcripts", {
   segments: jsonb("segments").default("[]"), // Array of transcript segments with timestamps
   summary: text("summary"),
   actionItems: text("action_items").array(),
+  textEmbeddings: text("text_embeddings"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

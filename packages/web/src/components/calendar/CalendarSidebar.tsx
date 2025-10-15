@@ -2,19 +2,21 @@
 
 import { CalendarEvent } from '@contractor-platform/types';
 import { Calendar, Clock, MapPin, Users, FileText, Wrench } from 'lucide-react';
+import { useAppStore } from '@/store';
 
 interface CalendarSidebarProps {
   events: CalendarEvent[];
 }
 
 export function CalendarSidebar({ events }: CalendarSidebarProps) {
+  const meetings = useAppStore((state) => state.meetings);
+  const setSelectedMeeting = useAppStore((state) => state.setSelectedMeeting);
   const today = new Date();
   const todayString = today.toISOString().split('T')[0];
   
   const todaysEvents = events.filter(event => 
     event.start.startsWith(todayString)
   ).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-
   const upcomingEvents = events.filter(event => {
     const eventDate = new Date(event.start);
     const tomorrow = new Date(today);
@@ -56,6 +58,16 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const handleEventClick = (event: CalendarEvent) => {
+    // If it's a meeting event, find and open the meeting in MediaPlayer
+    if (event.type === 'meeting' && event.meeting_id) {
+      const meeting = meetings.find(m => m.id === event.meeting_id);
+      if (meeting) {
+        setSelectedMeeting(meeting);
+      }
+    }
   };
 
   const eventTypeColors = {
@@ -130,7 +142,7 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
 
       {/* Today's Events */}
       <div className="p-6 border-b flex-1 overflow-y-auto">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Today's Schedule</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Today&apos;s Schedule</h2>
         {todaysEvents.length === 0 ? (
           <div className="text-center py-8">
             <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-2" />
@@ -142,6 +154,7 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
               <div
                 key={event.id}
                 className="bg-white border rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => handleEventClick(event)}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center">
@@ -192,6 +205,7 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
               <div
                 key={event.id}
                 className="flex items-center justify-between p-2 hover:bg-gray-50 rounded cursor-pointer"
+                onClick={() => handleEventClick(event)}
               >
                 <div className="flex items-center min-w-0 flex-1">
                   <div className="text-gray-600 mr-2 flex-shrink-0">

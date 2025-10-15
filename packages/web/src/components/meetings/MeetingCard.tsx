@@ -1,19 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { 
-  Meeting, 
-  UserProfile, 
-  Project, 
-  Transcript,
-  EnhancedMeetingData 
+import {
+  EnhancedMeetingData
 } from '@contractor-platform/types';
-import { 
+import {
   Calendar,
-  Clock, 
-  Users, 
-  Mic, 
-  FileText, 
+  Clock,
+  Users,
+  Mic,
+  FileText,
   PlayCircle,
   CheckCircle,
   AlertCircle,
@@ -25,8 +21,6 @@ import {
   Download,
   Share,
   MoreHorizontal,
-  Star,
-  Bookmark
 } from 'lucide-react';
 
 interface MeetingCardProps {
@@ -51,7 +45,6 @@ export function MeetingCard({
   onViewTranscript,
   onDownload,
   onShare,
-  onToggleFavorite,
   className = '',
 }: MeetingCardProps) {
   const [showMenu, setShowMenu] = useState(false);
@@ -119,22 +112,22 @@ export function MeetingCard({
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
     const isTomorrow = date.toDateString() === new Date(now.getTime() + 86400000).toDateString();
-    
+
     let dateLabel = date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
     });
-    
+
     if (isToday) dateLabel = 'Today';
     if (isTomorrow) dateLabel = 'Tomorrow';
-    
+
     const timeLabel = date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
     });
-    
+
     return { date: dateLabel, time: timeLabel };
   };
 
@@ -144,7 +137,7 @@ export function MeetingCard({
     const end = new Date(meeting.meeting.ends_at);
     const diffMs = end.getTime() - start.getTime();
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    
+
     if (diffMinutes < 60) {
       return `${diffMinutes}m`;
     } else {
@@ -181,12 +174,12 @@ export function MeetingCard({
                 {getMeetingIcon(meeting.meeting.type)}
               </div>
             </div>
-            
+
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-medium text-gray-900 truncate">
                 {meeting.meeting.title}
               </h3>
-              
+
               <div className="flex items-center space-x-3 text-xs text-gray-500 mt-1">
                 <span>{date} • {time}</span>
                 {duration && <span>{duration}</span>}
@@ -194,12 +187,12 @@ export function MeetingCard({
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(meeting.meeting.status)}`}>
               {meeting.meeting.status.replace('_', ' ')}
             </span>
-            
+
             {meeting.meeting.recording_url && (
               <Mic className="w-4 h-4 text-green-600" />
             )}
@@ -223,29 +216,29 @@ export function MeetingCard({
               <div className={`p-3 rounded-lg border ${getTypeColor(meeting.meeting.type)}`}>
                 {getMeetingIcon(meeting.meeting.type)}
               </div>
-              
+
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">
                   {meeting.meeting.title}
                 </h3>
-                
+
                 <div className="text-sm text-gray-600 mb-2">
                   {meeting.project.name} • {meeting.project.address}
                 </div>
-                
+
                 <div className="flex items-center space-x-4 text-sm text-gray-500">
                   <div className="flex items-center">
                     <Calendar className="w-4 h-4 mr-1" />
                     {date} • {time}
                   </div>
-                  
+
                   {duration && (
                     <div className="flex items-center">
                       <Clock className="w-4 h-4 mr-1" />
                       {duration}
                     </div>
                   )}
-                  
+
                   <div className="flex items-center">
                     <Users className="w-4 h-4 mr-1" />
                     {meeting.participants.length} participants
@@ -253,7 +246,7 @@ export function MeetingCard({
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               {showActions && (
                 <div className="relative">
@@ -266,7 +259,7 @@ export function MeetingCard({
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
-                  
+
                   {showMenu && (
                     <div className="absolute right-0 top-8 z-10 w-48 bg-white border border-gray-200 rounded-lg shadow-lg">
                       <button
@@ -279,7 +272,7 @@ export function MeetingCard({
                         <FileText className="w-4 h-4 mr-2" />
                         View Transcript
                       </button>
-                      
+
                       <button
                         onClick={() => {
                           onDownload?.();
@@ -290,7 +283,7 @@ export function MeetingCard({
                         <Download className="w-4 h-4 mr-2" />
                         Download
                       </button>
-                      
+
                       <button
                         onClick={() => {
                           onShare?.();
@@ -334,26 +327,26 @@ export function MeetingCard({
               <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(meeting.meeting.status)}`}>
                 {meeting.meeting.status.replace('_', ' ')}
               </span>
-              
+
               <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getTypeColor(meeting.meeting.type)}`}>
                 {meeting.meeting.type.replace('_', ' ')}
               </span>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               {meeting.meeting.consent_given && (
                 <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full border border-green-200">
                   Consent given
                 </span>
               )}
-              
+
               {meeting.meeting.recording_url && (
                 <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full border border-blue-200 flex items-center">
                   <Mic className="w-3 h-3 mr-1" />
                   Recorded
                 </span>
               )}
-              
+
               {meeting.transcript && (
                 <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full border border-purple-200 flex items-center">
                   <FileText className="w-3 h-3 mr-1" />
@@ -372,10 +365,10 @@ export function MeetingCard({
                   {actionProgress.completed}/{actionProgress.total} completed
                 </span>
               </div>
-              
+
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-green-600 h-2 rounded-full transition-all duration-300" 
+                <div
+                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${actionProgress.percentage}%` }}
                 />
               </div>
@@ -386,13 +379,13 @@ export function MeetingCard({
           <div className="flex items-center space-x-4 mb-4">
             <span className="text-sm font-medium text-gray-700">Participants:</span>
             <div className="flex -space-x-2">
-              {meeting.participants.slice(0, 4).map((participant, index) => (
+              {meeting.participants.slice(0, 4).map((participant) => (
                 <div
                   key={participant.email}
                   className="w-8 h-8 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-xs font-medium text-blue-700"
-                  title={`${participant.first_name} ${participant.last_name}`}
+                  title={`${participant.full_name}`}
                 >
-                  {participant.first_name[0]}{participant.last_name[0]}
+                  {participant.full_name[0]}
                 </div>
               ))}
               {meeting.participants.length > 4 && (
@@ -419,7 +412,7 @@ export function MeetingCard({
                     Join Meeting
                   </button>
                 )}
-                
+
                 {meeting.meeting.status === 'completed' && meeting.transcript && (
                   <button
                     onClick={(e) => {
@@ -433,7 +426,7 @@ export function MeetingCard({
                   </button>
                 )}
               </div>
-              
+
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -464,25 +457,25 @@ export function MeetingCard({
           <div className={`p-2 rounded-lg border ${getTypeColor(meeting.meeting.type)}`}>
             {getMeetingIcon(meeting.meeting.type)}
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-medium text-gray-900 mb-1">
               {meeting.meeting.title}
             </h3>
-            
+
             <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
               <div className="flex items-center">
                 <Calendar className="w-4 h-4 mr-1" />
                 {date} • {time}
               </div>
-              
+
               {duration && (
                 <div className="flex items-center">
                   <Clock className="w-4 h-4 mr-1" />
                   {duration}
                 </div>
               )}
-              
+
               <div className="flex items-center">
                 <Users className="w-4 h-4 mr-1" />
                 {meeting.participants.length} participants
@@ -515,14 +508,14 @@ export function MeetingCard({
           <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(meeting.meeting.status)}`}>
             {meeting.meeting.status.replace('_', ' ')}
           </span>
-          
+
           {meeting.meeting.recording_url && (
             <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full border border-green-200 flex items-center">
               <Mic className="w-3 h-3 mr-1" />
               Audio
             </span>
           )}
-          
+
           {meeting.transcript && (
             <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full border border-blue-200 flex items-center">
               <FileText className="w-3 h-3 mr-1" />
@@ -538,14 +531,14 @@ export function MeetingCard({
           <div className="text-sm text-gray-600">
             <span className="font-medium">{meeting.project.name}</span>
           </div>
-          
+
           {actionProgress && (
             <div className="text-sm text-gray-600">
               Actions: {actionProgress.completed}/{actionProgress.total} completed
             </div>
           )}
         </div>
-        
+
         {showActions && meeting.meeting.status === 'completed' && meeting.transcript && isHovered && (
           <button
             onClick={(e) => {

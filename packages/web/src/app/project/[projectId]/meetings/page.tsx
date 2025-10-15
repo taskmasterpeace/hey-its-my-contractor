@@ -1,103 +1,65 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  Meeting,
-  Transcript,
-  MeetingSearchFilters,
   EnhancedMeetingData,
   MeetingTag,
 } from "@contractor-platform/types";
-import { MeetingRecorder } from "@/components/meetings/MeetingRecorder";
-import { EnhancedMeetingTranscript } from "@/components/meetings/EnhancedMeetingTranscript";
+// import { EnhancedMeetingTranscript } from "@/components/meetings/EnhancedMeetingTranscript";
 import { MeetingSearch } from "@/components/meetings/MeetingSearch";
 import { MeetingCard } from "@/components/meetings/MeetingCard";
 import { MeetingTagManager } from "@/components/meetings/MeetingTagManager";
+import { useProjectMeetings } from "@/hooks/useProjectMeetings";
 import {
-  sampleEnhancedMeetings,
   sampleMeetingTags,
-  sampleSearchResults,
-  sampleParticipants,
-  sampleProjects,
-  getEnhancedMeetingById,
 } from "@/components/meetings/demo-data";
 import {
   Play,
   Square,
   Mic,
   Users,
-  Clock,
   FileText,
   Search,
   Filter,
   Calendar,
   TrendingUp,
+  Pause,
+  MicOff,
+  Loader2Icon,
 } from "lucide-react";
+import useRecorder from "@/hooks/useRecorder";
+import LiveTranscription from "@/components/meetings/LiveTranscription";
+import NavigationConfirmationDialog from "@/components/meetings/NavigationConfirmationDialog";
+import MediaPlayer from "@/components/calendar/MediaPlayer";
+import { useAppStore } from "@/store";
+import { TRANSCRIPTION_STATUS } from "@/constants";
 
 export default function ProjectMeetingsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
 
-  const [meetings, setMeetings] = useState<EnhancedMeetingData[]>(
-    sampleEnhancedMeetings
-  );
-  const [selectedMeeting, setSelectedMeeting] =
-    useState<EnhancedMeetingData | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingDuration, setRecordingDuration] = useState(0);
-  const [currentView, setCurrentView] = useState<
-    "list" | "search" | "transcript"
-  >("list");
-  const [searchResults, setSearchResults] = useState(sampleSearchResults);
+  const [meetingTitle, setMeetingTitle] = useState("");
+  const [meetingType, setMeetingType] = useState("consultation");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showMeetingTitleError, setShowMeetingTitleError] = useState(false);
+
+  // Fetch meetings from Supabase with real-time updates
+  const { meetings, loading: meetingsLoading, error: meetingsError, refetch } = useProjectMeetings(projectId);
+
+  const [currentView, setCurrentView] = useState<"list" | "search">("list");
+  const setSelectedMeetingInStore = useAppStore((state) => state.setSelectedMeeting);
+
   const [availableTags, setAvailableTags] =
     useState<MeetingTag[]>(sampleMeetingTags);
-  const [isSearching, setIsSearching] = useState(false);
 
   // Filter meetings for this specific project
   const projectMeetings = meetings.filter(
     (meeting) => meeting.meeting.project_id === projectId
   );
 
-  // Search functionality
-  const handleSearch = async (filters: MeetingSearchFilters) => {
-    setIsSearching(true);
-
-    // Simulate API call delay
-    setTimeout(() => {
-      // In a real app, this would call an API filtered by projectId
-      let filteredResults = searchResults.filter(
-        (result) => result.meeting.project_id === projectId
-      );
-
-      if (filters.query) {
-        filteredResults = filteredResults.filter(
-          (result) =>
-            result.meeting.title
-              .toLowerCase()
-              .includes(filters.query!.toLowerCase()) ||
-            result.meeting.tags.some((tag) =>
-              tag.toLowerCase().includes(filters.query!.toLowerCase())
-            )
-        );
-      }
-
-      if (filters.tags && filters.tags.length > 0) {
-        filteredResults = filteredResults.filter((result) =>
-          filters.tags!.some((filterTag) =>
-            result.meeting.tags.includes(filterTag)
-          )
-        );
-      }
-
-      setSearchResults(filteredResults);
-      setIsSearching(false);
-    }, 800);
-  };
-
   const handleSelectMeetingFromSearch = (meeting: EnhancedMeetingData) => {
-    setSelectedMeeting(meeting);
-    setCurrentView("transcript");
+    setSelectedMeetingInStore(meeting.meeting);
   };
 
   const handleCreateTag = (tagName: string, color: string) => {
@@ -121,39 +83,28 @@ export default function ProjectMeetingsPage() {
     setAvailableTags((tags) => tags.filter((tag) => tag.id !== tagId));
   };
 
-  const handleUpdateMeetingTags = (meetingId: string, newTags: string[]) => {
-    setMeetings((meetings) =>
-      meetings.map((meeting) =>
-        meeting.meeting.id === meetingId
-          ? { ...meeting, meeting: { ...meeting.meeting, tags: newTags } }
-          : meeting
-      )
-    );
-  };
+  // const handleUpdateMeetingTags = async (meetingId: string, newTags: string[]) => {
+  //   try {
+  //     // Update tags in Supabase
+  //     const supabase = (await import("@/utils/supabase/client")).createClient();
+  //     const { error } = await supabase
+  //       .from("meetings")
+  //       .update({ tags: newTags })
+  //       .eq("id", meetingId);
 
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    setRecordingDuration(0);
+  //     if (error) {
+  //       console.error("Error updating meeting tags:", error);
+  //       alert("Failed to update tags");
+  //       return;
+  //     }
 
-    // Start timer
-    const startTime = Date.now();
-    const timer = setInterval(() => {
-      setRecordingDuration(Math.floor((Date.now() - startTime) / 1000));
-    }, 1000);
-
-    // Store timer reference for cleanup
-    (window as any).recordingTimer = timer;
-  };
-
-  const handleStopRecording = () => {
-    setIsRecording(false);
-
-    // Clean up timer
-    if ((window as any).recordingTimer) {
-      clearInterval((window as any).recordingTimer);
-      delete (window as any).recordingTimer;
-    }
-  };
+  //     // The real-time subscription will automatically update the local state
+  //     console.log("✅ Tags updated successfully");
+  //   } catch (error) {
+  //     console.error("Error updating meeting tags:", error);
+  //     alert("Failed to update tags");
+  //   }
+  // };
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -161,6 +112,60 @@ export default function ProjectMeetingsPage() {
     return `${mins.toString().padStart(2, "0")}:${secs
       .toString()
       .padStart(2, "0")}`;
+  };
+
+  const {
+    isRecording,
+    isUploading,
+    startRecording,
+    stopRecording,
+    status,
+    recordingDuration,
+    isMuted,
+    isPaused,
+    toggleMute,
+    togglePause,
+    transcripts,
+    resetRecording,
+  } = useRecorder({ meetingTitle, setShowMeetingTitleError, selectedTags });
+
+  // Reset form fields
+  const resetForm = () => {
+    setMeetingTitle("");
+    setMeetingType("consultation");
+    setSelectedTags([]);
+    setShowMeetingTitleError(false);
+    resetRecording();
+  };
+
+  // Handle stop recording with reset
+  const handleStopRecording = async () => {
+    // Collect meeting data before stopping
+    const meetingData = {
+      title: meetingTitle,
+      type: meetingType,
+      tags: selectedTags,
+      projectId: projectId,
+      duration: recordingDuration,
+      recordedAt: new Date().toISOString(),
+    };
+
+    console.log("📝 Saving meeting with metadata:", meetingData);
+    console.log("🏷️ Selected tags:", selectedTags);
+    console.log("📋 Meeting type:", meetingType);
+
+    // Stop recording (this will save transcripts)
+    await stopRecording();
+
+    // Refetch meetings to get the newly created meeting
+    setTimeout(() => {
+      refetch();
+    }, 1000);
+
+    // Reset form after a short delay to allow save to complete
+    setTimeout(() => {
+      resetForm();
+    }, 500);
   };
 
   return (
@@ -181,11 +186,10 @@ export default function ProjectMeetingsPage() {
           <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setCurrentView("list")}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                currentView === "list"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${currentView === "list"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+                }`}
             >
               <Calendar className="w-4 h-4 mr-2 inline" />
               Meetings
@@ -193,11 +197,10 @@ export default function ProjectMeetingsPage() {
 
             <button
               onClick={() => setCurrentView("search")}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                currentView === "search"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${currentView === "search"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+                }`}
             >
               <Search className="w-4 h-4 mr-2 inline" />
               Search
@@ -278,55 +281,9 @@ export default function ProjectMeetingsPage() {
       {/* Main Content */}
       {currentView === "search" ? (
         <MeetingSearch
-          onSearch={handleSearch}
-          results={searchResults}
+          projectId={projectId}
           onSelectMeeting={handleSelectMeetingFromSearch}
-          availableTags={availableTags.map((tag) => tag.name)}
-          availableParticipants={sampleParticipants.map((p) => ({
-            id: p.email,
-            name: `${p.first_name} ${p.last_name}`,
-          }))}
-          availableProjects={[
-            {
-              id: projectId,
-              name: "Current Project",
-            },
-          ]}
-          isLoading={isSearching}
         />
-      ) : currentView === "transcript" && selectedMeeting ? (
-        <div className="space-y-6">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setCurrentView("list")}
-              className="text-blue-600 hover:text-blue-700 font-medium"
-            >
-              ← Back to Meetings
-            </button>
-          </div>
-
-          {selectedMeeting.transcript ? (
-            <EnhancedMeetingTranscript
-              meeting={selectedMeeting.meeting}
-              transcript={selectedMeeting.transcript}
-              participants={selectedMeeting.participants}
-              onUpdateTags={(tags) =>
-                handleUpdateMeetingTags(selectedMeeting.meeting.id, tags)
-              }
-            />
-          ) : (
-            <div className="bg-white rounded-lg border p-8 text-center">
-              <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No Transcript Available
-              </h3>
-              <p className="text-gray-500">
-                This meeting doesn't have a transcript yet. Transcripts are
-                automatically generated after meeting recordings are processed.
-              </p>
-            </div>
-          )}
-        </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Recording Panel */}
@@ -339,11 +296,10 @@ export default function ProjectMeetingsPage() {
               {/* Recording Status */}
               <div className="text-center mb-6">
                 <div
-                  className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4 ${
-                    isRecording
-                      ? "bg-red-100 text-red-600"
-                      : "bg-gray-100 text-gray-400"
-                  }`}
+                  className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4 ${isRecording
+                    ? "bg-red-100 text-red-600"
+                    : "bg-gray-100 text-gray-400"
+                    }`}
                 >
                   <Mic className="w-10 h-10" />
                 </div>
@@ -351,35 +307,101 @@ export default function ProjectMeetingsPage() {
                 <div className="text-2xl font-mono font-bold text-gray-900 mb-2">
                   {formatDuration(recordingDuration)}
                 </div>
-
                 <div
-                  className={`text-sm font-medium ${
-                    isRecording ? "text-red-600" : "text-gray-500"
-                  }`}
+                  className={`text-sm font-medium ${isPaused
+                    ? "text-yellow-600"
+                    : isRecording && !isPaused
+                      ? "text-red-600"
+                      : isUploading
+                        ? "text-blue-600"
+                        : status === TRANSCRIPTION_STATUS.ERROR
+                          ? "text-red-600"
+                          : "text-gray-500"
+                    }`}
                 >
-                  {isRecording ? "Recording in progress..." : "Ready to record"}
+                  {isUploading
+                    ? "Uploading recording..."
+                    : isPaused && isRecording
+                      ? "Recording paused"
+                      : status === TRANSCRIPTION_STATUS.LISTENING && !isPaused
+                        ? "Recording in progress..."
+                        : status === TRANSCRIPTION_STATUS.CONNECTING
+                          ? "Trying to connect..."
+                          : status === TRANSCRIPTION_STATUS.ERROR
+                            ? "Error occurred"
+                            : "Ready to record"}
                 </div>
               </div>
 
               {/* Recording Controls */}
-              <div className="flex justify-center space-x-4 mb-6">
-                {!isRecording ? (
+              <div className="flex justify-center space-x-2 mb-6">
+                {isUploading ? (
                   <button
-                    onClick={handleStartRecording}
-                    className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    disabled
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg cursor-not-allowed opacity-75"
+                  >
+                    <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading...
+                  </button>
+                ) : status === TRANSCRIPTION_STATUS.IDLE && !isRecording ? (
+                  <button
+                    onClick={() => startRecording(projectId, meetingType)}
+                    className="flex items-center px-4 text-nowrap py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                   >
                     <Play className="w-4 h-4 mr-2" />
                     Start Recording
                   </button>
-                ) : (
+                ) : status === TRANSCRIPTION_STATUS.LISTENING || isPaused ? (
                   <button
                     onClick={handleStopRecording}
-                    className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    className="flex items-center text-nowrap px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                   >
                     <Square className="w-4 h-4 mr-2" />
                     Stop Recording
                   </button>
+                ) : (
+                  status === TRANSCRIPTION_STATUS.CONNECTING && (
+                    <button
+                      onClick={handleStopRecording}
+                      className="flex items-center text-nowrap px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    >
+                      <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
+                      Connecting...
+                    </button>
+                  )
                 )}
+
+                <button
+                  onClick={togglePause}
+                  disabled={!isRecording || isUploading}
+                  className={`flex items-center justify-center w-10 h-10 disabled:cursor-not-allowed disabled:opacity-50 rounded-lg transition-colors ${isPaused
+                    ? "bg-yellow-500 text-white border-2 border-yellow-600"
+                    : "bg-white border-2 border-gray-500 text-gray-500 hover:bg-gray-500 hover:text-white"
+                    }`}
+                  title={isPaused ? "Resume" : "Pause"}
+                >
+                  {isPaused ? (
+                    <Play className="w-4 h-4" />
+                  ) : (
+                    <Pause className="w-4 h-4" />
+                  )}
+                </button>
+
+                <button
+                  onClick={() => toggleMute(!isMuted)}
+                  disabled={!isRecording || isUploading}
+                  className={`flex items-center px-4 py-2 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${isMuted
+                    ? "bg-orange-600 text-white hover:bg-orange-700"
+                    : "bg-red-600 text-white hover:bg-red-700"
+                    }`}
+                  title={isMuted ? "Unmute" : "Mute"}
+                >
+                  {isMuted ? (
+                    <MicOff className="w-4 h-4" />
+                  ) : (
+                    <Mic className="w-4 h-4" />
+                  )}
+                </button>
               </div>
 
               {/* Meeting Info Form */}
@@ -390,16 +412,35 @@ export default function ProjectMeetingsPage() {
                   </label>
                   <input
                     type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     placeholder="Enter meeting title"
+                    value={meetingTitle}
+                    onChange={(e) => {
+                      setMeetingTitle(e.target.value);
+                      setShowMeetingTitleError(false);
+                    }}
+                    disabled={isRecording || isUploading}
                   />
+                  {showMeetingTitleError && (
+                    <p className="text-xs text-red-500 mt-1">
+                      Meeting Title is Required
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Meeting Type
                   </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <select
+                    value={meetingType}
+                    onChange={(e) => setMeetingType(e.target.value)}
+                    disabled={isRecording}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="" disabled>
+                      Select a meeting type
+                    </option>
                     <option value="consultation">Initial Consultation</option>
                     <option value="progress_review">Progress Review</option>
                     <option value="change_order">
@@ -414,15 +455,21 @@ export default function ProjectMeetingsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Tags
                   </label>
-                  <MeetingTagManager
-                    availableTags={availableTags}
-                    selectedTags={[]}
-                    onTagsChange={() => {}}
-                    onCreateTag={handleCreateTag}
-                    onUpdateTag={handleUpdateTag}
-                    onDeleteTag={handleDeleteTag}
-                    placeholder="Add meeting tags..."
-                  />
+                  <div
+                    className={
+                      isRecording || isUploading ? "pointer-events-none opacity-50" : ""
+                    }
+                  >
+                    <MeetingTagManager
+                      availableTags={availableTags}
+                      selectedTags={selectedTags}
+                      onTagsChange={setSelectedTags}
+                      onCreateTag={handleCreateTag}
+                      onUpdateTag={handleUpdateTag}
+                      onDeleteTag={handleDeleteTag}
+                      placeholder="Add meeting tags..."
+                    />
+                  </div>
                 </div>
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -445,17 +492,49 @@ export default function ProjectMeetingsPage() {
 
           {/* Meetings List */}
           <div className="lg:col-span-3">
+            {/* transcription section */}
+            <LiveTranscription
+              transcripts={transcripts}
+              status={status}
+              isPaused={isPaused}
+            />
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">
                   Recent Meetings
                 </h2>
                 <div className="text-sm text-gray-600">
-                  {projectMeetings.length} meetings total
+                  {projectMeetings.length} recent meetings
                 </div>
               </div>
 
-              {projectMeetings.length === 0 ? (
+              {meetingsLoading ? (
+                <div className="bg-white rounded-lg border p-8 text-center">
+                  <Loader2Icon className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-spin" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Loading meetings...
+                  </h3>
+                  <p className="text-gray-500">
+                    Fetching your meetings from the database
+                  </p>
+                </div>
+              ) : meetingsError ? (
+                <div className="bg-white rounded-lg border p-8 text-center">
+                  <FileText className="w-12 h-12 text-red-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Error loading meetings
+                  </h3>
+                  <p className="text-gray-500 mb-4">
+                    {meetingsError.message}
+                  </p>
+                  <button
+                    onClick={refetch}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              ) : projectMeetings.length === 0 ? (
                 <div className="bg-white rounded-lg border p-8 text-center">
                   <Mic className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -466,19 +545,17 @@ export default function ProjectMeetingsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-4">
+                <div className="grid gap-4 pb-4">
                   {projectMeetings.map((meeting) => (
                     <MeetingCard
                       key={meeting.meeting.id}
                       meeting={meeting}
                       variant="default"
                       onClick={() => {
-                        setSelectedMeeting(meeting);
-                        setCurrentView("transcript");
+                        setSelectedMeetingInStore(meeting.meeting);
                       }}
                       onViewTranscript={() => {
-                        setSelectedMeeting(meeting);
-                        setCurrentView("transcript");
+                        setSelectedMeetingInStore(meeting.meeting);
                       }}
                     />
                   ))}
@@ -488,6 +565,14 @@ export default function ProjectMeetingsPage() {
           </div>
         </div>
       )}
+
+      {/* Navigation Confirmation Dialog */}
+      <NavigationConfirmationDialog
+        isRecording={isRecording}
+        onConfirmLeave={async () => await stopRecording()}
+      />
+      {/* Media Player */}
+      <MediaPlayer />
     </div>
   );
 }

@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import { Project, User, CalendarEvent, ChatRoom, ChatMessage, Document } from '@contractor-platform/types';
+import { Project, User, CalendarEvent, ChatRoom, ChatMessage, Document, Meeting } from '@contractor-platform/types';
 
 // Global App State Interface
 interface AppState {
   // User & Authentication
   currentUser: User | null;
   isAuthenticated: boolean;
-  userRole: 'contractor' | 'client' | 'staff' | 'sub' | 'admin' | null;
+  userRole: 'contractor' | 'client' | 'staff' | 'sub' | 'admin' | 'homeowner' | null;
   
   // Sample Users for Testing
   sampleUsers: User[];
@@ -23,6 +23,10 @@ interface AppState {
   calendarEvents: CalendarEvent[];
   selectedEvent: CalendarEvent | null;
   calendarView: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay';
+
+  // Meeting State
+  meetings: Meeting[];
+  selectedMeeting: Meeting | null;
   
   // Chat State
   chatRooms: ChatRoom[];
@@ -78,6 +82,10 @@ interface AppActions {
   deleteCalendarEvent: (id: string) => void;
   setSelectedEvent: (event: CalendarEvent | null) => void;
   setCalendarView: (view: AppState['calendarView']) => void;
+
+  // Meeting Actions
+  setMeetings: (meetings: Meeting[]) => void;
+  setSelectedMeeting: (meeting: Meeting | null) => void;
   
   // Chat Actions
   setChatRooms: (rooms: ChatRoom[]) => void;
@@ -101,7 +109,7 @@ interface AppActions {
   removeNotification: (id: string) => void;
   
   // Loading Actions
-  setLoading: (key: keyof AppState['loading'], loading: boolean) => void;
+  setLoading: (loading: boolean, key: string) => void;
   
   // Utility Actions
   reset: () => void;
@@ -117,11 +125,12 @@ export const useAppStore = create<AppStore>()(
         // Initial State - Start as contractor
         currentUser: {
           id: 'contractor-1',
-          tenant_id: 'tenant-1', 
+          tenant_id: 'tenant-1',
           role: 'contractor',
           profile: {
             first_name: 'Mike',
             last_name: 'Johnson',
+            full_name: 'Mike Johnson',
             email: 'mike@johnsoncontracting.com',
             phone: '555-0101',
             company: 'Johnson Contracting LLC',
@@ -136,11 +145,12 @@ export const useAppStore = create<AppStore>()(
         sampleUsers: [
           {
             id: 'contractor-1',
-            tenant_id: 'tenant-1', 
+            tenant_id: 'tenant-1',
             role: 'contractor',
             profile: {
               first_name: 'Mike',
               last_name: 'Johnson',
+              full_name: 'Mike Johnson',
               email: 'mike@johnsoncontracting.com',
               phone: '555-0101',
               company: 'Johnson Contracting LLC',
@@ -153,10 +163,11 @@ export const useAppStore = create<AppStore>()(
           {
             id: 'client-1',
             tenant_id: 'tenant-1',
-            role: 'homeowner', 
+            role: 'homeowner',
             profile: {
               first_name: 'John',
               last_name: 'Smith',
+              full_name: 'John Smith',
               email: 'john.smith@email.com',
               phone: '555-0201',
             },
@@ -170,7 +181,8 @@ export const useAppStore = create<AppStore>()(
             role: 'homeowner',
             profile: {
               first_name: 'Emily',
-              last_name: 'Wilson', 
+              last_name: 'Wilson',
+              full_name: 'Emily Wilson',
               email: 'emily.wilson@email.com',
               phone: '555-0202',
             },
@@ -185,6 +197,8 @@ export const useAppStore = create<AppStore>()(
         calendarEvents: [],
         selectedEvent: null,
         calendarView: 'dayGridMonth',
+        meetings: [],
+        selectedMeeting: null,
         chatRooms: [],
         selectedChatRoom: null,
         messages: {},
@@ -203,7 +217,7 @@ export const useAppStore = create<AppStore>()(
         },
 
         // User Actions
-        setCurrentUser: (user) => set({ 
+        setCurrentUser: (user) => set({
           currentUser: user,
           userRole: user?.role || null,
         }),
@@ -220,7 +234,7 @@ export const useAppStore = create<AppStore>()(
           const users = get().sampleUsers;
           const user = users.find(u => u.id === userId);
           if (user) {
-            set({ 
+            set({
               currentUser: user,
               userRole: user.role,
               isViewSwitching: true,
@@ -251,7 +265,7 @@ export const useAppStore = create<AppStore>()(
           calendarEvents: [...state.calendarEvents, event]
         })),
         updateCalendarEvent: (id, updates) => set((state) => ({
-          calendarEvents: state.calendarEvents.map(e => 
+          calendarEvents: state.calendarEvents.map(e =>
             e.id === id ? { ...e, ...updates } : e
           )
         })),
@@ -261,6 +275,10 @@ export const useAppStore = create<AppStore>()(
         })),
         setSelectedEvent: (event) => set({ selectedEvent: event }),
         setCalendarView: (view) => set({ calendarView: view }),
+
+        // Meeting Actions
+        setMeetings: (meetings) => set({ meetings }),
+        setSelectedMeeting: (meeting) => set({ selectedMeeting: meeting }),
 
         // Chat Actions
         setChatRooms: (rooms) => set({ chatRooms: rooms }),
@@ -307,7 +325,7 @@ export const useAppStore = create<AppStore>()(
         })),
 
         // Loading Actions
-        setLoading: (key, loading) => set((state) => ({
+        setLoading: (loading: boolean, key: string) => set((state) => ({
           loading: { ...state.loading, [key]: loading }
         })),
 

@@ -1,49 +1,39 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { 
-  Search, 
-  Filter, 
-  X, 
-  Calendar, 
-  Users, 
-  Tag, 
-  FolderOpen,
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  Search,
+  Filter,
+  X,
+  Calendar,
+  Users,
+  Tag,
   Mic,
   FileText,
-  ChevronDown,
-  ChevronUp
 } from 'lucide-react';
-import { 
-  MeetingSearchFilters, 
-  MeetingSearchResult, 
-  MeetingType, 
+import {
+  MeetingSearchFilters,
+  MeetingType,
   MeetingStatus,
-  EnhancedMeetingData 
+  EnhancedMeetingData,
 } from '@contractor-platform/types';
+import meetingsDataService from "@/services/meetings.service";
 
 interface MeetingSearchProps {
-  onSearch: (filters: MeetingSearchFilters) => void;
-  results: MeetingSearchResult[];
+  projectId: string;
   onSelectMeeting: (meeting: EnhancedMeetingData) => void;
-  availableTags: string[];
-  availableParticipants: { id: string; name: string }[];
-  availableProjects: { id: string; name: string }[];
-  isLoading?: boolean;
 }
 
 export function MeetingSearch({
-  onSearch,
-  results,
+  projectId,
   onSelectMeeting,
-  availableTags,
-  availableParticipants,
-  availableProjects,
-  isLoading = false,
 }: MeetingSearchProps) {
   const [filters, setFilters] = useState<MeetingSearchFilters>({});
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [results, setResults] = useState<EnhancedMeetingData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   // Predefined tag suggestions with colors
   const tagColors = {
@@ -74,17 +64,55 @@ export function MeetingSearch({
     cancelled: 'Cancelled',
   };
 
+  // Search meetings from Supabase
+  const searchMeetings = useCallback(
+    async (searchQuery?: string, filters?: MeetingSearchFilters) => {
+      if (!projectId) return;
+      try {
+        setIsLoading(true);
+        const data = await meetingsDataService.searchMeetings(projectId, searchQuery, filters);
+        setResults(data);
+      } catch (err) {
+        console.error("Error searching meetings:", err);
+        setResults([]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [projectId]
+  );
+
+  // Load all unique tags for the project
+  const loadAvailableTags = useCallback(async () => {
+    try {
+      const data = await meetingsDataService.fetchMeetingTags(projectId);
+
+      // Flatten and get unique tags
+      const allTags = data || [];
+      const uniqueTags = Array.from(new Set(allTags));
+      setAvailableTags(uniqueTags);
+    } catch (error) {
+      console.error('Error loading tags:', error);
+    }
+  }, [projectId]);
+
+  // Load tags on mount
+  useEffect(() => {
+    loadAvailableTags();
+  }, [projectId, loadAvailableTags]);
+
+  // Debounced search
   useEffect(() => {
     const debounce = setTimeout(() => {
-      onSearch({ ...filters, query: searchQuery });
+      searchMeetings();
     }, 300);
 
     return () => clearTimeout(debounce);
-  }, [filters, searchQuery, onSearch]);
+  }, [filters, searchQuery, searchMeetings]);
 
-  const addFilter = (type: keyof MeetingSearchFilters, value: any) => {
+  const addFilter = (type: keyof MeetingSearchFilters, value: string) => {
     setFilters(prev => {
-      const currentValue = prev[type] as any[];
+      const currentValue = prev[type] as string[];
       if (Array.isArray(currentValue)) {
         if (!currentValue.includes(value)) {
           return { ...prev, [type]: [...currentValue, value] };
@@ -96,9 +124,9 @@ export function MeetingSearch({
     });
   };
 
-  const removeFilter = (type: keyof MeetingSearchFilters, value: any) => {
+  const removeFilter = (type: keyof MeetingSearchFilters, value: string) => {
     setFilters(prev => {
-      const currentValue = prev[type] as any[];
+      const currentValue = prev[type] as string[];
       if (Array.isArray(currentValue)) {
         return { ...prev, [type]: currentValue.filter(v => v !== value) };
       }
@@ -148,10 +176,10 @@ export function MeetingSearch({
 
   const highlightText = (text: string, query: string) => {
     if (!query) return text;
-    
+
     const regex = new RegExp(`(${query})`, 'gi');
     const parts = text.split(regex);
-    
+
     return parts.map((part, index) => (
       regex.test(part) ? (
         <mark key={index} className="bg-yellow-200 text-yellow-900 rounded px-1">
@@ -193,7 +221,7 @@ export function MeetingSearch({
           {activeFilterCount > 0 && (
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-sm text-gray-600">Filters:</span>
-              
+
               {filters.tags?.map(tag => (
                 <span
                   key={tag}
@@ -209,44 +237,6 @@ export function MeetingSearch({
                   </button>
                 </span>
               ))}
-
-              {filters.participants?.map(participantId => {
-                const participant = availableParticipants.find(p => p.id === participantId);
-                return (
-                  <span
-                    key={participantId}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200"
-                  >
-                    <Users className="w-3 h-3 mr-1" />
-                    {participant?.name || participantId}
-                    <button
-                      onClick={() => removeFilter('participants', participantId)}
-                      className="ml-1 hover:text-red-600"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                );
-              })}
-
-              {filters.projects?.map(projectId => {
-                const project = availableProjects.find(p => p.id === projectId);
-                return (
-                  <span
-                    key={projectId}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200"
-                  >
-                    <FolderOpen className="w-3 h-3 mr-1" />
-                    {project?.name || projectId}
-                    <button
-                      onClick={() => removeFilter('projects', projectId)}
-                      className="ml-1 hover:text-red-600"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                );
-              })}
 
               <button
                 onClick={clearAllFilters}
@@ -270,16 +260,15 @@ export function MeetingSearch({
                     {availableTags.slice(0, 5).map(tag => (
                       <button
                         key={tag}
-                        onClick={() => 
-                          filters.tags?.includes(tag) 
+                        onClick={() =>
+                          filters.tags?.includes(tag)
                             ? removeFilter('tags', tag)
                             : addFilter('tags', tag)
                         }
-                        className={`block w-full text-left px-2 py-1 rounded text-xs transition-colors ${
-                          filters.tags?.includes(tag)
-                            ? getTagColor(tag)
-                            : 'text-gray-600 hover:bg-gray-50'
-                        }`}
+                        className={`block w-full text-left px-2 py-1 rounded text-xs transition-colors ${filters.tags?.includes(tag)
+                          ? getTagColor(tag)
+                          : 'text-gray-600 hover:bg-gray-50'
+                          }`}
                       >
                         {tag}
                       </button>
@@ -296,16 +285,15 @@ export function MeetingSearch({
                     {Object.entries(meetingTypeLabels).map(([type, label]) => (
                       <button
                         key={type}
-                        onClick={() => 
+                        onClick={() =>
                           filters.types?.includes(type as MeetingType)
                             ? removeFilter('types', type)
                             : addFilter('types', type)
                         }
-                        className={`block w-full text-left px-2 py-1 rounded text-xs transition-colors ${
-                          filters.types?.includes(type as MeetingType)
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'text-gray-600 hover:bg-gray-50'
-                        }`}
+                        className={`block w-full text-left px-2 py-1 rounded text-xs transition-colors ${filters.types?.includes(type as MeetingType)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-600 hover:bg-gray-50'
+                          }`}
                       >
                         {label}
                       </button>
@@ -322,16 +310,15 @@ export function MeetingSearch({
                     {Object.entries(statusLabels).map(([status, label]) => (
                       <button
                         key={status}
-                        onClick={() => 
+                        onClick={() =>
                           filters.status?.includes(status as MeetingStatus)
                             ? removeFilter('status', status)
                             : addFilter('status', status)
                         }
-                        className={`block w-full text-left px-2 py-1 rounded text-xs transition-colors ${
-                          filters.status?.includes(status as MeetingStatus)
-                            ? 'bg-green-100 text-green-700'
-                            : 'text-gray-600 hover:bg-gray-50'
-                        }`}
+                        className={`block w-full text-left px-2 py-1 rounded text-xs transition-colors ${filters.status?.includes(status as MeetingStatus)
+                          ? 'bg-green-100 text-green-700'
+                          : 'text-gray-600 hover:bg-gray-50'
+                          }`}
                       >
                         {label}
                       </button>
@@ -346,33 +333,31 @@ export function MeetingSearch({
                   </label>
                   <div className="space-y-1">
                     <button
-                      onClick={() => 
-                        setFilters(prev => ({ 
-                          ...prev, 
-                          hasRecording: prev.hasRecording === true ? undefined : true 
+                      onClick={() =>
+                        setFilters(prev => ({
+                          ...prev,
+                          hasRecording: prev.hasRecording === true ? undefined : true
                         }))
                       }
-                      className={`flex items-center w-full text-left px-2 py-1 rounded text-xs transition-colors ${
-                        filters.hasRecording === true
-                          ? 'bg-purple-100 text-purple-700'
-                          : 'text-gray-600 hover:bg-gray-50'
-                      }`}
+                      className={`flex items-center w-full text-left px-2 py-1 rounded text-xs transition-colors ${filters.hasRecording === true
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'text-gray-600 hover:bg-gray-50'
+                        }`}
                     >
                       <Mic className="w-3 h-3 mr-1" />
                       Has Recording
                     </button>
                     <button
-                      onClick={() => 
-                        setFilters(prev => ({ 
-                          ...prev, 
-                          hasTranscript: prev.hasTranscript === true ? undefined : true 
+                      onClick={() =>
+                        setFilters(prev => ({
+                          ...prev,
+                          hasTranscript: prev.hasTranscript === true ? undefined : true
                         }))
                       }
-                      className={`flex items-center w-full text-left px-2 py-1 rounded text-xs transition-colors ${
-                        filters.hasTranscript === true
-                          ? 'bg-indigo-100 text-indigo-700'
-                          : 'text-gray-600 hover:bg-gray-50'
-                      }`}
+                      className={`flex items-center w-full text-left px-2 py-1 rounded text-xs transition-colors ${filters.hasTranscript === true
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'text-gray-600 hover:bg-gray-50'
+                        }`}
                     >
                       <FileText className="w-3 h-3 mr-1" />
                       Has Transcript
@@ -399,7 +384,7 @@ export function MeetingSearch({
               {activeFilterCount > 0 ? 'No meetings found' : 'Start searching'}
             </h3>
             <p className="text-gray-500">
-              {activeFilterCount > 0 
+              {activeFilterCount > 0
                 ? 'Try adjusting your search criteria or filters'
                 : 'Enter keywords or use filters to find meetings'
               }
@@ -410,19 +395,15 @@ export function MeetingSearch({
             <div className="text-sm text-gray-600 mb-4">
               Found {results.length} meeting{results.length !== 1 ? 's' : ''}
             </div>
-            
+
             {results.map((result) => {
               const { date, time } = formatDateTime(result.meeting.starts_at);
-              
+
               return (
                 <div
                   key={result.meeting.id}
                   className="bg-white rounded-lg border hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => onSelectMeeting({
-                    meeting: result.meeting,
-                    project: { id: result.meeting.project_id } as any, // Will be populated by parent
-                    participants: [], // Will be populated by parent
-                  })}
+                  onClick={() => onSelectMeeting(result)}
                 >
                   <div className="p-6">
                     <div className="flex justify-between items-start mb-3">
@@ -430,20 +411,22 @@ export function MeetingSearch({
                         <h3 className="text-lg font-medium text-gray-900 mb-1">
                           {highlightText(result.meeting.title, searchQuery)}
                         </h3>
-                        
+
                         <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
                           <div className="flex items-center">
                             <Calendar className="w-4 h-4 mr-1" />
                             {date} • {time}
                           </div>
-                          <div className="flex items-center">
-                            <Users className="w-4 h-4 mr-1" />
-                            {result.meeting.participants.length} participants
-                          </div>
+                          {result.meeting.participants && result.meeting.participants.length > 0 && (
+                            <div className="flex items-center">
+                              <Users className="w-4 h-4 mr-1" />
+                              {result.meeting.participants.length} participants
+                            </div>
+                          )}
                         </div>
 
                         {/* Tags */}
-                        {result.meeting.tags.length > 0 && (
+                        {result.meeting.tags && result.meeting.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mb-3">
                             {result.meeting.tags.map(tag => (
                               <span
@@ -457,30 +440,21 @@ export function MeetingSearch({
                           </div>
                         )}
 
-                        {/* Transcript Highlights */}
-                        {result.highlights?.transcript && result.highlights.transcript.length > 0 && (
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
-                            <div className="text-sm font-medium text-yellow-800 mb-2">
-                              Transcript matches:
+                        {/* Transcript excerpt */}
+                        {result.meeting.transcript && searchQuery && (
+                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-3">
+                            <div className="text-sm text-gray-700 line-clamp-2">
+                              {result.meeting.transcript.slice(0, 200)}...
                             </div>
-                            {result.highlights.transcript.slice(0, 2).map((highlight, index) => (
-                              <div key={index} className="text-sm text-yellow-700 mb-1">
-                                <span className="font-medium">{highlight.speaker}:</span>{' '}
-                                <span dangerouslySetInnerHTML={{ __html: highlight.highlightedText }} />
-                              </div>
-                            ))}
                           </div>
                         )}
                       </div>
 
                       <div className="ml-4 flex flex-col items-end space-y-2">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          result.meeting.status === 'completed'
-                            ? 'bg-green-100 text-green-800'
-                            : result.meeting.status === 'scheduled'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${result.meeting.status === 'completed'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-blue-100 text-blue-800'
+                          }`}>
                           {statusLabels[result.meeting.status]}
                         </span>
 
@@ -491,15 +465,13 @@ export function MeetingSearch({
                               Audio
                             </span>
                           )}
-                          
-                          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded flex items-center">
-                            <FileText className="w-3 h-3 mr-1" />
-                            Transcript
-                          </span>
-                        </div>
 
-                        <div className="text-xs text-gray-500">
-                          Relevance: {Math.round(result.relevanceScore * 100)}%
+                          {result.meeting.transcript && (
+                            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded flex items-center">
+                              <FileText className="w-3 h-3 mr-1" />
+                              Transcript
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
