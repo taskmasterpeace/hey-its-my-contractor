@@ -84,7 +84,6 @@ const useRecorder = ({
     useEffect(() => {
         // single-run guard to avoid duplicates across overlapping events
         let hasFlushed = false;
-        const suppressBeforeUnloadRef = { current: false };
         const guardPushedRef = { current: false };
         const GUARD_KEY = '__leave_guard__';
 
@@ -124,14 +123,7 @@ const useRecorder = ({
             } catch { }
         };
 
-        // Stable handlers so we can remove them
-        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (!isRecording || suppressBeforeUnloadRef.current) return;
-            e.preventDefault();
-            e.returnValue = '';
-            flushOnce();
-        };
-
+        // Stable handlers for data persistence (no alerts - NavigationConfirmationDialog handles that)
         const handlePageHide = () => {
             if (!isRecording) return;
             flushOnce();
@@ -144,8 +136,7 @@ const useRecorder = ({
             }
         };
 
-        // Attach listeners
-        window.addEventListener('beforeunload', handleBeforeUnload);
+        // Attach listeners (no beforeunload - NavigationConfirmationDialog handles that)
         window.addEventListener('pagehide', handlePageHide);
         document.addEventListener('visibilitychange', handleVisibility);
 
@@ -164,29 +155,13 @@ const useRecorder = ({
         // Back navigation trap
         const onPopState = () => {
             if (!isRecording) return;
-
-            const ok = window.confirm('Leave this page? Unsaved changes may be lost.');
-            if (!ok) {
-                // Re-insert our guard so further back presses still come here
-                const state = { ...(history.state || {}), [GUARD_KEY]: true };
-                history.pushState(state, '', location.href);
-                return;
-            }
-
             flushOnce();
-
-            // Suppress the unload prompt for our programmatic back navigation
-            suppressBeforeUnloadRef.current = true;
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-
-            history.back();
         };
 
         window.addEventListener('popstate', onPopState);
 
         return () => {
             window.removeEventListener('popstate', onPopState);
-            window.removeEventListener('beforeunload', handleBeforeUnload);
             window.removeEventListener('pagehide', handlePageHide);
             document.removeEventListener('visibilitychange', handleVisibility);
         };
@@ -424,10 +399,21 @@ const useRecorder = ({
                     }
                 });
 
-                // Start audio recording for file storage
+                // Start audio recording for file storage with auto-save
                 try {
-                    await meetingRecordingService.startAudioRecording(mediaStream.current);
-                    console.log("🎙️ Audio recording service started");
+                    const meetingId = localStorage.getItem("meetingId");
+                    const projectId = currentProjectIdRef.current;
+
+                    if (meetingId && projectId) {
+                        await meetingRecordingService.startAudioRecording(
+                            mediaStream.current,
+                            meetingId,
+                            projectId
+                        );
+                        console.log("🎙️ Audio recording service started with auto-save");
+                    } else {
+                        console.error("Missing meetingId or projectId for audio recording");
+                    }
                 } catch (error) {
                     console.error("Failed to start audio recording service:", error);
                 }

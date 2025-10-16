@@ -333,19 +333,19 @@ const MediaPlayer: React.FC = () => {
                         animate="animate"
                         exit="exit"
                         transition={{ duration: 0.35, ease: 'easeOut' }}
-                        className="fixed bottom-0 left-64 right-0 z-50 bg-white border-t border-gray-200 shadow-lg"
+                        className="fixed bottom-0 left-0 md:left-64 right-0 z-50 bg-white border-t border-gray-200 shadow-lg"
                         style={{ willChange: 'transform' }}
                     >
-                        <div className="max-w-full mx-auto p-4">
+                        <div className="max-w-full mx-auto p-3 md:p-4">
                             {/* Header row */}
-                            <div className="flex items-center justify-between gap-4 mb-3">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-                                        <FileAudio className="w-6 h-6 text-primary-600" />
+                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4 mb-3">
+                                <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto">
+                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <FileAudio className="w-5 h-5 md:w-6 md:h-6 text-primary-600" />
                                     </div>
-                                    <div>
-                                        <h4 className="font-medium text-gray-900">{title}</h4>
-                                        <p className="text-sm text-gray-500">
+                                    <div className="min-w-0 flex-1">
+                                        <h4 className="font-medium text-gray-900 text-sm md:text-base truncate">{title}</h4>
+                                        <p className="text-xs md:text-sm text-gray-500">
                                             {startsAt
                                                 ? new Date(startsAt).toLocaleString('en-US', {
                                                     dateStyle: 'medium',
@@ -355,36 +355,36 @@ const MediaPlayer: React.FC = () => {
                                         </p>
                                     </div>
 
-                                    <div className="flex items-center gap-2 flex-wrap ml-2">
+                                    <div className="flex items-center gap-2 flex-shrink-0">
                                         <Badge
                                             variant="outline"
-                                            className="gap-1 cursor-pointer"
+                                            className="gap-1 cursor-pointer text-xs"
                                             onClick={() => {
-                                                // Combine all transcript texts or pick one
                                                 setSelectedTrancriptText(selectedMeeting?.transcript || '')
                                                 setTranscriptOpen(true)
                                             }}
                                         >
                                             <FileText className="w-3 h-3" />
-                                            Transcript
+                                            <span className="hidden sm:inline">Transcript</span>
                                         </Badge>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 absolute top-3 right-3 md:relative md:top-auto md:right-auto">
                                     <button
-                                        className="p-2 rounded hover:bg-gray-100 transition-colors"
+                                        className="p-1.5 md:p-2 rounded hover:bg-gray-100 transition-colors"
                                         onClick={closePlayer}
                                         title="Close player"
                                     >
-                                        <X className="w-5 h-5 text-gray-600" />
+                                        <X className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
                                     </button>
                                 </div>
                             </div>
 
                             {/* Player controls */}
-                            <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
+                            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4">
+                                {/* Playback buttons */}
+                                <div className="flex items-center justify-center md:justify-start gap-2">
                                     <Button
                                         variant="ghost"
                                         size="icon"
@@ -420,8 +420,9 @@ const MediaPlayer: React.FC = () => {
                                     </Button>
                                 </div>
 
-                                <div className="flex-1 flex items-center gap-3">
-                                    <span className="text-sm text-gray-500 min-w-[45px]">
+                                {/* Progress slider */}
+                                <div className="flex-1 flex items-center gap-2 md:gap-3">
+                                    <span className="text-xs md:text-sm text-gray-500 min-w-[40px] md:min-w-[45px]">
                                         {formatTimeFromSeconds(currentTime)}
                                     </span>
 
@@ -442,37 +443,40 @@ const MediaPlayer: React.FC = () => {
                                         />
                                     </div>
 
-                                    <span className="text-sm text-gray-500 min-w-[45px]">
+                                    <span className="text-xs md:text-sm text-gray-500 min-w-[40px] md:min-w-[45px]">
                                         {formatTimeFromSeconds(duration > 0 ? duration : calculatedDuration)}
                                     </span>
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={toggleMute}
-                                        disabled={!audioReady}
-                                    >
-                                        {isMuted ? (
-                                            <VolumeX className="h-4 w-4" />
-                                        ) : volume < 50 ? (
-                                            <Volume1 className="h-4 w-4" />
-                                        ) : (
-                                            <Volume2 className="h-4 w-4" />
-                                        )}
-                                    </Button>
+                                {/* Volume and speed controls */}
+                                <div className="flex items-center justify-between md:justify-start gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={toggleMute}
+                                            disabled={!audioReady}
+                                        >
+                                            {isMuted ? (
+                                                <VolumeX className="h-4 w-4" />
+                                            ) : volume < 50 ? (
+                                                <Volume1 className="h-4 w-4" />
+                                            ) : (
+                                                <Volume2 className="h-4 w-4" />
+                                            )}
+                                        </Button>
 
-                                    <div className="w-36">
-                                        <Slider
-                                            value={[isMuted ? 0 : volume]}
-                                            min={0}
-                                            max={100}
-                                            step={1}
-                                            onValueChange={(v) => handleVolumeChange(v as number[])}
-                                            className="h-1"
-                                        />
+                                        <div className="w-20 md:w-36 hidden sm:block">
+                                            <Slider
+                                                value={[isMuted ? 0 : volume]}
+                                                min={0}
+                                                max={100}
+                                                step={1}
+                                                onValueChange={(v) => handleVolumeChange(v as number[])}
+                                                className="h-1"
+                                            />
+                                        </div>
                                     </div>
 
                                     <Select
@@ -480,7 +484,7 @@ const MediaPlayer: React.FC = () => {
                                         onValueChange={(v) => setPlaybackSpeed(v as "1" | "2" | "0.5" | "0.75" | "1.25" | "1.5")}
                                         disabled={!audioReady}
                                     >
-                                        <SelectTrigger className="w-[70px] h-8">
+                                        <SelectTrigger className="w-[60px] md:w-[70px] h-8 text-xs md:text-sm">
                                             <SelectValue placeholder="Speed" />
                                         </SelectTrigger>
                                         <SelectContent>

@@ -72,7 +72,7 @@
 .fc-more-link {
   display: flex !important;
   justify-content: center !important;
-  align-items: center !important;  
+  align-items: center !important;
   background-color: white !important;
   color: black !important;
   padding: 4px 8px !important;
@@ -85,4 +85,201 @@
   align-items: center !important;
   width: 100% !important;
   margin-top: 10px !important;
+}
+
+
+/* Calendar */
+
+/* FullCalendar Responsive Styles */
+
+/* Tablet and below (768px) */
+@media screen and (max-width: 768px) {
+
+  /* Toolbar spacing */
+  .fc .fc-header-toolbar {
+    padding: 0.5rem 0.25rem !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Toolbar chunks - stack on mobile if needed */
+  .fc .fc-toolbar-chunk {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  /* Title size */
+  .fc .fc-toolbar-title {
+    font-size: 0.8rem !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+  }
+
+  /* All buttons */
+  .fc .fc-button {
+    padding: 0.3rem 0.5rem !important;
+    font-size: 0.75rem !important;
+    height: auto !important;
+    min-height: 32px !important;
+  }
+
+  /* Button icons */
+  .fc .fc-button .fc-icon {
+    font-size: 0.875rem !important;
+    vertical-align: middle !important;
+  }
+
+  /* Button group spacing */
+  .fc .fc-button-group {
+    gap: 2px !important;
+  }
+
+  /* Calendar grid adjustments */
+  .fc .fc-col-header-cell {
+    font-size: 0.75rem !important;
+    padding: 0.25rem !important;
+  }
+
+  /* Day numbers */
+  .fc .fc-daygrid-day-number {
+    font-size: 0.875rem !important;
+    padding: 0.25rem !important;
+  }
+
+  /* Week numbers */
+  .fc .fc-daygrid-week-number {
+    font-size: 0.625rem !important;
+  }
+
+  /* Event content */
+  .fc .fc-daygrid-event {
+    font-size: 0.75rem !important;
+    padding: 1px 2px !important;
+  }
+
+  /* More link */
+  .fc .fc-daygrid-more-link {
+    font-size: 0.75rem !important;
+  }
+
+  /* Time grid events */
+  .fc .fc-timegrid-event {
+    font-size: 0.75rem !important;
+  }
+
+  /* Time grid axis */
+  .fc .fc-timegrid-axis {
+    font-size: 0.75rem !important;
+  }
+
+  /* List view */
+  .fc-list-event {
+    font-size: 0.875rem !important;
+  }
+}
+
+/* Mobile only (576px and below) */
+@media screen and (max-width: 576px) {
+
+  /* Stack toolbar chunks vertically */
+  .fc .fc-header-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 0.5rem 0.25rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .fc .fc-toolbar-chunk {
+    justify-content: center !important;
+    width: 100% !important;
+  }
+
+  /* Even smaller title */
+  .fc .fc-toolbar-title {
+    font-size: 0.775rem !important;
+    text-align: center !important;
+  }
+
+  /* Smaller buttons */
+  .fc .fc-button {
+    padding: 0.25rem 0.4rem !important;
+    font-size: 0.7rem !important;
+    min-height: 28px !important;
+  }
+
+  /* Hide "today" text, show only on larger screens */
+  .fc .fc-today-button {
+    font-size: 0.65rem !important;
+  }
+
+  /* Day headers - abbreviated */
+  .fc .fc-col-header-cell {
+    font-size: 0.65rem !important;
+    padding: 0.2rem !important;
+  }
+
+  /* Smaller day numbers */
+  .fc .fc-daygrid-day-number {
+    font-size: 0.75rem !important;
+  }
+
+  /* Event text */
+  .fc .fc-event-title {
+    font-size: 0.65rem !important;
+  }
+
+  /* Adjust calendar cell padding */
+  .fc .fc-daygrid-day {
+    padding: 2px !important;
+  }
+}
+
+/* Desktop optimizations (above 768px) */
+@media screen and (min-width: 769px) {
+  .fc .fc-toolbar-title {
+    font-size: 1.5rem !important;
+  }
+
+  .fc .fc-button {
+    padding: 0.4rem 0.65rem !important;
+    font-size: 0.875rem !important;
+  }
+
+  .fc .fc-header-toolbar {
+    padding: 1rem 0.5rem !important;
+  }
+}
+
+/* General improvements for all breakpoints */
+.fc .fc-button {
+  transition: all 0.2s ease !important;
+}
+
+.fc .fc-button:hover:not(:disabled) {
+  transform: translateY(-1px) !important;
+}
+
+.fc .fc-button:active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+/* Ensure toolbar doesn't wrap awkwardly */
+.fc .fc-header-toolbar {
+  flex-wrap: wrap !important;
+  row-gap: 0.5rem !important;
+}
+
+/* Better button group appearance */
+.fc .fc-button-group>.fc-button {
+  border-radius: 0 !important;
+}
+
+.fc .fc-button-group>.fc-button:first-child {
+  border-top-left-radius: 0.375rem !important;
+  border-bottom-left-radius: 0.375rem !important;
+}
+
+.fc .fc-button-group>.fc-button:last-child {
+  border-top-right-radius: 0.375rem !important;
+  border-bottom-right-radius: 0.375rem !important;
 }

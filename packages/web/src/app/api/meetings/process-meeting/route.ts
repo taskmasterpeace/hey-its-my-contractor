@@ -38,16 +38,9 @@ export async function POST(request: NextRequest) {
       .where(
         and(
           isNotNull(meetings.transcript),
-          sql`
-        (
-          (${meetings.status} = 'completed' AND ${meetings.updatedAt} > NOW() - INTERVAL '1 hour')
-          OR
-          (${meetings.status} != 'completed' AND ${meetings.updatedAt} < NOW() - INTERVAL '1 hour')
-        )
-      `
+          sql`${meetings.status} != 'completed' AND ${meetings.updatedAt} < NOW() - INTERVAL '1 hour'`
         )
       )
-
     console.log(`Found ${recentMeetings.length} meetings to process (completed OR not completed + 1h old)`)
 
     if (recentMeetings.length === 0) {

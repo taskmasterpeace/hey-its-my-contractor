@@ -58,6 +58,9 @@ export default function ProjectMeetingsPage() {
     (meeting) => meeting.meeting.project_id === projectId
   );
 
+  // recent 5 last meetings based on created_at
+  const recentMeetings = projectMeetings.slice().sort((a, b) => new Date(b.meeting.created_at).getTime() - new Date(a.meeting.created_at).getTime()).slice(0, 5);
+
   const handleSelectMeetingFromSearch = (meeting: EnhancedMeetingData) => {
     setSelectedMeetingInStore(meeting.meeting);
   };
@@ -82,29 +85,6 @@ export default function ProjectMeetingsPage() {
   const handleDeleteTag = (tagId: string) => {
     setAvailableTags((tags) => tags.filter((tag) => tag.id !== tagId));
   };
-
-  // const handleUpdateMeetingTags = async (meetingId: string, newTags: string[]) => {
-  //   try {
-  //     // Update tags in Supabase
-  //     const supabase = (await import("@/utils/supabase/client")).createClient();
-  //     const { error } = await supabase
-  //       .from("meetings")
-  //       .update({ tags: newTags })
-  //       .eq("id", meetingId);
-
-  //     if (error) {
-  //       console.error("Error updating meeting tags:", error);
-  //       alert("Failed to update tags");
-  //       return;
-  //     }
-
-  //     // The real-time subscription will automatically update the local state
-  //     console.log("✅ Tags updated successfully");
-  //   } catch (error) {
-  //     console.error("Error updating meeting tags:", error);
-  //     alert("Failed to update tags");
-  //   }
-  // };
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -209,7 +189,7 @@ export default function ProjectMeetingsPage() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
           <div className="bg-white rounded-lg border p-4">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -285,9 +265,9 @@ export default function ProjectMeetingsPage() {
           onSelectMeeting={handleSelectMeetingFromSearch}
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Recording Panel */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Record Meeting
@@ -335,73 +315,76 @@ export default function ProjectMeetingsPage() {
 
               {/* Recording Controls */}
               <div className="flex justify-center space-x-2 mb-6">
-                {isUploading ? (
-                  <button
-                    disabled
-                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg cursor-not-allowed opacity-75"
-                  >
-                    <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
-                    Uploading...
-                  </button>
-                ) : status === TRANSCRIPTION_STATUS.IDLE && !isRecording ? (
-                  <button
-                    onClick={() => startRecording(projectId, meetingType)}
-                    className="flex items-center px-4 text-nowrap py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    Start Recording
-                  </button>
-                ) : status === TRANSCRIPTION_STATUS.LISTENING || isPaused ? (
-                  <button
-                    onClick={handleStopRecording}
-                    className="flex items-center text-nowrap px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    <Square className="w-4 h-4 mr-2" />
-                    Stop Recording
-                  </button>
-                ) : (
-                  status === TRANSCRIPTION_STATUS.CONNECTING && (
+                <div className="">
+                  {isUploading ? (
+                    <button
+                      disabled
+                      className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg cursor-not-allowed opacity-75"
+                    >
+                      <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </button>
+                  ) : status === TRANSCRIPTION_STATUS.IDLE && !isRecording ? (
+                    <button
+                      onClick={() => startRecording(projectId, meetingType)}
+                      className="flex items-center px-4 text-nowrap py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Start Recording
+                    </button>
+                  ) : status === TRANSCRIPTION_STATUS.LISTENING || isPaused ? (
                     <button
                       onClick={handleStopRecording}
                       className="flex items-center text-nowrap px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                     >
-                      <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
-                      Connecting...
+                      <Square className="w-4 h-4 mr-2" />
+                      Stop Recording
                     </button>
-                  )
-                )}
-
-                <button
-                  onClick={togglePause}
-                  disabled={!isRecording || isUploading}
-                  className={`flex items-center justify-center w-10 h-10 disabled:cursor-not-allowed disabled:opacity-50 rounded-lg transition-colors ${isPaused
-                    ? "bg-yellow-500 text-white border-2 border-yellow-600"
-                    : "bg-white border-2 border-gray-500 text-gray-500 hover:bg-gray-500 hover:text-white"
-                    }`}
-                  title={isPaused ? "Resume" : "Pause"}
-                >
-                  {isPaused ? (
-                    <Play className="w-4 h-4" />
                   ) : (
-                    <Pause className="w-4 h-4" />
+                    status === TRANSCRIPTION_STATUS.CONNECTING && (
+                      <button
+                        onClick={handleStopRecording}
+                        className="flex items-center text-nowrap px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
+                        Connecting...
+                      </button>
+                    )
                   )}
-                </button>
+                </div>
+                <div className="flex items-center justify-center gap-2 lg:gap-1">
+                  <button
+                    onClick={togglePause}
+                    disabled={!isRecording || isUploading}
+                    className={`flex items-center justify-center w-10 h-10 disabled:cursor-not-allowed disabled:opacity-50 rounded-lg transition-colors ${isPaused
+                      ? "bg-yellow-500 text-white border-2 border-yellow-600"
+                      : "bg-white border-2 border-gray-500 text-gray-500 hover:bg-gray-500 hover:text-white"
+                      }`}
+                    title={isPaused ? "Resume" : "Pause"}
+                  >
+                    {isPaused ? (
+                      <Play className="w-4 h-4" />
+                    ) : (
+                      <Pause className="w-4 h-4" />
+                    )}
+                  </button>
 
-                <button
-                  onClick={() => toggleMute(!isMuted)}
-                  disabled={!isRecording || isUploading}
-                  className={`flex items-center px-4 py-2 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${isMuted
-                    ? "bg-orange-600 text-white hover:bg-orange-700"
-                    : "bg-red-600 text-white hover:bg-red-700"
-                    }`}
-                  title={isMuted ? "Unmute" : "Mute"}
-                >
-                  {isMuted ? (
-                    <MicOff className="w-4 h-4" />
-                  ) : (
-                    <Mic className="w-4 h-4" />
-                  )}
-                </button>
+                  <button
+                    onClick={() => toggleMute(!isMuted)}
+                    disabled={!isRecording || isUploading}
+                    className={`flex items-center justify-center w-10 h-10 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${isMuted
+                      ? "bg-orange-600 text-white hover:bg-orange-700"
+                      : "bg-red-600 text-white hover:bg-red-700"
+                      }`}
+                    title={isMuted ? "Unmute" : "Mute"}
+                  >
+                    {isMuted ? (
+                      <MicOff className="w-4 h-4" />
+                    ) : (
+                      <Mic className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Meeting Info Form */}
@@ -492,75 +475,82 @@ export default function ProjectMeetingsPage() {
 
           {/* Meetings List */}
           <div className="lg:col-span-3">
-            {/* transcription section */}
-            <LiveTranscription
-              transcripts={transcripts}
-              status={status}
-              isPaused={isPaused}
-            />
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Recent Meetings
-                </h2>
-                <div className="text-sm text-gray-600">
-                  {projectMeetings.length} recent meetings
-                </div>
+            {/* Create nested grid for transcription and meetings list */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* LiveTranscription - 2 columns on large screens */}
+              <div className="lg:col-span-3 h-full">
+                <LiveTranscription
+                  transcripts={transcripts}
+                  status={status}
+                  isPaused={isPaused}
+                />
               </div>
 
-              {meetingsLoading ? (
-                <div className="bg-white rounded-lg border p-8 text-center">
-                  <Loader2Icon className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-spin" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Loading meetings...
-                  </h3>
-                  <p className="text-gray-500">
-                    Fetching your meetings from the database
-                  </p>
+              {/* Recent Meetings - 1 column on large screens */}
+              <div className="lg:col-span-3 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Recent Meetings
+                  </h2>
+                  <div className="text-sm text-gray-600">
+                    {recentMeetings.length} recent meetings
+                  </div>
                 </div>
-              ) : meetingsError ? (
-                <div className="bg-white rounded-lg border p-8 text-center">
-                  <FileText className="w-12 h-12 text-red-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Error loading meetings
-                  </h3>
-                  <p className="text-gray-500 mb-4">
-                    {meetingsError.message}
-                  </p>
-                  <button
-                    onClick={refetch}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Try Again
-                  </button>
-                </div>
-              ) : projectMeetings.length === 0 ? (
-                <div className="bg-white rounded-lg border p-8 text-center">
-                  <Mic className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    No meetings yet
-                  </h3>
-                  <p className="text-gray-500">
-                    Start recording your first meeting to see it here
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-4 pb-4">
-                  {projectMeetings.map((meeting) => (
-                    <MeetingCard
-                      key={meeting.meeting.id}
-                      meeting={meeting}
-                      variant="default"
-                      onClick={() => {
-                        setSelectedMeetingInStore(meeting.meeting);
-                      }}
-                      onViewTranscript={() => {
-                        setSelectedMeetingInStore(meeting.meeting);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
+
+                {meetingsLoading ? (
+                  <div className="bg-white rounded-lg border p-8 text-center">
+                    <Loader2Icon className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-spin" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      Loading meetings...
+                    </h3>
+                    <p className="text-gray-500">
+                      Fetching your meetings from the database
+                    </p>
+                  </div>
+                ) : meetingsError ? (
+                  <div className="bg-white rounded-lg border p-8 text-center">
+                    <FileText className="w-12 h-12 text-red-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      Error loading meetings
+                    </h3>
+                    <p className="text-gray-500 mb-4">
+                      {meetingsError.message}
+                    </p>
+                    <button
+                      onClick={refetch}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                ) : recentMeetings.length === 0 ? (
+                  <div className="bg-white rounded-lg border p-8 text-center">
+                    <Mic className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      No meetings yet
+                    </h3>
+                    <p className="text-gray-500">
+                      Start recording your first meeting to see it here
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 pb-4">
+                    {recentMeetings.map((meeting) => (
+                      <MeetingCard
+                        key={meeting.meeting.id}
+                        meeting={meeting}
+                        variant="default"
+                        onClick={() => {
+                          setSelectedMeetingInStore(meeting.meeting);
+                        }}
+                        onViewTranscript={() => {
+                          setSelectedMeetingInStore(meeting.meeting);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

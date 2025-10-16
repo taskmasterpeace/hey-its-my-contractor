@@ -42,7 +42,7 @@ const LiveTranscription = ({
   }, [transcripts, isTranscriptsEmpty]);
 
   return (
-    <div className="rounded-lg p-4 border no-drag h-full flex flex-col transition-all duration-300 ease-in-out w-1/2 bg-white text-black mb-4 max-h-[440px] overflow-y-auto backdrop-filter-none">
+    <div className="w-full rounded-lg p-4 border no-drag h-full flex flex-col transition-all duration-300 ease-in-out bg-white text-black mb-4 max-h-[440px] overflow-y-auto backdrop-filter-none">
       <div className="flex items-center justify-between mb-3 w-full">
         <h3 className="font-semibold">Live Transcription</h3>
         <div className="flex items-center gap-2">
@@ -61,8 +61,7 @@ const LiveTranscription = ({
       </div>
       <div
         ref={containerRef}
-        className="bg-white/70 rounded-lg text-base text-gray-600 overflow-y-auto flex-1 p-3"
-        style={{ minHeight: "auto" }}
+        className="bg-white/70 rounded-lg text-base text-gray-600 overflow-y-auto flex-1 p-3 min-h-[350px]"
       >
         <LiveTranscriptionContent
           transcripts={transcripts}

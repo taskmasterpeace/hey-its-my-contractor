@@ -447,7 +447,7 @@ export function MeetingCard({
   // Default variant
   return (
     <div
-      className={`bg-white border rounded-lg p-6 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer ${className}`}
+      className={`w-full bg-white border rounded-lg p-6 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer ${className}`}
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

@@ -15,7 +15,6 @@ export class MeetingsDataService {
         .select("*")
         .eq("project_id", projectId)
         .eq("status", "completed")
-        .limit(5)
         .order("created_at", { ascending: false });
 
       if (meetingsError) {

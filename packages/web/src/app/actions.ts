@@ -1,16 +1,23 @@
 "use server"
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/utils/supabase/server"
 
-export const getUserId = async () => {
+export const getUserId = async (): Promise<string | null> => {
     try {
-        const supabase = await createClient();
+        const supabase = await createClient()
         const {
             data: { user },
-        } = await supabase.auth.getUser();
-        return user?.id;
+            error
+        } = await supabase.auth.getUser()
+
+        if (error) {
+            console.error("Supabase auth error:", error)
+            return null
+        }
+
+        return user?.id ?? null
     } catch (error) {
-        console.error("error occurred", error)
-        return null;
+        console.error("Error occurred:", error)
+        return null
     }
 }

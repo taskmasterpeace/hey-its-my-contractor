@@ -396,89 +396,91 @@ export function MeetingSearch({
               Found {results.length} meeting{results.length !== 1 ? 's' : ''}
             </div>
 
-            {results.map((result) => {
-              const { date, time } = formatDateTime(result.meeting.starts_at);
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {results.map((result) => {
+                const { date, time } = formatDateTime(result.meeting.starts_at);
 
-              return (
-                <div
-                  key={result.meeting.id}
-                  className="bg-white rounded-lg border hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => onSelectMeeting(result)}
-                >
-                  <div className="p-6">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-medium text-gray-900 mb-1">
-                          {highlightText(result.meeting.title, searchQuery)}
-                        </h3>
+                return (
+                  <div
+                    key={result.meeting.id}
+                    className="bg-white rounded-lg border hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                    onClick={() => onSelectMeeting(result)}
+                  >
+                    <div className="p-6">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-medium text-gray-900 mb-1">
+                            {highlightText(result.meeting.title, searchQuery)}
+                          </h3>
 
-                        <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
-                          <div className="flex items-center">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            {date} • {time}
-                          </div>
-                          {result.meeting.participants && result.meeting.participants.length > 0 && (
+                          <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
                             <div className="flex items-center">
-                              <Users className="w-4 h-4 mr-1" />
-                              {result.meeting.participants.length} participants
+                              <Calendar className="w-4 h-4 mr-1" />
+                              {date} • {time}
+                            </div>
+                            {result.meeting.participants && result.meeting.participants.length > 0 && (
+                              <div className="flex items-center">
+                                <Users className="w-4 h-4 mr-1" />
+                                {result.meeting.participants.length} participants
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Tags */}
+                          {result.meeting.tags && result.meeting.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {result.meeting.tags.map(tag => (
+                                <span
+                                  key={tag}
+                                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getTagColor(tag)}`}
+                                >
+                                  <Tag className="w-3 h-3 mr-1" />
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Transcript excerpt */}
+                          {result.meeting.transcript && searchQuery && (
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-3">
+                              <div className="text-sm text-gray-700 line-clamp-2">
+                                {result.meeting.transcript.slice(0, 200)}...
+                              </div>
                             </div>
                           )}
                         </div>
 
-                        {/* Tags */}
-                        {result.meeting.tags && result.meeting.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {result.meeting.tags.map(tag => (
-                              <span
-                                key={tag}
-                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getTagColor(tag)}`}
-                              >
-                                <Tag className="w-3 h-3 mr-1" />
-                                {tag}
+                        <div className="ml-4 flex flex-col items-end space-y-2">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${result.meeting.status === 'completed'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-blue-100 text-blue-800'
+                            }`}>
+                            {statusLabels[result.meeting.status]}
+                          </span>
+
+                          <div className="flex items-center space-x-2">
+                            {result.meeting.recording_url && (
+                              <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded flex items-center">
+                                <Mic className="w-3 h-3 mr-1" />
+                                Audio
                               </span>
-                            ))}
+                            )}
+
+                            {result.meeting.transcript && (
+                              <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded flex items-center">
+                                <FileText className="w-3 h-3 mr-1" />
+                                Transcript
+                              </span>
+                            )}
                           </div>
-                        )}
-
-                        {/* Transcript excerpt */}
-                        {result.meeting.transcript && searchQuery && (
-                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-3">
-                            <div className="text-sm text-gray-700 line-clamp-2">
-                              {result.meeting.transcript.slice(0, 200)}...
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="ml-4 flex flex-col items-end space-y-2">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${result.meeting.status === 'completed'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-blue-100 text-blue-800'
-                          }`}>
-                          {statusLabels[result.meeting.status]}
-                        </span>
-
-                        <div className="flex items-center space-x-2">
-                          {result.meeting.recording_url && (
-                            <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded flex items-center">
-                              <Mic className="w-3 h-3 mr-1" />
-                              Audio
-                            </span>
-                          )}
-
-                          {result.meeting.transcript && (
-                            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded flex items-center">
-                              <FileText className="w-3 h-3 mr-1" />
-                              Transcript
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

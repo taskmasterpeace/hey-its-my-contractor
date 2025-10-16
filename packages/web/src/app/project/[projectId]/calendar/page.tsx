@@ -103,13 +103,13 @@ export default function ProjectCalendarPage() {
     <Fragment>
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="bg-white shadow-sm border-b px-6 py-4">
-          <div className="flex items-center justify-between">
+        <div className="bg-white shadow-sm border-b px-4 md:px-6 py-3 md:py-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900">
                 Calendar Command Center
               </h1>
-              <p className="text-gray-600">
+              <p className="text-sm md:text-base text-gray-600">
                 Manage meetings, deliveries, and project milestones
               </p>
             </div>
@@ -119,16 +119,16 @@ export default function ProjectCalendarPage() {
           </div>
         </div>
 
-        <div className="flex">
-          {/* Sidebar */}
-          <div className="w-80 bg-white border-r">
+        <div className="flex flex-col lg:flex-row">
+          {/* Sidebar - Full width on mobile, fixed width on desktop */}
+          <div className="w-full lg:w-80 bg-white border-b lg:border-b-0 lg:border-r">
             <CalendarSidebar events={projectEvents} />
           </div>
 
           {/* Main Calendar */}
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-4 lg:p-6">
             <div className="bg-white rounded-lg shadow-sm border">
-              <div className="p-6">
+              <div className="p-3 lg:p-6">
                 {calendarPlugins.length > 0 ? (
                   <FullCalendar
                     plugins={calendarPlugins}
@@ -184,10 +184,10 @@ export default function ProjectCalendarPage() {
                     }}
                   />
                 ) : (
-                  <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="h-48 md:h-64 bg-gray-100 rounded-lg flex items-center justify-center">
                     <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                      <p className="text-gray-600">Loading calendar plugins...</p>
+                      <div className="animate-spin rounded-full h-6 w-6 md:h-8 md:w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                      <p className="text-sm md:text-base text-gray-600">Loading calendar plugins...</p>
                     </div>
                   </div>
                 )}

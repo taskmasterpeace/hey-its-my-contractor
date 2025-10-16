@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState, Fragment } from 'react';
-import { usePathname } from 'next/navigation';
+import { useEffect, useState, Fragment, useRef, useCallback } from 'react';
 import {
     AlertDialog,
     AlertDialogContent,
@@ -16,21 +15,39 @@ import { AlertTriangle } from 'lucide-react';
 interface NavigationConfirmationDialogProps {
     isRecording: boolean;
     onConfirmLeave?: () => void;
+    minTimeOnPageMs?: number;
 }
 
 const NavigationConfirmationDialog = ({
     isRecording,
     onConfirmLeave,
+    minTimeOnPageMs = 2000, // Don't show immediately, wait 5 seconds
 }: NavigationConfirmationDialogProps) => {
-    const pathname = usePathname();
     const [showDialog, setShowDialog] = useState(false);
-    const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
+    const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+    const [isNavigating, setIsNavigating] = useState(false);
+    const hasShownExitIntentRef = useRef(false);
+    const pageLoadTimeRef = useRef(Date.now());
+
+    // Check if we should show the exit intent popup
+    const shouldShowExitIntent = useCallback(() => {
+        if (!isRecording) return false;
+        if (hasShownExitIntentRef.current) return false;
+
+        // Don't show if user just arrived (less than minTimeOnPageMs)
+        const timeOnPage = Date.now() - pageLoadTimeRef.current;
+        if (timeOnPage < minTimeOnPageMs) return false;
+
+        return true;
+    }, [isRecording, minTimeOnPageMs]);
 
     // Handle Next.js client-side navigation (Link clicks)
     useEffect(() => {
         if (!isRecording) return;
 
         const handleLinkClick = (e: MouseEvent) => {
+            if (isNavigating) return;
+
             const target = e.target as HTMLElement;
             const link = target.closest('a');
 
@@ -38,86 +55,87 @@ const NavigationConfirmationDialog = ({
                 const targetUrl = new URL(link.href);
                 const currentUrl = new URL(window.location.href);
 
-                // Check if it's a different page (not same path)
                 if (targetUrl.pathname !== currentUrl.pathname) {
                     e.preventDefault();
                     e.stopPropagation();
 
-                    // Show confirmation dialog
                     setShowDialog(true);
-                    setPendingNavigation(() => () => {
-                        window.location.href = link.href;
-                    });
+                    setPendingNavigation(link.href);
                 }
             }
         };
 
-        // Capture phase to intercept before Next.js Link handles it
         document.addEventListener('click', handleLinkClick, true);
 
         return () => {
             document.removeEventListener('click', handleLinkClick, true);
         };
-    }, [isRecording, pathname]);
+    }, [isRecording, isNavigating]);
 
-    // Handle browser navigation events (refresh, close tab, navigate away)
+    // Handle browser back/forward button
     useEffect(() => {
         if (!isRecording) return;
 
-        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            // Standard way to trigger browser's native confirmation dialog
-            e.preventDefault();
-            e.returnValue = 'Recording in progress! Are you sure you want to leave? Your recording data may be lost.';
-            return e.returnValue;
-        };
+        let isHandlingPopState = false;
 
-        window.addEventListener('beforeunload', handleBeforeUnload);
+        const handlePopState = () => {
+            if (isHandlingPopState || isNavigating) return;
+            isHandlingPopState = true;
 
-        return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-        };
-    }, [isRecording]);
-
-    // Handle browser back/forward button navigation
-    useEffect(() => {
-        if (!isRecording) return;
-
-        let navigationBlocked = false;
-
-        const handlePopState = (e: PopStateEvent) => {
-            if (navigationBlocked) return;
-
-            e.preventDefault();
-
-            // Show custom dialog for back button
-            setShowDialog(true);
-            setPendingNavigation(() => () => {
-                navigationBlocked = true;
-                window.history.back();
-            });
-
-            // Push state again to prevent immediate navigation
+            // Push current state back to prevent immediate navigation
             window.history.pushState(null, '', window.location.href);
+
+            setShowDialog(true);
+            setPendingNavigation('BACK');
+
+            setTimeout(() => {
+                isHandlingPopState = false;
+            }, 100);
         };
 
-        // Push initial state to enable back button interception
+        // Push initial state
         window.history.pushState(null, '', window.location.href);
         window.addEventListener('popstate', handlePopState);
 
         return () => {
             window.removeEventListener('popstate', handlePopState);
         };
-    }, [isRecording]);
+    }, [isRecording, isNavigating]);
 
-    // Handle visibility change (tab switching) - show warning indicator
+    // EXIT INTENT: Detect mouse leaving to top of browser (refresh/close area)
+    useEffect(() => {
+        if (!isRecording) return;
+
+        const handleMouseOut = (e: MouseEvent) => {
+            if (e.clientY <= 10 && !e.relatedTarget) {
+                if (shouldShowExitIntent()) {
+                    setShowDialog(true);
+                    setPendingNavigation('EXIT_INTENT');
+                    hasShownExitIntentRef.current = true;
+                }
+            }
+        };
+
+        // Use mouseout on window for broader detection
+        window.addEventListener('mouseout', handleMouseOut);
+
+        return () => {
+            window.removeEventListener('mouseout', handleMouseOut);
+        };
+    }, [isRecording, shouldShowExitIntent]);
+
+    // VISIBILITY CHANGE: Detect tab switching or minimizing
     useEffect(() => {
         if (!isRecording) return;
 
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
-                console.warn('⚠️ Recording is still active in the background. Please return to this tab.');
-            } else {
-                console.log('✅ Recording tab is now visible again.');
+                // Tab is being hidden (switched or closed)
+                if (shouldShowExitIntent()) {
+                    setShowDialog(true);
+                    setPendingNavigation('TAB_SWITCH');
+                    hasShownExitIntentRef.current = true;
+                }
             }
         };
 
@@ -126,31 +144,61 @@ const NavigationConfirmationDialog = ({
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [isRecording]);
+    }, [isRecording, shouldShowExitIntent]);
 
     const handleCancel = () => {
         setShowDialog(false);
+
+        // If it was exit intent or tab switch, reset so user can see it again if needed
+        if (pendingNavigation === 'EXIT_INTENT' || pendingNavigation === 'TAB_SWITCH') {
+            hasShownExitIntentRef.current = false;
+        }
+
         setPendingNavigation(null);
+
+        // Re-push state to keep blocking back button
+        if (isRecording) {
+            window.history.pushState(null, '', window.location.href);
+        }
     };
 
     const handleConfirm = async () => {
         setShowDialog(false);
+        setIsNavigating(true);
 
-        // Call the cleanup callback
+        // Call cleanup callback
         if (onConfirmLeave) {
             await onConfirmLeave();
         }
 
-        // Execute pending navigation if any
+        // Execute navigation based on type
         if (pendingNavigation) {
-            pendingNavigation();
-            setPendingNavigation(null);
+            if (pendingNavigation === 'BACK') {
+                window.history.back();
+            } else if (pendingNavigation === 'EXIT_INTENT' || pendingNavigation === 'TAB_SWITCH') {
+                // User confirmed they want to leave
+                // For exit intent/tab switch, we don't force navigation
+                // Just close the dialog and let them proceed
+                console.log('User confirmed exit intent');
+            } else {
+                // Regular link navigation
+                window.location.href = pendingNavigation;
+            }
         }
+
+        setPendingNavigation(null);
+        setIsNavigating(false);
     };
 
-    // Visual indicator when recording is active
-    if (!isRecording) return null;
+    // Reset refs when recording stops
+    useEffect(() => {
+        if (!isRecording) {
+            hasShownExitIntentRef.current = false;
+            pageLoadTimeRef.current = Date.now();
+        }
+    }, [isRecording]);
 
+    if (!isRecording) return null;
     return (
         <Fragment>
             {/* Confirmation Dialog */}
