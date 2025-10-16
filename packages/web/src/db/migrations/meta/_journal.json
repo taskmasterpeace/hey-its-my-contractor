@@ -71,6 +71,20 @@
       "when": 1760403515348,
       "tag": "0009_daffy_hellcat",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1760165414234,
+      "tag": "0007_lively_penance",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1760605708751,
+      "tag": "0008_eminent_killer_shrike",
+      "breakpoints": true
     }
   ]
 }

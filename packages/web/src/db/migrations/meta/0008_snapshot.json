@@ -1,6 +1,6 @@
 {
-  "id": "1d452492-f6e2-41ea-8683-9923eafe0e91",
-  "prevId": "7881faff-43a0-49fc-8843-7d0dd266d249",
+  "id": "0b5a4328-8270-4219-a3d1-1261034a096a",
+  "prevId": "ce6addb6-09ed-4163-bc04-a62562cfee03",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -490,6 +490,13 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "is_private": {
+          "name": "is_private",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -1765,6 +1772,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "title": {
           "name": "title",
           "type": "varchar(255)",
@@ -1797,6 +1810,13 @@
           "notNull": false,
           "default": "'{}'"
         },
+        "tags": {
+          "name": "tags",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'"
+        },
         "external_provider": {
           "name": "external_provider",
           "type": "varchar(20)",
@@ -1805,6 +1825,12 @@
         },
         "recording_url": {
           "name": "recording_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "transcript": {
+          "name": "transcript",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1847,6 +1873,19 @@
           "tableTo": "projects",
           "columnsFrom": [
             "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "meetings_user_id_users_id_fk": {
+          "name": "meetings_user_id_users_id_fk",
+          "tableFrom": "meetings",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
           ],
           "columnsTo": [
             "id"
@@ -1914,6 +1953,12 @@
         "action_items": {
           "name": "action_items",
           "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "text_embeddings": {
+          "name": "text_embeddings",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
