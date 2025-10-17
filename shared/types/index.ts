@@ -1,5 +1,4 @@
 // Core Data Models based on architecture documentation
-
 export interface Tenant {
   id: string;
   name: string;
@@ -29,8 +28,10 @@ export interface User {
 export type UserRole = "contractor" | "staff" | "sub" | "homeowner" | "admin";
 
 export interface UserProfile {
-  first_name: string;
-  last_name: string;
+  id?: string;
+  first_name?: string;
+  last_name?: string;
+  full_name: string;
   email: string;
   phone?: string;
   avatar_url?: string;
@@ -71,11 +72,12 @@ export interface Meeting {
   external_provider?: "zoom" | "meet" | "jitsi";
   recording_url?: string;
   consent_given: boolean;
+  user_id: string;
   status: MeetingStatus;
   tags: string[];
-  notes?: string;
   created_at: string;
   updated_at: string;
+  transcript: string;  
 }
 
 export type MeetingType =

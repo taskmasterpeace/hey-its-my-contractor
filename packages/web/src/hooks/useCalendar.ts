@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
-import { CalendarEvent } from '@contractor-platform/types';
+import { CalendarEvent, Meeting } from '@contractor-platform/types';
 import { useAppStore } from '@/store';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useCalendar() {
   const events = useAppStore((state) => state.calendarEvents);
@@ -8,7 +9,9 @@ export function useCalendar() {
   const view = useAppStore((state) => state.calendarView);
   const loading = useAppStore((state) => state.loading.calendar);
   const currentProject = useAppStore((state) => state.currentProject);
-  
+  const meetings = useAppStore((state) => state.meetings);
+  const selectedMeeting = useAppStore((state) => state.selectedMeeting);
+
   const {
     setCalendarEvents,
     addCalendarEvent,
@@ -17,9 +20,14 @@ export function useCalendar() {
     setSelectedEvent,
     setCalendarView,
     setLoading,
+    setMeetings,
+    setSelectedMeeting,
   } = useAppStore();
 
-  // Get current user for permission filtering
+  // Get real Supabase user ID from AuthContext
+  const { user: supabaseUser } = useAuth();
+
+  // Get current user for permission filtering (for display purposes)
   const currentUser = useAppStore((state) => state.currentUser);
   const userRole = useAppStore((state) => state.userRole);
   
@@ -48,7 +56,7 @@ export function useCalendar() {
     } else if (userRole === 'homeowner') {
       // Homeowners only see events for their projects
       return event.metadata?.client === `${currentUser.profile.first_name} ${currentUser.profile.last_name}` ||
-             event.project_id === getClientProjectId(currentUser.id);
+        event.project_id === getClientProjectId(currentUser.id);
     }
     
     return false;
@@ -62,23 +70,6 @@ export function useCalendar() {
     }
   }, [events, setSelectedEvent]);
 
-  const handleDateSelect = useCallback((selectInfo: any) => {
-    // Create new event with selected date
-    const newEvent: Omit<CalendarEvent, 'id'> = {
-      title: '',
-      start: selectInfo.start.toISOString(),
-      end: selectInfo.end?.toISOString(),
-      type: 'meeting',
-      project_id: currentProject?.id || 'default-project',
-      color: '#2563EB',
-      metadata: {},
-    };
-    
-    // This would typically open a modal with pre-filled date
-    setSelectedEvent(null);
-    // Modal opening logic would be handled by the component
-  }, [currentProject, setSelectedEvent]);
-
   const handleEventDrop = useCallback((dropInfo: any) => {
     const eventId = dropInfo.event.id;
     const updates = {
@@ -91,7 +82,7 @@ export function useCalendar() {
 
   // API Actions
   const createEvent = useCallback(async (eventData: Omit<CalendarEvent, 'id'>) => {
-    setLoading(true);
+    setLoading(true, 'calendar');
     try {
       const newEvent: CalendarEvent = {
         ...eventData,
@@ -107,12 +98,12 @@ export function useCalendar() {
       console.error('Failed to create event:', error);
       throw error;
     } finally {
-      setLoading(false);
+      setLoading(false, 'calendar');
     }
   }, [addCalendarEvent, setLoading]);
 
   const updateEvent = useCallback(async (id: string, updates: Partial<CalendarEvent>) => {
-    setLoading(true);
+    setLoading(true, 'calendar');
     try {
       // In real app, this would call API
       // await api.updateCalendarEvent(id, updates);
@@ -122,12 +113,12 @@ export function useCalendar() {
       console.error('Failed to update event:', error);
       throw error;
     } finally {
-      setLoading(false);
+      setLoading(false, 'calendar');
     }
   }, [updateCalendarEvent, setLoading]);
 
   const deleteEvent = useCallback(async (id: string) => {
-    setLoading(true);
+    setLoading(true, 'calendar');
     try {
       // In real app, this would call API
       // await api.deleteCalendarEvent(id);
@@ -137,57 +128,54 @@ export function useCalendar() {
       console.error('Failed to delete event:', error);
       throw error;
     } finally {
-      setLoading(false);
+      setLoading(false, 'calendar');
     }
   }, [deleteCalendarEvent, setLoading]);
 
   const loadEvents = useCallback(async (projectId?: string) => {
-    setLoading(true);
+    setLoading(true, 'calendar');
     try {
-      // In real app, this would fetch from API
-      // const events = await api.getCalendarEvents(projectId);
-      
-      // For now, use sample data
-      const sampleEvents: CalendarEvent[] = [
-        {
-          id: '1',
-          title: 'Client Meeting - Johnson Kitchen',
-          start: '2025-01-20T09:00:00',
-          end: '2025-01-20T10:30:00',
-          type: 'meeting',
-          project_id: 'proj-1',
-          meeting_id: 'meet-1',
-          color: '#2563EB',
-          metadata: {
-            client: 'John Smith',
-            status: 'confirmed',
-            location: '123 Main St',
-          },
-        },
-        {
-          id: '2',
-          title: 'Site Inspection - Bathroom',
-          start: '2025-01-20T14:00:00',
-          end: '2025-01-20T15:00:00',
-          type: 'inspection',
-          project_id: 'proj-2',
-          color: '#059669',
-          metadata: {
-            inspector: 'City Inspector',
-            type: 'Plumbing',
-          },
-        },
-        // Add more sample events...
-      ];
-      
-      setCalendarEvents(sampleEvents);
+      if (projectId && supabaseUser) {
+        // Build query params using real Supabase user ID
+        const params = new URLSearchParams();
+        params.append('userId', supabaseUser.id);
+        params.append('status', 'completed');
+
+        // Fetch meetings from API with filters
+        const response = await fetch(`/api/project/${projectId}/meetings?${params.toString()}`);
+        const result = await response.json();
+        if (result.success && result.data) {
+          const meetingsData: Meeting[] = result.data;
+          setMeetings(meetingsData);
+          // Convert meetings to calendar events
+          const meetingEvents: CalendarEvent[] = meetingsData.map((meeting) => ({
+            id: meeting.id,
+            title: meeting.title,
+            start: meeting.starts_at,
+            end: meeting.ends_at || meeting.starts_at,
+            type: 'meeting',
+            project_id: meeting.project_id,
+            meeting_id: meeting.id,
+            color: '#2563EB',
+            metadata: {
+              status: meeting.status,
+              type: meeting.type,
+              tags: meeting.tags,
+              hasRecording: !!meeting.recording_url,
+              hasTranscript: !!(meeting as Meeting).transcript,
+            },
+          }));
+
+          setCalendarEvents(meetingEvents);
+        }
+      }
     } catch (error) {
       console.error('Failed to load events:', error);
       throw error;
     } finally {
-      setLoading(false);
+      setLoading(false, 'calendar');
     }
-  }, [setCalendarEvents, setLoading]);
+  }, [setCalendarEvents, setLoading, setMeetings, supabaseUser]);
 
   // Computed values
   const todaysEvents = filteredEvents.filter(event => {
@@ -213,7 +201,9 @@ export function useCalendar() {
     loading,
     todaysEvents,
     upcomingEvents,
-    
+    meetings,
+    selectedMeeting,
+
     // Actions
     createEvent,
     updateEvent,
@@ -221,10 +211,9 @@ export function useCalendar() {
     loadEvents,
     setSelectedEvent,
     setView: setCalendarView,
-    
     // Event Handlers
+    setSelectedMeeting,
     handleEventClick,
-    handleDateSelect,
     handleEventDrop,
   };
 }

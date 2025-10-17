@@ -2,19 +2,21 @@
 
 import { CalendarEvent } from '@contractor-platform/types';
 import { Calendar, Clock, MapPin, Users, FileText, Wrench } from 'lucide-react';
+import { useAppStore } from '@/store';
 
 interface CalendarSidebarProps {
   events: CalendarEvent[];
 }
 
 export function CalendarSidebar({ events }: CalendarSidebarProps) {
+  const meetings = useAppStore((state) => state.meetings);
+  const setSelectedMeeting = useAppStore((state) => state.setSelectedMeeting);
   const today = new Date();
   const todayString = today.toISOString().split('T')[0];
   
   const todaysEvents = events.filter(event => 
     event.start.startsWith(todayString)
   ).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-
   const upcomingEvents = events.filter(event => {
     const eventDate = new Date(event.start);
     const tomorrow = new Date(today);
@@ -58,6 +60,16 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
     });
   };
 
+  const handleEventClick = (event: CalendarEvent) => {
+    // If it's a meeting event, find and open the meeting in MediaPlayer
+    if (event.type === 'meeting' && event.meeting_id) {
+      const meeting = meetings.find(m => m.id === event.meeting_id);
+      if (meeting) {
+        setSelectedMeeting(meeting);
+      }
+    }
+  };
+
   const eventTypeColors = {
     meeting: 'bg-blue-100 text-blue-800 border-blue-200',
     inspection: 'bg-green-100 text-green-800 border-green-200',
@@ -68,11 +80,11 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Quick Actions */}
-      <div className="p-6 border-b">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+      <div className="p-4 md:p-6 border-b">
+        <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Quick Actions</h2>
         <div className="space-y-2">
-          <button 
-            className="w-full flex items-center px-3 py-2 text-left text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+          <button
+            className="w-full flex items-center px-3 py-2 text-left text-xs md:text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
             onClick={() => {
               // Create new meeting for tomorrow at 9 AM
               const tomorrow = new Date();
@@ -86,21 +98,21 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
               window.dispatchEvent(event);
             }}
           >
-            <Users className="w-4 h-4 mr-2" />
+            <Users className="w-3 h-3 md:w-4 md:h-4 mr-2" />
             Schedule Meeting
           </button>
-          <button 
-            className="w-full flex items-center px-3 py-2 text-left text-sm bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
+          <button
+            className="w-full flex items-center px-3 py-2 text-left text-xs md:text-sm bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
             onClick={() => {
               // Navigate to field log page
               window.location.href = '/field-log?action=inspection';
             }}
           >
-            <FileText className="w-4 h-4 mr-2" />
+            <FileText className="w-3 h-3 md:w-4 md:h-4 mr-2" />
             Log Inspection
           </button>
-          <button 
-            className="w-full flex items-center px-3 py-2 text-left text-sm bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors"
+          <button
+            className="w-full flex items-center px-3 py-2 text-left text-xs md:text-sm bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors"
             onClick={() => {
               // Create delivery event
               const event = new CustomEvent('fieldtime-create-delivery', {
@@ -109,11 +121,11 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
               window.dispatchEvent(event);
             }}
           >
-            <MapPin className="w-4 h-4 mr-2" />
+            <MapPin className="w-3 h-3 md:w-4 md:h-4 mr-2" />
             Track Delivery
           </button>
-          <button 
-            className="w-full flex items-center px-3 py-2 text-left text-sm bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors"
+          <button
+            className="w-full flex items-center px-3 py-2 text-left text-xs md:text-sm bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors"
             onClick={() => {
               // Create milestone event  
               const event = new CustomEvent('fieldtime-create-milestone', {
@@ -122,35 +134,35 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
               window.dispatchEvent(event);
             }}
           >
-            <Wrench className="w-4 h-4 mr-2" />
+            <Wrench className="w-3 h-3 md:w-4 md:h-4 mr-2" />
             Add Milestone
           </button>
         </div>
       </div>
 
       {/* Today's Events */}
-      <div className="p-6 border-b flex-1 overflow-y-auto">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Today's Schedule</h2>
+      <div className="p-4 md:p-6 border-b flex-1 overflow-y-auto">
+        <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Today&apos;s Schedule</h2>
         {todaysEvents.length === 0 ? (
-          <div className="text-center py-8">
-            <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">No events scheduled for today</p>
+          <div className="text-center py-6 md:py-8">
+            <Calendar className="w-6 h-6 md:w-8 md:h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-xs md:text-sm text-gray-500">No events scheduled for today</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="h-[375px] overflow-y-auto space-y-2 md:space-y-3">
             {todaysEvents.map(event => (
               <div
                 key={event.id}
-                className="bg-white border rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer"
+                className="bg-white border rounded-lg p-2 md:p-3 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => handleEventClick(event)}
               >
-                <div className="flex items-start justify-between mb-2">
+                <div className="flex items-start justify-between mb-1 md:mb-2">
                   <div className="flex items-center">
                     <div className="text-gray-600 mr-2">
                       {getEventIcon(event.type)}
                     </div>
-                    <div className={`px-2 py-1 rounded text-xs font-medium ${
-                      eventTypeColors[event.type as keyof typeof eventTypeColors] || 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <div className={`px-2 py-1 rounded text-xs font-medium ${eventTypeColors[event.type as keyof typeof eventTypeColors] || 'bg-gray-100 text-gray-800'
+                      }`}>
                       {event.type}
                     </div>
                   </div>
@@ -159,7 +171,7 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
                     {formatTime(event.start)}
                   </div>
                 </div>
-                <h3 className="font-medium text-gray-900 text-sm mb-1">
+                <h3 className="font-medium text-gray-900 text-xs md:text-sm mb-1">
                   {event.title}
                 </h3>
                 {event.metadata?.location && (
@@ -180,11 +192,11 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
       </div>
 
       {/* Upcoming Events */}
-      <div className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">This Week</h2>
+      <div className="p-4 md:p-6">
+        <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">This Week</h2>
         {upcomingEvents.length === 0 ? (
-          <div className="text-center py-4">
-            <p className="text-sm text-gray-500">No upcoming events</p>
+          <div className="text-center py-3 md:py-4">
+            <p className="text-xs md:text-sm text-gray-500">No upcoming events</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -192,13 +204,14 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
               <div
                 key={event.id}
                 className="flex items-center justify-between p-2 hover:bg-gray-50 rounded cursor-pointer"
+                onClick={() => handleEventClick(event)}
               >
                 <div className="flex items-center min-w-0 flex-1">
                   <div className="text-gray-600 mr-2 flex-shrink-0">
                     {getEventIcon(event.type)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-xs md:text-sm font-medium text-gray-900 truncate">
                       {event.title}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -210,7 +223,7 @@ export function CalendarSidebar({ events }: CalendarSidebarProps) {
             ))}
             {upcomingEvents.length > 5 && (
               <div className="text-center pt-2">
-                <button className="text-sm text-blue-600 hover:text-blue-700">
+                <button className="text-xs md:text-sm text-blue-600 hover:text-blue-700">
                   View {upcomingEvents.length - 5} more events
                 </button>
               </div>
