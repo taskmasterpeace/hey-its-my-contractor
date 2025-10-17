@@ -1,4 +1,5 @@
 CREATE TYPE "public"."change_order_status" AS ENUM('draft', 'pending', 'approved', 'rejected', 'implemented');--> statement-breakpoint
+CREATE TYPE "public"."signing_status" AS ENUM('not_required', 'pending', 'signed', 'declined');--> statement-breakpoint
 CREATE TYPE "public"."document_type" AS ENUM('plan', 'permit', 'contract', 'invoice', 'photo', 'other');--> statement-breakpoint
 CREATE TYPE "public"."image_source" AS ENUM('upload', 'search_result', 'ai_generated', 'field_photo');--> statement-breakpoint
 CREATE TYPE "public"."plan" AS ENUM('starter', 'pro', 'enterprise');--> statement-breakpoint
@@ -25,6 +26,8 @@ CREATE TABLE "change_orders" (
 	"approved_by_client" uuid,
 	"approved_by_contractor" uuid,
 	"approved_at" timestamp,
+	"docuseal_template_id" varchar(100),
+	"signing_status" "signing_status" DEFAULT 'not_required' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -75,6 +78,8 @@ CREATE TABLE "documents" (
 	"expiration_date" date,
 	"created_by" uuid NOT NULL,
 	"is_private" boolean DEFAULT false NOT NULL,
+	"docuseal_template_id" varchar(100),
+	"signing_status" "signing_status" DEFAULT 'not_required' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );

@@ -1,6 +1,6 @@
 {
-  "id": "b875f14e-f8eb-4bd4-badd-cbbb5a6702ac",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "f915f1a4-a910-4ac9-a4ed-bc3fa9079269",
+  "prevId": "acee5e7c-b3b1-41f9-b483-a5f86f1e619d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -559,6 +559,135 @@
         "documents_created_by_users_id_fk": {
           "name": "documents_created_by_users_id_fk",
           "tableFrom": "documents",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.docuseal_tracking": {
+      "name": "docuseal_tracking",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "template_id": {
+          "name": "template_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "submission_id": {
+          "name": "submission_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "template_slug": {
+          "name": "template_slug",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "submission_slug": {
+          "name": "submission_slug",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "docuseal_event",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_data": {
+          "name": "event_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'"
+        },
+        "document_name": {
+          "name": "document_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "signed_document_url": {
+          "name": "signed_document_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "audit_log_url": {
+          "name": "audit_log_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "docuseal_tracking_project_id_projects_id_fk": {
+          "name": "docuseal_tracking_project_id_projects_id_fk",
+          "tableFrom": "docuseal_tracking",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "docuseal_tracking_created_by_users_id_fk": {
+          "name": "docuseal_tracking_created_by_users_id_fk",
+          "tableFrom": "docuseal_tracking",
           "tableTo": "users",
           "columnsFrom": [
             "created_by"
@@ -2426,16 +2555,6 @@
         "implemented"
       ]
     },
-    "public.signing_status": {
-      "name": "signing_status",
-      "schema": "public",
-      "values": [
-        "not_required",
-        "pending",
-        "signed",
-        "declined"
-      ]
-    },
     "public.document_type": {
       "name": "document_type",
       "schema": "public",
@@ -2446,6 +2565,35 @@
         "invoice",
         "photo",
         "other"
+      ]
+    },
+    "public.signing_status": {
+      "name": "signing_status",
+      "schema": "public",
+      "values": [
+        "not_required",
+        "pending",
+        "signed",
+        "declined"
+      ]
+    },
+    "public.docuseal_event": {
+      "name": "docuseal_event",
+      "schema": "public",
+      "values": [
+        "template.created",
+        "template.updated",
+        "form.viewed",
+        "form.started",
+        "form.completed",
+        "form.declined",
+        "submission.created",
+        "submission.completed",
+        "document.uploaded",
+        "template.saved",
+        "document.sent",
+        "template.changed",
+        "template.loaded"
       ]
     },
     "public.image_source": {

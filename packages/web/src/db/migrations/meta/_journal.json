@@ -5,8 +5,22 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1760556490385,
-      "tag": "0000_bitter_warstar",
+      "when": 1760583420027,
+      "tag": "0000_soft_mercury",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1760633201106,
+      "tag": "0001_left_spirit",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1760642024158,
+      "tag": "0002_neat_mordo",
       "breakpoints": true
     }
   ]
