@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { FileText, Plus, X, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import dynamic from "next/dynamic";
@@ -33,11 +33,27 @@ export default function ChangeOrdersPage() {
   const [templates, setTemplates] = useState<DocuSealTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const projectId = params.projectId as string;
 
   useEffect(() => {
     fetchTemplates();
   }, [projectId]);
+
+  // Restore editing state from URL on page load
+  useEffect(() => {
+    const editingTemplateId = searchParams.get("editing");
+    if (editingTemplateId && templates.length > 0) {
+      const template = templates.find(
+        (t) => t.templateId.toString() === editingTemplateId
+      );
+      if (template) {
+        setSelectedTemplate(template);
+        setShowDocuSealBuilder(true);
+      }
+    }
+  }, [searchParams, templates]);
 
   const fetchTemplates = async () => {
     try {
@@ -61,6 +77,10 @@ export default function ChangeOrdersPage() {
   const handleDocuSealClose = () => {
     setShowDocuSealBuilder(false);
     setSelectedTemplate(null);
+    // Clear URL parameter when closing
+    const url = new URL(window.location.href);
+    url.searchParams.delete("editing");
+    router.replace(url.pathname + url.search);
     fetchTemplates(); // Refresh templates
   };
 
@@ -73,12 +93,20 @@ export default function ChangeOrdersPage() {
   const handleCreateNew = () => {
     setSelectedTemplate(null);
     setShowDocuSealBuilder(true);
+    // Clear editing parameter for new templates
+    const url = new URL(window.location.href);
+    url.searchParams.delete("editing");
+    router.replace(url.pathname + url.search);
   };
 
   const handleEditTemplate = (template: DocuSealTemplate) => {
     console.log("Opening template for editing:", template);
     setSelectedTemplate(template);
     setShowDocuSealBuilder(true);
+    // Add template ID to URL for persistence
+    const url = new URL(window.location.href);
+    url.searchParams.set("editing", template.templateId.toString());
+    router.replace(url.pathname + url.search);
   };
 
   return (
