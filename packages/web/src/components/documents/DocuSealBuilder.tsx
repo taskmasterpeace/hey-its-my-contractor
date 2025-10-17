@@ -176,16 +176,21 @@ export function DocuSealBuilderComponent({
   return (
     <div className="w-full h-full flex flex-col">
       {token ? (
-        <DocusealBuilder
-          token={token}
-          onUpload={handleUpload}
-          onSave={handleSave}
-          onSend={handleSend}
-          onChange={handleChange}
-          onLoad={handleLoad}
-          className="w-full h-full flex-1 overflow-auto"
-          style={{ height: "100%", minHeight: "100vh" }}
-        />
+        <div className="w-full h-full p-6 overflow-auto">
+          <DocusealBuilder
+            token={token}
+            onUpload={handleUpload}
+            onSave={handleSave}
+            onSend={handleSend}
+            onChange={handleChange}
+            onLoad={handleLoad}
+            className="w-full"
+            style={{
+              height: "calc(100% - 3rem)",
+              minHeight: "600px",
+            }}
+          />
+        </div>
       ) : (
         <div className="flex items-center justify-center flex-1">
           <p className="text-gray-600">No builder token available</p>

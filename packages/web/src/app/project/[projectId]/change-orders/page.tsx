@@ -227,8 +227,11 @@ export default function ChangeOrdersPage() {
 
           {/* DocuSeal Builder Container - Calculated height to avoid header overlap */}
           <div
-            className="flex-1 overflow-hidden"
-            style={{ height: "calc(100vh - 4rem)" }}
+            className="flex-1 overflow-hidden relative"
+            style={{
+              height: "calc(100vh - 4rem)",
+              maxHeight: "calc(100vh - 4rem)",
+            }}
           >
             <DocuSealBuilderComponent
               projectId={projectId}
