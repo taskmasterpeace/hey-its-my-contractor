@@ -23,6 +23,13 @@ export const documentTypeEnum = pgEnum("document_type", [
   "other",
 ]);
 
+export const signingStatusEnum = pgEnum("signing_status", [
+  "not_required",
+  "pending",
+  "signed",
+  "declined",
+]);
+
 export const documents = pgTable("documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id")
@@ -44,6 +51,12 @@ export const documents = pgTable("documents", {
 
   // Privacy control
   isPrivate: boolean("is_private").default(false).notNull(),
+
+  // DocuSeal Integration (minimal fields)
+  docusealTemplateId: varchar("docuseal_template_id", { length: 100 }),
+  signingStatus: signingStatusEnum("signing_status")
+    .default("not_required")
+    .notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

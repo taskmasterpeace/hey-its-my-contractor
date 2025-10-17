@@ -19,8 +19,7 @@ export class EmailService {
   private static readonly MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN;
   private static readonly FROM_EMAIL =
     process.env.MAILGUN_FROM_EMAIL || "noreply@heyyourehired.com";
-  private static readonly BASE_URL =
-    process.env.BASE_URL || "http://localhost:3000";
+  private static readonly BASE_URL = process.env.BASE_URL;
 
   /**
    * Send invitation email using Mailgun
