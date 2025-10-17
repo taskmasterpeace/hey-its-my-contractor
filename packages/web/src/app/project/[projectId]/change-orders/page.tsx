@@ -28,6 +28,8 @@ interface DocuSealTemplate {
 
 export default function ChangeOrdersPage() {
   const [showDocuSealBuilder, setShowDocuSealBuilder] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<DocuSealTemplate | null>(null);
   const [templates, setTemplates] = useState<DocuSealTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const params = useParams();
@@ -58,6 +60,7 @@ export default function ChangeOrdersPage() {
 
   const handleDocuSealClose = () => {
     setShowDocuSealBuilder(false);
+    setSelectedTemplate(null);
     fetchTemplates(); // Refresh templates
   };
 
@@ -65,6 +68,17 @@ export default function ChangeOrdersPage() {
     console.log("Template created:", templateData);
     // Don't close the modal - let user continue working in DocuSeal
     fetchTemplates(); // Just refresh templates in background
+  };
+
+  const handleCreateNew = () => {
+    setSelectedTemplate(null);
+    setShowDocuSealBuilder(true);
+  };
+
+  const handleEditTemplate = (template: DocuSealTemplate) => {
+    console.log("Opening template for editing:", template);
+    setSelectedTemplate(template);
+    setShowDocuSealBuilder(true);
   };
 
   return (
@@ -80,7 +94,7 @@ export default function ChangeOrdersPage() {
         </div>
 
         <Button
-          onClick={() => setShowDocuSealBuilder(true)}
+          onClick={handleCreateNew}
           className="flex items-center space-x-2"
         >
           <Plus className="w-4 h-4" />
@@ -110,10 +124,13 @@ export default function ChangeOrdersPage() {
             {templates.map((template) => (
               <div key={template.id} className="p-6 hover:bg-gray-50">
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                  <div
+                    className="flex-1 cursor-pointer"
+                    onClick={() => handleEditTemplate(template)}
+                  >
                     <div className="flex items-center space-x-3 mb-2">
                       <FileText className="w-5 h-5 text-blue-600" />
-                      <h3 className="text-lg font-medium text-gray-900">
+                      <h3 className="text-lg font-medium text-gray-900 hover:text-blue-600">
                         {template.documentName ||
                           `Template ${template.templateId}`}
                       </h3>
@@ -136,6 +153,7 @@ export default function ChangeOrdersPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm text-green-600 hover:text-green-800"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           📄 View Signed Document
                         </a>
@@ -144,21 +162,17 @@ export default function ChangeOrdersPage() {
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    {template.templateSlug && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          window.open(
-                            `https://docuseal.com/d/${template.templateSlug}`,
-                            "_blank"
-                          )
-                        }
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        View Template
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditTemplate(template);
+                      }}
+                    >
+                      <FileText className="w-4 h-4 mr-1" />
+                      Edit Template
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -167,28 +181,33 @@ export default function ChangeOrdersPage() {
         )}
       </div>
 
-      {/* DocuSeal Builder Modal */}
+      {/* DocuSeal Builder Full-Screen Modal */}
       {showDocuSealBuilder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-[95vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold text-gray-900">
-                DocuSeal Document Builder
-              </h2>
-              <button
-                onClick={handleDocuSealClose}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="flex-1 p-4">
-              <DocuSealBuilderComponent
-                projectId={projectId}
-                onTemplateCreated={handleTemplateCreated}
-                onClose={handleDocuSealClose}
-              />
-            </div>
+        <div className="fixed inset-0 bg-white z-50 flex flex-col">
+          {/* Header with close button - Fixed height */}
+          <div className="flex items-center justify-between p-4 border-b bg-white shadow-sm shrink-0 h-16">
+            <h2 className="text-lg font-semibold text-gray-900">
+              DocuSeal Document Builder
+            </h2>
+            <button
+              onClick={handleDocuSealClose}
+              className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* DocuSeal Builder Container - Calculated height to avoid header overlap */}
+          <div
+            className="flex-1 overflow-hidden"
+            style={{ height: "calc(100vh - 4rem)" }}
+          >
+            <DocuSealBuilderComponent
+              projectId={projectId}
+              templateId={selectedTemplate?.templateId}
+              onTemplateCreated={handleTemplateCreated}
+              onClose={handleDocuSealClose}
+            />
           </div>
         </div>
       )}

@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, projectId } = await request.json();
+    const { email, projectId, templateId } = await request.json();
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
@@ -17,15 +17,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Generating JWT token for DocuSeal Builder");
+    console.log(
+      `Generating JWT token for DocuSeal Builder${
+        templateId ? ` (editing template ${templateId})` : " (new template)"
+      }`
+    );
 
     // Generate JWT token using the API key as per DocuSeal documentation
-    const payload = {
+    const payload: any = {
       user_email: email, // Email of the user creating the template
       integration_email: email, // Email of the user to create template for
       iat: Math.floor(Date.now() / 1000), // Issued at time
       exp: Math.floor(Date.now() / 1000) + 60 * 60, // Expires in 1 hour
     };
+
+    // If templateId is provided, include it to open existing template for editing
+    if (templateId) {
+      payload.template_id = templateId;
+    }
 
     const token = jwt.sign(payload, process.env.DOCUSEAL_API_KEY, {
       algorithm: "HS256",

@@ -8,6 +8,7 @@ import { useParams } from "next/navigation";
 interface DocuSealBuilderProps {
   documentUrl?: string;
   projectId?: string;
+  templateId?: number;
   onTemplateCreated?: (templateData: any) => void;
   onClose?: () => void;
 }
@@ -15,17 +16,19 @@ interface DocuSealBuilderProps {
 export function DocuSealBuilderComponent({
   documentUrl,
   projectId,
+  templateId,
   onTemplateCreated,
   onClose,
 }: DocuSealBuilderProps) {
   const [token, setToken] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [trackedEvents, setTrackedEvents] = useState<Set<string>>(new Set());
   const params = useParams();
 
   useEffect(() => {
     fetchBuilderToken();
-  }, [documentUrl]);
+  }, [documentUrl, templateId]);
 
   const fetchBuilderToken = async () => {
     try {
@@ -45,6 +48,7 @@ export function DocuSealBuilderComponent({
           email: userEmail,
           projectId: projectId,
           documentUrl: documentUrl,
+          templateId: templateId,
         }),
       });
 
@@ -64,6 +68,20 @@ export function DocuSealBuilderComponent({
 
   const trackEvent = async (eventType: string, data: any) => {
     try {
+      // Create a unique key for deduplication
+      const eventKey = `${eventType}-${
+        data?.id || data?.name || "unknown"
+      }-${projectId}`;
+
+      // Check if we've already tracked this event recently
+      if (trackedEvents.has(eventKey)) {
+        console.log(`⏭️ Skipping duplicate event: ${eventType} - ${data?.id}`);
+        return;
+      }
+
+      // Add to tracked events set
+      setTrackedEvents((prev) => new Set(prev).add(eventKey));
+
       await fetch("/api/docuseal/track-event", {
         method: "POST",
         headers: {
@@ -75,6 +93,15 @@ export function DocuSealBuilderComponent({
           templateData: data,
         }),
       });
+
+      // Clean up tracked events after 30 seconds to prevent memory leaks
+      setTimeout(() => {
+        setTrackedEvents((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(eventKey);
+          return newSet;
+        });
+      }, 30000);
     } catch (error) {
       console.error("Error tracking event:", error);
     }
@@ -82,12 +109,15 @@ export function DocuSealBuilderComponent({
 
   const handleUpload = (data: any) => {
     console.log("📄 Document uploaded:", data);
-    trackEvent("document.uploaded", data);
+    // ONLY track document uploads - this is all we need to fetch files later
+    if (data && (data.id || data.name)) {
+      trackEvent("document.uploaded", data);
+    }
   };
 
   const handleSave = (data: any) => {
     console.log("💾 Template saved:", data);
-    trackEvent("template.saved", data);
+    // Don't track saves - only uploads matter
     if (onTemplateCreated) {
       onTemplateCreated(data);
     }
@@ -95,7 +125,7 @@ export function DocuSealBuilderComponent({
 
   const handleSend = (data: any) => {
     console.log("📧 Document sent for signing:", data);
-    trackEvent("document.sent", data);
+    // Don't track sends - only uploads matter
     if (onTemplateCreated) {
       onTemplateCreated(data);
     }
@@ -103,12 +133,12 @@ export function DocuSealBuilderComponent({
 
   const handleChange = (data: any) => {
     console.log("✏️ Template changed:", data);
-    trackEvent("template.changed", data);
+    // Don't track changes - only uploads matter
   };
 
   const handleLoad = (data: any) => {
     console.log("📋 Template loaded:", data);
-    trackEvent("template.loaded", data);
+    // Don't track loads - only uploads matter
   };
 
   if (loading) {
@@ -144,15 +174,7 @@ export function DocuSealBuilderComponent({
   }
 
   return (
-    <div className="w-full h-full min-h-[600px]">
-      {onClose && (
-        <div className="flex justify-end mb-4">
-          <Button variant="outline" onClick={onClose}>
-            Close Builder
-          </Button>
-        </div>
-      )}
-
+    <div className="w-full h-full flex flex-col">
       {token ? (
         <DocusealBuilder
           token={token}
@@ -161,10 +183,11 @@ export function DocuSealBuilderComponent({
           onSend={handleSend}
           onChange={handleChange}
           onLoad={handleLoad}
-          className="w-full h-full border rounded-lg"
+          className="w-full h-full flex-1 overflow-auto"
+          style={{ height: "100%", minHeight: "100vh" }}
         />
       ) : (
-        <div className="flex items-center justify-center h-96">
+        <div className="flex items-center justify-center flex-1">
           <p className="text-gray-600">No builder token available</p>
         </div>
       )}
