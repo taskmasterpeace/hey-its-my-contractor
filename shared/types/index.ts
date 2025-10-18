@@ -310,13 +310,32 @@ export interface CalendarEvent {
   title: string;
   start: string;
   end?: string;
-  type: "meeting" | "delivery" | "inspection" | "milestone";
+  type: "meeting" | "delivery" | "inspection" | "milestone" | "scheduled_task";
   project_id: string;
   meeting_id?: string;
   task_id?: string;
+  scheduled_message_id?: string;
   color?: string;
   metadata?: Record<string, any>;
 }
+
+// Scheduled Message Types
+export interface ScheduledMessage {
+  id: string;
+  user_id: string;
+  project_id: string;
+  name: string;
+  mobile_no: string;
+  task?: string;
+  message?: string;
+  date_and_time: string;
+  metadata: Record<string, any>;
+  status: ScheduledMessageStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ScheduledMessageStatus = "idle" | "scheduled" | "sent" | "failed" | "cancelled";
 
 // Notification Types
 export interface Notification {
