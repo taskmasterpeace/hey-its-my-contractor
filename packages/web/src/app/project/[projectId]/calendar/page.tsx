@@ -21,12 +21,20 @@ const FullCalendar = dynamic(() => import("@fullcalendar/react"), {
 });
 import { CalendarSidebar } from "@/components/calendar/CalendarSidebar";
 import { WeatherWidget } from "@/components/calendar/WeatherWidget";
+import { TaskSchedulerModal, TaskFormData } from "@/components/calendar/TaskSchedulerModal";
+import { useAuth } from "@/contexts/AuthContext";
+import { Meeting } from "@contractor-platform/types";
 import MediaPlayer from "@/components/calendar/MediaPlayer";
+import { CalendarIcon } from "lucide-react";
 
 export default function ProjectCalendarPage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const [calendarPlugins, setCalendarPlugins] = useState<any[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  // Get current user
+  const { user } = useAuth();
   // Use global calendar state
   const {
     events,
@@ -69,35 +77,104 @@ export default function ProjectCalendarPage() {
     // Find the meeting associated with this event
     const meetingId = clickInfo.event.extendedProps.meeting_id;
     if (meetingId) {
-      const meeting = meetings.find(m => m.id === meetingId);
+      const meeting = meetings.find((m: Meeting) => m.id === meetingId);
       if (meeting) {
         setSelectedMeeting(meeting);
-      } else {
-        console.warn('⚠️ Meeting not found in meetings array');
-      }
-    } else {
-      console.warn('⚠️ No meeting_id in event extendedProps');
-    }
-  };
+
+        // Find the meeting associated with this event
+        const meetingId = clickInfo.event.extendedProps.meeting_id;
+        if (meetingId) {
+          const meeting = meetings.find(m => m.id === meetingId);
+          if (meeting) {
+            setSelectedMeeting(meeting);
+          } else {
+            console.warn('⚠️ Meeting not found in meetings array');
+          }
+        } else {
+          console.warn('⚠️ No meeting_id in event extendedProps');
+        }
+      };
+    };
+  }
 
   const renderEventContent = (eventInfo: EventContentArg) => {
-    const { title, end } = eventInfo.event
+    const { title, end, extendedProps } = eventInfo.event
     const timeString = end ? format(end, 'hh:mm a') : ''
+    const isScheduledTask = extendedProps.type === 'scheduled_task'
     return (
       <div className="fc-event-main p-1 text-xs w-full flex-wrap overflow-auto">
         <div className="flex justify-between items-center gap-1">
-          <div className="flex items-center gap-1">
-            <span className="text-xs break-words whitespace-normal text-primary-900">
-              {title || 'Untitled Recording'}
-            </span>
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            {isScheduledTask && (
+              <CalendarIcon className="h-4 w-4 text-primary-900 flex-shrink-0" />
+            )}
+            {isScheduledTask ? (
+              <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                <span className="text-xs font-semibold break-words line-clamp-1 whitespace-normal text-primary-900">
+                  {extendedProps.metadata?.name || 'Unknown'}
+                </span>
+                {extendedProps.metadata?.task && (
+                  <span className="text-xs break-words line-clamp-1 overflow-hidden w-[125px] whitespace-normal text-primary-700">
+                    {extendedProps.metadata.task}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs break-words line-clamp-1 whitespace-normal text-primary-900">
+                {title || 'Untitled Recording'}
+              </span>
+            )}
           </div>
-          <span className="text-xs whitespace-nowrap text-primary-900">
+          <span className="text-xs whitespace-nowrap text-primary-900 ml-1">
             {timeString}
           </span>
         </div>
       </div>
     )
   }
+
+  const handleDateClick = (dateClickInfo: any) => {
+    const clickedDate = dateClickInfo.date;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (clickedDate > today) {
+      setSelectedDate(clickedDate);
+      setModalOpen(true);
+      console.warn('⚠️ Meeting not found in meetings array');
+    }
+  }
+
+  // Handle task scheduling
+  const handleScheduleTask = async (formData: TaskFormData) => {
+    if (!selectedDate || !user) return;
+
+    try {
+      const response = await fetch('/api/schedule-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          userId: user.id,
+          name: formData.name,
+          mobileNumber: formData.mobileNumber,
+          dateAndTime: formData.time, // Already ISO string
+          task: formData.task,
+          notificationTimes: formData.notificationTimes
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to schedule task');
+
+      const result = await response.json();
+      console.log('Task scheduled:', result);
+
+      // Reload calendar events to show the newly scheduled task
+      await loadEvents(projectId);
+    } catch (error) {
+      console.error('Error scheduling task:', error);
+      throw error;
+    }
+  };
 
   return (
     <Fragment>
@@ -139,14 +216,18 @@ export default function ProjectCalendarPage() {
                     }}
                     dayMaxEvents={2}
                     moreLinkClassNames="flex justify-center items-center text-blue-800 text-xs font-medium"
-                    eventClassNames={() => [
-                      'cursor-pointer',
-                      'bg-blue-100',
-                      'text-blue-900',
-                      'border',
-                      'border-blue-100',
-                      'hover:bg-blue-400',
-                    ]}
+                    eventClassNames={(arg) => {
+                      const isScheduledTask = arg.event.extendedProps.type === 'scheduled_task'
+                      return [
+                        'cursor-pointer',
+                        isScheduledTask ? 'bg-green-100' : 'bg-blue-100',
+                        isScheduledTask ? 'text-green-900' : 'text-blue-900',
+                        'border',
+                        isScheduledTask ? 'border-green-200' : 'border-blue-100',
+                        isScheduledTask ? 'hover:bg-green-200' : 'hover:bg-blue-400',
+                      ]
+                    }}
+                    dateClick={handleDateClick}
                     dayCellClassNames="hover:bg-primary-100 p-1"
                     eventContent={renderEventContent}
                     initialView={view}
@@ -196,8 +277,13 @@ export default function ProjectCalendarPage() {
           </div>
         </div>
       </div>
-
       <MediaPlayer />
+      <TaskSchedulerModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        selectedDate={selectedDate}
+        onSubmit={handleScheduleTask}
+      />
     </Fragment>
   );
 }

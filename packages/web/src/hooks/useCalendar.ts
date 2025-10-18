@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { CalendarEvent, Meeting } from '@contractor-platform/types';
+import { CalendarEvent, Meeting, ScheduledMessage } from '@contractor-platform/types';
 import { useAppStore } from '@/store';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -141,13 +141,21 @@ export function useCalendar() {
         params.append('userId', supabaseUser.id);
         params.append('status', 'completed');
 
-        // Fetch meetings from API with filters
-        const response = await fetch(`/api/project/${projectId}/meetings?${params.toString()}`);
-        const result = await response.json();
-        if (result.success && result.data) {
-          const meetingsData: Meeting[] = result.data;
+        // Fetch meetings and scheduled messages in parallel
+        const [meetingsResponse, scheduledMessagesResponse] = await Promise.all([
+          fetch(`/api/project/${projectId}/meetings?${params.toString()}`),
+          fetch(`/api/project/${projectId}/scheduled-messages?userId=${supabaseUser.id}`)
+        ]);
+
+        const meetingsResult = await meetingsResponse.json();
+        const scheduledMessagesResult = await scheduledMessagesResponse.json();
+
+        const allEvents: CalendarEvent[] = [];
+
+        // Convert meetings to calendar events
+        if (meetingsResult.success && meetingsResult.data) {
+          const meetingsData: Meeting[] = meetingsResult.data;
           setMeetings(meetingsData);
-          // Convert meetings to calendar events
           const meetingEvents: CalendarEvent[] = meetingsData.map((meeting) => ({
             id: meeting.id,
             title: meeting.title,
@@ -166,8 +174,35 @@ export function useCalendar() {
             },
           }));
 
-          setCalendarEvents(meetingEvents);
+          allEvents.push(...meetingEvents);
         }
+
+        // Convert scheduled messages to calendar events
+        if (scheduledMessagesResult.success && scheduledMessagesResult.data) {
+          const scheduledMessages: ScheduledMessage[] = scheduledMessagesResult.data;
+          const scheduledTaskEvents: CalendarEvent[] = scheduledMessages.map((msg) => {
+            return {
+              id: `scheduled-${msg.id}`,
+              title: msg.task || msg.name,
+              start: msg.date_and_time,
+              end: msg.date_and_time,
+              type: 'scheduled_task',
+              project_id: msg.project_id,
+              scheduled_message_id: msg.id,
+              color: '#10B981', // Green color for scheduled tasks
+              metadata: {
+                status: msg.status,
+                name: msg.name,
+                mobile_no: msg.mobile_no,
+                task: msg.task,
+                message: msg.message,
+                ...msg.metadata,
+              },
+            };
+          });
+          allEvents.push(...scheduledTaskEvents);
+        }
+        setCalendarEvents(allEvents);
       }
     } catch (error) {
       console.error('Failed to load events:', error);
