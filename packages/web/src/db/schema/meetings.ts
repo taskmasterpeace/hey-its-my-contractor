@@ -63,3 +63,27 @@ export const transcripts = pgTable("transcripts", {
   textEmbeddings: text("text_embeddings"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const scheduledMessageStatusEnum = pgEnum("scheduled_message_status", ["idle", "scheduled", "sent", "failed",  "cancelled"]);
+
+export const scheduledMessages = pgTable('scheduled_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
+  projectId: uuid('project_id')
+    .references(() => projects.id, { onDelete: 'cascade' })
+    .notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  mobileNo: varchar('mobile_no', { length: 20 }).notNull(),
+  task: text('task'),
+  message: text('message'),
+  dateAndTime: timestamp('date_and_time', {
+    withTimezone: true,
+    mode: 'string'
+  }).notNull(),
+  metadata: jsonb('metadata').default('{}').notNull(),
+  status: scheduledMessageStatusEnum('status').default('idle').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});
