@@ -53,7 +53,7 @@
     "framer-motion": "^12.23.24",
     "google-libphonenumber": "^3.2.43",
     "lucide-react": "^0.344.0",
-    "next": "^15.5.4",
+    "next": "15.5.9",
     "pdfjs-dist": "^4.0.0",
     "postgres": "^3.4.7",
     "react": "^18.3.1",
