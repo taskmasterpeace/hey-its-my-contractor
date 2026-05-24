@@ -18,6 +18,7 @@ import {
   Clock,
   ArrowRight,
 } from "lucide-react";
+import { HouseHero } from "@/components/layout/HouseHero";
 
 interface Company {
   id: string;
@@ -172,8 +173,26 @@ export function ProjectSelector({
     }).format(parseFloat(amount));
   };
 
+  const selectedCompanyForHero = companies.find(
+    (c) => c.company.id === selectedCompanyIdState
+  )?.company;
+
   return (
     <div className="p-6">
+      {/* House Hero — MyFieldTime visual */}
+      <div className="mb-6">
+        <HouseHero
+          eyebrow="Workspace"
+          title={selectedCompanyForHero?.name || "Projects overview"}
+          subtitle={
+            projects.length > 0
+              ? `${projects.length} project${projects.length === 1 ? "" : "s"}`
+              : "Get started with your first project"
+          }
+          badge="Overview"
+        />
+      </div>
+
       {/* Main Content */}
       <div>
         {/* Only show project header and button when there are projects */}

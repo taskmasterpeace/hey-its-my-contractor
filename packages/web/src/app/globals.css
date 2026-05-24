@@ -4,31 +4,59 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    /* MyFieldTime: construction yellow + deep blue on cool blueprint paper */
+    --background: 218 33% 95%;       /* paper-2: cool blue page wash */
+    --foreground: 222 32% 15%;       /* ink */
+    --card: 0 0% 100%;               /* paper: lifted surface */
+    --card-foreground: 222 32% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --popover-foreground: 222 32% 15%;
+    --primary: 212 100% 34%;         /* hi-vis cobalt blue — main action */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 218 33% 95%;
+    --secondary-foreground: 222 32% 15%;
+    --muted: 218 33% 95%;
+    --muted-foreground: 218 14% 41%; /* steel */
+    --accent: 49 100% 58%;           /* construction yellow */
+    --accent-foreground: 47 100% 15%;
+    --destructive: 10 65% 48%;       /* rust */
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 19% 92%;           /* rule */
+    --input: 220 19% 92%;
+    --ring: 212 100% 34%;
     --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-1: 212 100% 34%;
+    --chart-2: 49 100% 58%;
+    --chart-3: 153 64% 33%;
+    --chart-4: 10 65% 48%;
+    --chart-5: 207 44% 49%;
+
+    /* MyFieldTime raw brand tokens (hex) — for the deep-blue sidebar rail and accents */
+    --ft-paper: #FFFFFF;
+    --ft-paper-2: #EEF2F8;
+    --ft-ink: #1A2333;
+    --ft-ink-soft: #333D50;
+    --ft-steel: #5B6678;
+    --ft-steel-2: #8A95A8;
+    --ft-rule: #E4E8EF;
+    --ft-rule-2: #C5CCD7;
+    --ft-hi-vis: #0047AB;
+    --ft-hi-vis-ink: #001E4D;
+    --ft-hi-vis-soft: #E6EEFB;
+    --ft-hi-vis-deep: #003A8C;
+    --ft-yellow: #FFDA29;
+    --ft-yellow-deep: #E8C220;
+    --ft-yellow-ink: #4A3A00;
+    --ft-sky: #66B2FF;
+    --ft-sky-soft: #E8F1FC;
+    --ft-rust: #C9472D;
+    --ft-green: #1E8A56;
+    --ft-rail: #0047AB;
+    --ft-rail-2: #003A8C;
+    --ft-rail-3: #002B6B;
+    --ft-rail-ink: #FFFFFF;
+    --ft-rail-ink-soft: rgba(255, 255, 255, 0.74);
+    --ft-rail-rule: rgba(255, 255, 255, 0.12);
   }
 
   .dark {
@@ -66,6 +94,22 @@
 
   body {
     @apply bg-background text-foreground;
+    position: relative;
+  }
+
+  /* MyFieldTime: faint blueprint grid washed over the page background */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      linear-gradient(to right, rgba(70, 130, 180, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(70, 130, 180, 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 92%, transparent);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 92%, transparent);
   }
 }
 

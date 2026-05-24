@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { projects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getUserProjectRole, isSuperAdmin } from "@/lib/auth/permissions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Calendar,
@@ -14,6 +13,7 @@ import {
   Clock,
   Activity,
 } from "lucide-react";
+import { HouseHero } from "@/components/layout/HouseHero";
 
 interface ProjectDashboardPageProps {
   params: Promise<{ projectId: string }>;
@@ -90,6 +90,16 @@ export default async function ProjectDashboardPage({
 
   return (
     <div className="p-6">
+      {/* House Hero — MyFieldTime visual */}
+      <div className="mb-6">
+        <HouseHero
+          eyebrow={`Active project${project.status ? ` · ${project.status}` : ""}`}
+          title={project.name}
+          subtitle={project.address}
+          badge="Project overview"
+        />
+      </div>
+
       {/* Project Overview Header */}
       <div className="bg-white rounded-lg shadow-sm border mb-6">
         <div className="px-6 py-4 border-b">
