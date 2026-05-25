@@ -1,1 +1,0 @@
-ALTER TABLE "saved_research" ADD COLUMN "is_private" boolean DEFAULT false NOT NULL;

@@ -1,1 +1,0 @@
-ALTER TABLE "documents" ADD COLUMN "is_private" boolean DEFAULT false NOT NULL;

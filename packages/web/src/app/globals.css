@@ -5,7 +5,7 @@
 @layer base {
   :root {
     /* MyFieldTime: construction yellow + deep blue on cool blueprint paper */
-    --background: 218 33% 95%;       /* paper-2: cool blue page wash */
+    --background: 220 20% 97%;       /* subtle cool gray — not blue */
     --foreground: 222 32% 15%;       /* ink */
     --card: 0 0% 100%;               /* paper: lifted surface */
     --card-foreground: 222 32% 15%;
@@ -95,22 +95,16 @@
   body {
     @apply bg-background text-foreground;
     position: relative;
+    font-size: 14.5px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* MyFieldTime: faint blueprint grid washed over the page background */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background-image:
-      linear-gradient(to right, rgba(70, 130, 180, 0.06) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(70, 130, 180, 0.06) 1px, transparent 1px);
-    background-size: 48px 48px;
-    mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 92%, transparent);
-    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 92%, transparent);
+  h1, h2, h3 {
+    font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+    letter-spacing: -0.015em;
   }
+
 }
 
 .fc-more-link {

@@ -1,2 +1,0 @@
-ALTER TABLE "image_library_categories" ADD COLUMN "project_id" uuid NOT NULL;--> statement-breakpoint
-ALTER TABLE "image_library_categories" ADD CONSTRAINT "image_library_categories_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;

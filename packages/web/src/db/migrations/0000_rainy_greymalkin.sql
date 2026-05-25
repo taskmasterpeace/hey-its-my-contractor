@@ -10,6 +10,7 @@ CREATE TYPE "public"."invitation_status" AS ENUM('pending', 'accepted', 'decline
 CREATE TYPE "public"."project_role" AS ENUM('project_manager', 'contractor', 'homeowner');--> statement-breakpoint
 CREATE TYPE "public"."meeting_status" AS ENUM('scheduled', 'in_progress', 'completed', 'cancelled');--> statement-breakpoint
 CREATE TYPE "public"."meeting_type" AS ENUM('consultation', 'progress_review', 'change_order', 'walkthrough', 'inspection');--> statement-breakpoint
+CREATE TYPE "public"."scheduled_message_status" AS ENUM('idle', 'scheduled', 'sent', 'failed', 'cancelled');--> statement-breakpoint
 CREATE TYPE "public"."task_priority" AS ENUM('low', 'medium', 'high', 'urgent');--> statement-breakpoint
 CREATE TYPE "public"."task_status" AS ENUM('pending', 'in_progress', 'completed', 'cancelled');--> statement-breakpoint
 CREATE TYPE "public"."notification_type" AS ENUM('meeting_reminder', 'task_due', 'message_received', 'document_uploaded', 'weather_alert', 'change_order_approval');--> statement-breakpoint
@@ -51,6 +52,15 @@ CREATE TABLE "chat_messages" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "document_comments" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"document_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"content" text NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "documents" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"project_id" uuid NOT NULL,
@@ -65,6 +75,7 @@ CREATE TABLE "documents" (
 	"linked_to" jsonb,
 	"expiration_date" date,
 	"created_by" uuid NOT NULL,
+	"is_private" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -102,6 +113,7 @@ CREATE TABLE "image_library" (
 	"ai_prompt" text,
 	"ai_model" varchar(50),
 	"reference_images" uuid[] DEFAULT '{}',
+	"is_private" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -109,6 +121,7 @@ CREATE TABLE "image_library" (
 CREATE TABLE "image_library_categories" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
+	"project_id" uuid NOT NULL,
 	"name" varchar(100) NOT NULL,
 	"description" text,
 	"color" varchar(7) DEFAULT '#3B82F6',
@@ -124,6 +137,7 @@ CREATE TABLE "companies" (
 	"phone" varchar(50),
 	"email" varchar(255),
 	"website" varchar(255),
+	"logo_url" text,
 	"stripe_customer_id" varchar(255),
 	"subscription_status" "subscription_status" DEFAULT 'trial',
 	"settings" jsonb DEFAULT '{}',
@@ -169,7 +183,7 @@ CREATE TABLE "projects" (
 	"name" varchar(255) NOT NULL,
 	"description" text,
 	"address" text NOT NULL,
-	"status" "project_status" DEFAULT 'planning',
+	"status" "project_status" DEFAULT 'active',
 	"homeowner_name" varchar(255),
 	"homeowner_email" varchar(255),
 	"homeowner_phone" varchar(50),
@@ -225,17 +239,35 @@ CREATE TABLE "project_users" (
 CREATE TABLE "meetings" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"project_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
 	"title" varchar(255) NOT NULL,
 	"starts_at" timestamp NOT NULL,
 	"ends_at" timestamp,
 	"type" "meeting_type" NOT NULL,
 	"participants" uuid[] DEFAULT '{}',
+	"tags" text[] DEFAULT '{}',
 	"external_provider" varchar(20),
 	"recording_url" text,
+	"transcript" text,
 	"consent_given" boolean DEFAULT false,
 	"status" "meeting_status" DEFAULT 'scheduled',
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "scheduled_messages" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"project_id" uuid NOT NULL,
+	"name" varchar(255) NOT NULL,
+	"mobile_no" varchar(20) NOT NULL,
+	"task" text,
+	"message" text,
+	"date_and_time" timestamp with time zone NOT NULL,
+	"metadata" jsonb DEFAULT '{}' NOT NULL,
+	"status" "scheduled_message_status" DEFAULT 'idle' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "transcripts" (
@@ -247,6 +279,7 @@ CREATE TABLE "transcripts" (
 	"segments" jsonb DEFAULT '[]',
 	"summary" text,
 	"action_items" text[],
+	"text_embeddings" text,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -277,6 +310,34 @@ CREATE TABLE "notifications" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "project_search_sites" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"project_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"site_domain" varchar(255) NOT NULL,
+	"display_name" varchar(255) NOT NULL,
+	"description" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "saved_research" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"project_id" uuid NOT NULL,
+	"query" text NOT NULL,
+	"answer" text NOT NULL,
+	"sources" jsonb DEFAULT '[]' NOT NULL,
+	"related_queries" text[] DEFAULT '{}',
+	"title" varchar(255),
+	"tags" varchar[] DEFAULT '{}',
+	"notes" text,
+	"is_private" boolean DEFAULT false NOT NULL,
+	"confidence" varchar(10) DEFAULT '0.95',
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "change_orders" ADD CONSTRAINT "change_orders_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "change_orders" ADD CONSTRAINT "change_orders_linked_meeting_id_meetings_id_fk" FOREIGN KEY ("linked_meeting_id") REFERENCES "public"."meetings"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "change_orders" ADD CONSTRAINT "change_orders_approved_by_client_users_id_fk" FOREIGN KEY ("approved_by_client") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -284,6 +345,8 @@ ALTER TABLE "change_orders" ADD CONSTRAINT "change_orders_approved_by_contractor
 ALTER TABLE "chat_channels" ADD CONSTRAINT "chat_channels_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "chat_messages" ADD CONSTRAINT "chat_messages_channel_id_chat_channels_id_fk" FOREIGN KEY ("channel_id") REFERENCES "public"."chat_channels"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "chat_messages" ADD CONSTRAINT "chat_messages_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "document_comments" ADD CONSTRAINT "document_comments_document_id_documents_id_fk" FOREIGN KEY ("document_id") REFERENCES "public"."documents"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "document_comments" ADD CONSTRAINT "document_comments_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "documents" ADD CONSTRAINT "documents_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "documents" ADD CONSTRAINT "documents_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "daily_logs" ADD CONSTRAINT "daily_logs_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -292,6 +355,7 @@ ALTER TABLE "image_library" ADD CONSTRAINT "image_library_user_id_users_id_fk" F
 ALTER TABLE "image_library" ADD CONSTRAINT "image_library_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "image_library" ADD CONSTRAINT "image_library_category_id_image_library_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."image_library_categories"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "image_library_categories" ADD CONSTRAINT "image_library_categories_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "image_library_categories" ADD CONSTRAINT "image_library_categories_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "companies" ADD CONSTRAINT "companies_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "company_subscriptions" ADD CONSTRAINT "company_subscriptions_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_id_users_id_fk" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -305,7 +369,14 @@ ALTER TABLE "invitations" ADD CONSTRAINT "invitations_invited_by_users_id_fk" FO
 ALTER TABLE "project_users" ADD CONSTRAINT "project_users_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project_users" ADD CONSTRAINT "project_users_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "meetings" ADD CONSTRAINT "meetings_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "meetings" ADD CONSTRAINT "meetings_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "scheduled_messages" ADD CONSTRAINT "scheduled_messages_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "scheduled_messages" ADD CONSTRAINT "scheduled_messages_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "transcripts" ADD CONSTRAINT "transcripts_meeting_id_meetings_id_fk" FOREIGN KEY ("meeting_id") REFERENCES "public"."meetings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tasks" ADD CONSTRAINT "tasks_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tasks" ADD CONSTRAINT "tasks_source_meeting_id_meetings_id_fk" FOREIGN KEY ("source_meeting_id") REFERENCES "public"."meetings"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "project_search_sites" ADD CONSTRAINT "project_search_sites_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "project_search_sites" ADD CONSTRAINT "project_search_sites_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "saved_research" ADD CONSTRAINT "saved_research_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "saved_research" ADD CONSTRAINT "saved_research_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;

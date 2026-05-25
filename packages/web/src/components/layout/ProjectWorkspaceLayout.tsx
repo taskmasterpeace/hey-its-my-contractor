@@ -60,7 +60,7 @@ export function ProjectWorkspaceLayout({
       label: "Workspace",
       items: [
         {
-          name: "Dashboard",
+          name: "Today",
           href: `/project/${project.id}/dashboard`,
           icon: Home,
         },
@@ -315,7 +315,9 @@ export function ProjectWorkspaceLayout({
                 className="text-lg font-semibold capitalize"
                 style={{ color: "var(--ft-ink)" }}
               >
-                {pathname.split("/").pop()?.replace("-", " ") || "Dashboard"}
+                {pathname.endsWith("/dashboard")
+                  ? "Today"
+                  : pathname.split("/").pop()?.replace("-", " ") || "Today"}
               </h2>
             </div>
             <div className="flex items-center space-x-4">

@@ -1,1 +1,0 @@
-ALTER TABLE "image_library" ADD COLUMN "is_private" boolean DEFAULT false NOT NULL;

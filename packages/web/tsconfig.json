@@ -13,6 +13,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "ignoreDeprecations": "6.0",
     "plugins": [
       {
         "name": "next"
@@ -27,5 +28,13 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "mobile/**/*", "services/**/*", "shared/**/*", "supabase/**/*", "deployment/**/*", "docs/**/*"]
+  "exclude": [
+    "node_modules",
+    "mobile/**/*",
+    "services/**/*",
+    "shared/**/*",
+    "supabase/**/*",
+    "deployment/**/*",
+    "docs/**/*"
+  ]
 }

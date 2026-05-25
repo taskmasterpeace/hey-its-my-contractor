@@ -11,16 +11,14 @@ import { useCalendar } from "@/hooks/useCalendar";
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), {
   ssr: false,
   loading: () => (
-    <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+    <div className="h-64 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--ft-paper-2)' }}>
       <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-        <p className="text-gray-600">Loading calendar...</p>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-2" style={{ borderColor: 'var(--ft-hi-vis)' }}></div>
+        <p style={{ color: 'var(--ft-steel)' }}>Loading calendar...</p>
       </div>
     </div>
   ),
 });
-import { CalendarSidebar } from "@/components/calendar/CalendarSidebar";
-import { WeatherWidget } from "@/components/calendar/WeatherWidget";
 import { TaskSchedulerModal, TaskFormData } from "@/components/calendar/TaskSchedulerModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { Meeting } from "@contractor-platform/types";
@@ -176,104 +174,116 @@ export default function ProjectCalendarPage() {
     }
   };
 
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay() + 1);
+
   return (
     <Fragment>
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b px-4 md:px-6 py-3 md:py-4">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0">
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900">
-                Calendar Command Center
-              </h1>
-              <p className="text-sm md:text-base text-gray-600">
-                Manage meetings, deliveries, and project milestones
-              </p>
+      <div style={{ padding: "28px 28px 56px", maxWidth: 1400 }}>
+        {/* Editorial header — matches design */}
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <div
+              className="font-mono text-[11px] font-bold uppercase tracking-[0.18em]"
+              style={{ color: "var(--ft-steel)" }}
+            >
+              Calendar · Week of {weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
             </div>
-            <div className="flex items-center gap-4">
-              <WeatherWidget />
-            </div>
+            <h1
+              className="font-display"
+              style={{ fontWeight: 800, fontSize: 36, letterSpacing: "-0.02em", margin: "6px 0 0", color: "var(--ft-ink)" }}
+            >
+              Week {Math.ceil(now.getDate() / 7)} · Drywall &amp; finish prep
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className="px-2.5 py-1 text-[12px] font-medium rounded cursor-pointer"
+              style={{ background: "var(--ft-paper-2)", color: "var(--ft-steel)", border: "1px solid var(--ft-rule)" }}
+            >
+              Week
+            </span>
+            <span
+              className="px-2.5 py-1 text-[12px] font-medium rounded cursor-pointer"
+              style={{ background: "var(--ft-ink)", color: "#fff" }}
+            >
+              Month
+            </span>
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row">
-          {/* Sidebar - Full width on mobile, fixed width on desktop */}
-          <div className="w-full lg:w-80 bg-white border-b lg:border-b-0 lg:border-r">
-            <CalendarSidebar events={projectEvents} />
-          </div>
-
-          {/* Main Calendar */}
-          <div className="flex-1 p-4 lg:p-6">
-            <div className="bg-white rounded-lg shadow-sm border">
-              <div className="p-3 lg:p-6">
-                {calendarPlugins.length > 0 ? (
-                  <FullCalendar
-                    plugins={calendarPlugins}
-                    headerToolbar={{
-                      left: "prev,next today",
-                      center: "title",
-                      right: "dayGridMonth,timeGridWeek,timeGridDay",
-                    }}
-                    dayMaxEvents={2}
-                    moreLinkClassNames="flex justify-center items-center text-blue-800 text-xs font-medium"
-                    eventClassNames={(arg) => {
-                      const isScheduledTask = arg.event.extendedProps.type === 'scheduled_task'
-                      return [
-                        'cursor-pointer',
-                        isScheduledTask ? 'bg-green-100' : 'bg-blue-100',
-                        isScheduledTask ? 'text-green-900' : 'text-blue-900',
-                        'border',
-                        isScheduledTask ? 'border-green-200' : 'border-blue-100',
-                        isScheduledTask ? 'hover:bg-green-200' : 'hover:bg-blue-400',
-                      ]
-                    }}
-                    dateClick={handleDateClick}
-                    dayCellClassNames="hover:bg-primary-100 p-1"
-                    eventContent={renderEventContent}
-                    initialView={view}
-                    editable={true}
-                    selectable={true}
-                    selectMirror={true}
-                    weekends={true}
-                    events={projectEvents.map((event) => ({
-                      id: event.id,
-                      title: event.title,
-                      start: event.start,
-                      end: event.end,
-                      backgroundColor: event.color,
-                      borderColor: event.color,
-                      textColor: "#ffffff",
-                      extendedProps: {
-                        type: event.type,
-                        project_id: event.project_id,
-                        meeting_id: event.meeting_id,
-                        metadata: event.metadata,
-                      },
-                    }))}
-                    eventClick={handleEventClickLocal}
-                    eventDrop={handleEventDropFromHook}
-                    eventResize={handleEventDropFromHook}
-                    height="auto"
-                    aspectRatio={1.5}
-                    eventDisplay="block"
-                    displayEventTime={view !== "dayGridMonth"}
-                    eventTimeFormat={{
-                      hour: "numeric",
-                      minute: "2-digit",
-                      omitZeroMinute: false,
-                      meridiem: "short",
-                    }}
-                  />
-                ) : (
-                  <div className="h-48 md:h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-6 w-6 md:h-8 md:w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                      <p className="text-sm md:text-base text-gray-600">Loading calendar plugins...</p>
-                    </div>
-                  </div>
-                )}
+        {/* Full-width calendar card — no sidebar */}
+        <div
+          className="rounded"
+          style={{ background: "var(--ft-paper)", border: "1px solid var(--ft-rule)", overflow: "hidden" }}
+        >
+          <div className="p-0">
+            {calendarPlugins.length > 0 ? (
+              <FullCalendar
+                plugins={calendarPlugins}
+                headerToolbar={{
+                  left: "prev,next today",
+                  center: "title",
+                  right: "timeGridWeek,dayGridMonth,timeGridDay",
+                }}
+                dayMaxEvents={2}
+                moreLinkClassNames="flex justify-center items-center text-xs font-medium"
+                eventClassNames={() => [
+                  'cursor-pointer',
+                  '!border-0',
+                  '!rounded-sm',
+                ]}
+                dateClick={handleDateClick}
+                dayCellClassNames="p-1"
+                eventContent={renderEventContent}
+                initialView="timeGridWeek"
+                editable={true}
+                selectable={true}
+                selectMirror={true}
+                weekends={true}
+                events={projectEvents.map((event) => ({
+                  id: event.id,
+                  title: event.title,
+                  start: event.start,
+                  end: event.end,
+                  backgroundColor: event.color,
+                  borderColor: event.color,
+                  textColor: "#ffffff",
+                  extendedProps: {
+                    type: event.type,
+                    project_id: event.project_id,
+                    meeting_id: event.meeting_id,
+                    metadata: event.metadata,
+                  },
+                }))}
+                eventClick={handleEventClickLocal}
+                eventDrop={handleEventDropFromHook}
+                eventResize={handleEventDropFromHook}
+                height="auto"
+                eventDisplay="block"
+                displayEventTime={true}
+                slotMinTime="07:00:00"
+                slotMaxTime="18:00:00"
+                allDaySlot={false}
+                eventTimeFormat={{
+                  hour: "numeric",
+                  minute: "2-digit",
+                  omitZeroMinute: false,
+                  meridiem: "short",
+                }}
+              />
+            ) : (
+              <div
+                className="flex items-center justify-center"
+                style={{ minHeight: 400, background: "var(--ft-paper-2)" }}
+              >
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto mb-2" style={{ borderColor: "var(--ft-hi-vis)" }} />
+                  <p className="text-sm" style={{ color: "var(--ft-steel)" }}>Loading calendar…</p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

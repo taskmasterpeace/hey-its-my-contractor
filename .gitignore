@@ -49,6 +49,7 @@ yarn-error.log*
 Thumbs.db
 
 # Project specific
+packages/web/src/db/seed.ts
 packages/web/public/downloaded-images/
 packages/web/.next/
 mobile/.expo/
