@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useProjectUnread } from "@/hooks/useProjectUnread";
 import {
   Home,
   Calendar,
@@ -47,6 +48,7 @@ export function ProjectWorkspaceLayout({
   user,
 }: ProjectWorkspaceLayoutProps) {
   const pathname = usePathname();
+  const { unreadCount } = useProjectUnread(project.id);
 
   const navGroups: Array<{
     label: string;
@@ -256,6 +258,24 @@ export function ProjectWorkspaceLayout({
                         }}
                       />
                       <span className="flex-1">{item.name}</span>
+                      {item.name === "Messages" && unreadCount > 0 && (
+                        <span
+                          className="mono"
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            background: "var(--ft-yellow)",
+                            color: "var(--ft-yellow-ink)",
+                            padding: "1px 7px",
+                            borderRadius: 10,
+                            minWidth: 18,
+                            textAlign: "center",
+                            letterSpacing: "0.04em",
+                          }}
+                        >
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
