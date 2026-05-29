@@ -67,22 +67,29 @@ export async function POST(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { channelId } = await params;
-    const { content, type, replyTo } = await request.json();
+    const { content, type, replyTo, attachments } = await request.json();
 
-    if (!content) {
+    const safeContent = typeof content === "string" ? content.trim() : "";
+    const safeAttachments = Array.isArray(attachments) ? attachments : [];
+
+    if (!safeContent && safeAttachments.length === 0) {
       return NextResponse.json(
-        { error: "Message content is required" },
+        { error: "Message content or attachment is required" },
         { status: 400 }
       );
     }
+
+    const inferredType =
+      type ?? (safeAttachments.length > 0 ? "file" : "text");
 
     const [message] = await db
       .insert(chatMessages)
       .values({
         channelId,
         userId: user.id,
-        content,
-        type: type ?? "text",
+        content: safeContent,
+        type: inferredType,
+        attachments: safeAttachments,
         replyTo: replyTo ?? null,
       })
       .returning();

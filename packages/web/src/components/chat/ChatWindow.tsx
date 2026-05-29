@@ -136,7 +136,15 @@ export function ChatWindow({
   }, [messages]);
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        minWidth: 0,
+        minHeight: 0,
+      }}
+    >
       {/* Header */}
       <div
         style={{
@@ -262,6 +270,7 @@ export function ChatWindow({
       <div
         style={{
           flex: 1,
+          minHeight: 0,
           overflow: "auto",
           padding: 24,
           display: "flex",

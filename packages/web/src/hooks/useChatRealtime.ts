@@ -11,6 +11,16 @@ export interface ChatUser {
   email: string | null;
 }
 
+export interface ChatAttachment {
+  id: string;
+  type: "image" | "file";
+  url: string;
+  filename: string;
+  size: number;
+  mime: string;
+  path?: string;
+}
+
 export interface Channel {
   id: string;
   name: string;
@@ -28,6 +38,7 @@ export interface Message {
   editedAt: string | null;
   userId: string;
   user: ChatUser;
+  attachments: ChatAttachment[];
 }
 
 export interface ReadReceipt {
@@ -40,7 +51,7 @@ interface UseChatRealtimeReturn {
   activeChannel: Channel | null;
   messages: Message[];
   members: Map<string, ChatUser>;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, files?: File[]) => Promise<void>;
   editMessage: (messageId: string, content: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
   selectChannel: (channelId: string) => void;
@@ -150,6 +161,7 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
             fullName: null,
             email: null,
           },
+          attachments: Array.isArray(m.attachments) ? m.attachments : [],
         }));
         if (cancelled) return;
         setMessages(list);
@@ -212,6 +224,7 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
               fullName: null,
               email: null,
             },
+            attachments: Array.isArray(r.attachments) ? r.attachments : [],
           };
           setMessages((prev) =>
             prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]
@@ -324,15 +337,18 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
 
   // ---------- 6. sendMessage ----------
   const sendMessage = useCallback(
-    async (content: string) => {
-      if (!activeChannel || !user || !content.trim()) return;
+    async (content: string, files?: File[]) => {
+      if (!activeChannel || !user) return;
+      const trimmed = content.trim();
+      const hasFiles = !!files && files.length > 0;
+      if (!trimmed && !hasFiles) return;
 
       const optimisticId = `optimistic-${Date.now()}`;
       const memberInfo = membersRef.current.get(user.id);
       const optimistic: Message = {
         id: optimisticId,
-        content,
-        type: "text",
+        content: trimmed,
+        type: hasFiles ? "file" : "text",
         createdAt: new Date().toISOString(),
         editedAt: null,
         userId: user.id,
@@ -344,21 +360,60 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
             null,
           email: user.email ?? null,
         },
+        attachments: hasFiles
+          ? files!.map((f) => ({
+              id: `optimistic-att-${f.name}-${f.size}`,
+              type: f.type.startsWith("image/") ? "image" : "file",
+              url: URL.createObjectURL(f),
+              filename: f.name,
+              size: f.size,
+              mime: f.type,
+            }))
+          : [],
       };
       setMessages((prev) => [...prev, optimistic]);
 
       try {
+        let uploadedAttachments: ChatAttachment[] = [];
+        if (hasFiles) {
+          uploadedAttachments = await Promise.all(
+            files!.map(async (f) => {
+              const fd = new FormData();
+              fd.append("file", f);
+              const upRes = await fetch(
+                `/api/project/${projectId}/chat/upload`,
+                { method: "POST", body: fd }
+              );
+              if (!upRes.ok) {
+                const body = await upRes.json().catch(() => ({}));
+                throw new Error(body.error || "Upload failed");
+              }
+              const body = await upRes.json();
+              return body.attachment;
+            })
+          );
+        }
+
         const res = await fetch(
           `/api/project/${projectId}/chat/${activeChannel.id}/messages`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content }),
+            body: JSON.stringify({
+              content: trimmed,
+              attachments: uploadedAttachments,
+            }),
           }
         );
         if (!res.ok) throw new Error("Failed to send");
         const body = await res.json();
         const saved = body.message ?? body;
+
+        // Revoke optimistic blob URLs.
+        for (const a of optimistic.attachments) {
+          if (a.url.startsWith("blob:")) URL.revokeObjectURL(a.url);
+        }
+
         setMessages((prev) =>
           prev.map((m) =>
             m.id === optimisticId
@@ -366,12 +421,16 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
                   ...optimistic,
                   id: saved.id,
                   createdAt: saved.createdAt ?? saved.created_at,
+                  attachments: uploadedAttachments,
                 }
               : m
           )
         );
       } catch (err) {
         console.error("[useChatRealtime] sendMessage:", err);
+        for (const a of optimistic.attachments) {
+          if (a.url.startsWith("blob:")) URL.revokeObjectURL(a.url);
+        }
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       }
     },

@@ -1,8 +1,19 @@
 "use client";
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
-import { Pencil, Trash2, Check, X } from "lucide-react";
-import type { Message, ChatUser } from "@/hooks/useChatRealtime";
+import {
+  Pencil,
+  Trash2,
+  Check,
+  X,
+  Download,
+  FileText,
+} from "lucide-react";
+import type {
+  Message,
+  ChatUser,
+  ChatAttachment,
+} from "@/hooks/useChatRealtime";
 
 interface ReadViewer {
   id: string;
@@ -43,6 +54,127 @@ function initialsFor(user: ChatUser | { fullName?: string | null; email?: string
 
 function displayName(user: ChatUser) {
   return user.fullName || user.email?.split("@")[0] || "Unknown";
+}
+
+function formatSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fileExt(filename: string) {
+  const i = filename.lastIndexOf(".");
+  return i >= 0 ? filename.slice(i + 1).toUpperCase() : "FILE";
+}
+
+function AttachmentView({
+  attachment,
+  isOwnMessage,
+}: {
+  attachment: ChatAttachment;
+  isOwnMessage: boolean;
+}) {
+  if (attachment.type === "image") {
+    return (
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "inline-block",
+          borderRadius: 3,
+          overflow: "hidden",
+          border: "1px solid var(--ft-rule)",
+          maxWidth: 320,
+          background: "var(--ft-paper)",
+        }}
+        title={attachment.filename}
+      >
+        <img
+          src={attachment.url}
+          alt={attachment.filename}
+          style={{
+            display: "block",
+            maxWidth: 320,
+            maxHeight: 320,
+            width: "100%",
+            height: "auto",
+            objectFit: "cover",
+          }}
+        />
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={attachment.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      download={attachment.filename}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 12px",
+        background: isOwnMessage ? "var(--ft-ink-soft)" : "var(--ft-paper)",
+        color: isOwnMessage ? "var(--ft-paper)" : "var(--ft-ink)",
+        border: `1px solid ${
+          isOwnMessage ? "var(--ft-ink-soft)" : "var(--ft-rule)"
+        }`,
+        borderRadius: 3,
+        textDecoration: "none",
+        maxWidth: 320,
+      }}
+    >
+      <div
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 3,
+          background: isOwnMessage ? "var(--ft-ink)" : "var(--ft-paper-2)",
+          color: isOwnMessage ? "var(--ft-paper)" : "var(--ft-steel)",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <FileText size={16} />
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 500,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {attachment.filename}
+        </div>
+        <div
+          className="mono"
+          style={{
+            fontSize: 10,
+            color: isOwnMessage ? "var(--ft-rail-ink-soft)" : "var(--ft-steel)",
+            letterSpacing: "0.06em",
+            marginTop: 2,
+          }}
+        >
+          {fileExt(attachment.filename)} · {formatSize(attachment.size)}
+        </div>
+      </div>
+      <Download
+        size={14}
+        style={{
+          flexShrink: 0,
+          color: isOwnMessage ? "var(--ft-paper)" : "var(--ft-steel)",
+        }}
+      />
+    </a>
+  );
 }
 
 function formatTime(iso: string) {
@@ -270,18 +402,38 @@ export function MessageBubble({
           ) : (
             <div
               style={{
-                padding: "10px 14px",
-                background: isOwnMessage ? "var(--ft-ink)" : "var(--ft-paper)",
-                color: isOwnMessage ? "var(--ft-paper)" : "var(--ft-ink)",
-                border: isOwnMessage ? "none" : "1px solid var(--ft-rule)",
-                borderRadius: 3,
-                fontSize: 14,
-                lineHeight: 1.45,
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                alignItems: isOwnMessage ? "flex-end" : "flex-start",
               }}
             >
-              {message.content}
+              {message.content && (
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    background: isOwnMessage
+                      ? "var(--ft-ink)"
+                      : "var(--ft-paper)",
+                    color: isOwnMessage ? "var(--ft-paper)" : "var(--ft-ink)",
+                    border: isOwnMessage ? "none" : "1px solid var(--ft-rule)",
+                    borderRadius: 3,
+                    fontSize: 14,
+                    lineHeight: 1.45,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {message.content}
+                </div>
+              )}
+              {message.attachments?.map((a) => (
+                <AttachmentView
+                  key={a.id}
+                  attachment={a}
+                  isOwnMessage={isOwnMessage}
+                />
+              ))}
             </div>
           )}
 
