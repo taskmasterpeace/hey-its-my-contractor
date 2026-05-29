@@ -1,184 +1,356 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import { ChatRoom, ChatMessage } from '@contractor-platform/types';
-import { MessageInput } from './MessageInput';
-import { MessageBubble } from './MessageBubble';
-import { Users, Phone, Video, MoreVertical, Pin } from 'lucide-react';
+import { useRef, useEffect, useMemo } from "react";
+import type { Channel, Message, ChatUser } from "@/hooks/useChatRealtime";
+import { MessageBubble } from "./MessageBubble";
+import { MessageInput } from "./MessageInput";
 
-interface ChatWindowProps {
-  room: ChatRoom;
-  messages: ChatMessage[];
-  onSendMessage: (content: string, attachments?: File[]) => void;
-  currentUserId: string;
-  getRoomIcon: (room: ChatRoom) => React.ReactNode;
+const AVATAR_PALETTE = [
+  "#2D5A6A",
+  "#7A4E2A",
+  "#4A3A00",
+  "#3E5C2F",
+  "#5A2D6A",
+  "#6A2D3E",
+];
+
+function colorFor(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
 }
 
-export function ChatWindow({ 
-  room, 
-  messages, 
-  onSendMessage, 
+function initialsForId(id: string, nameLookup: Map<string, string>) {
+  const name = nameLookup.get(id) || "";
+  const parts = name.split(/[\s@.]+/).filter(Boolean);
+  if (parts.length === 0) return id.slice(0, 2).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function formatDateLabel(dateStr: string) {
+  const d = new Date(dateStr);
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  if (dateStr === today) return "Today";
+  if (dateStr === yesterday) return "Yesterday";
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+interface ChatWindowProps {
+  channel: Channel;
+  messages: Message[];
+  members: Map<string, ChatUser>;
+  currentUserId: string;
+  onlineUserIds: Set<string>;
+  reads: Map<string, string>; // userId -> lastReadAt ISO
+  messagesReady: boolean;
+  onSendMessage: (content: string) => void | Promise<void>;
+  onEditMessage: (messageId: string, content: string) => void | Promise<void>;
+  onDeleteMessage: (messageId: string) => void | Promise<void>;
+}
+
+export function ChatWindow({
+  channel,
+  messages,
+  members,
   currentUserId,
-  getRoomIcon 
+  onlineUserIds,
+  reads,
+  messagesReady,
+  onSendMessage,
+  onEditMessage,
+  onDeleteMessage,
 }: ChatWindowProps) {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showRoomInfo, setShowRoomInfo] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  // userId -> name (project members first, supplemented by names seen in messages)
+  const nameLookup = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const [id, info] of members.entries()) {
+      const n = info.fullName || info.email?.split("@")[0];
+      if (n) m.set(id, n);
+    }
+    for (const msg of messages) {
+      if (m.has(msg.userId)) continue;
+      const n = msg.user.fullName || msg.user.email?.split("@")[0];
+      if (n) m.set(msg.userId, n);
+    }
+    return m;
+  }, [members, messages]);
+
+  // Online members (self first, then others)
+  const onlineList = useMemo(() => {
+    const others = Array.from(onlineUserIds).filter((id) => id !== currentUserId);
+    return onlineUserIds.has(currentUserId)
+      ? [currentUserId, ...others]
+      : others;
+  }, [onlineUserIds, currentUserId]);
+
+  // Find the last own message and compute who's read it
+  const lastOwnMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].userId === currentUserId) return messages[i].id;
+    }
+    return null;
+  }, [messages, currentUserId]);
+
+  const readersByMessageId = useMemo(() => {
+    const result = new Map<
+      string,
+      Array<{ id: string; name: string }>
+    >();
+    if (!lastOwnMessageId) return result;
+    const lastOwn = messages.find((m) => m.id === lastOwnMessageId);
+    if (!lastOwn) return result;
+    const lastOwnTime = new Date(lastOwn.createdAt).getTime();
+    const list: Array<{ id: string; name: string }> = [];
+    for (const [uid, lastReadIso] of reads.entries()) {
+      if (uid === currentUserId) continue;
+      if (new Date(lastReadIso).getTime() >= lastOwnTime) {
+        list.push({ id: uid, name: nameLookup.get(uid) || uid.slice(0, 6) });
+      }
+    }
+    result.set(lastOwnMessageId, list);
+    return result;
+  }, [lastOwnMessageId, messages, reads, currentUserId, nameLookup]);
+
+  // Group messages by date
+  const groups = useMemo(() => {
+    const out: Array<{ date: string; messages: Message[] }> = [];
+    for (const m of messages) {
+      const dateKey = new Date(m.createdAt).toDateString();
+      const last = out[out.length - 1];
+      if (last && last.date === dateKey) last.messages.push(m);
+      else out.push({ date: dateKey, messages: [m] });
+    }
+    return out;
   }, [messages]);
 
-  const getParticipantNames = () => {
-    if (room.type === 'direct') {
-      return room.name || 'Direct Message';
-    }
-    return `${room.participants?.length || 0} members`;
-  };
-
-  const getRoomStatus = () => {
-    if (room.type === 'project' && room.project_id) {
-      return 'Project Chat';
-    }
-    if (room.type === 'team') {
-      return 'Team Chat';
-    }
-    if (room.type === 'direct') {
-      return 'Direct Message';
-    }
-    return 'General Chat';
-  };
-
-  const groupMessagesByDate = (messages: ChatMessage[]) => {
-    const groups: { [key: string]: ChatMessage[] } = {};
-    
-    messages.forEach(message => {
-      const date = new Date(message.created_at).toDateString();
-      if (!groups[date]) {
-        groups[date] = [];
-      }
-      groups[date].push(message);
-    });
-    
-    return groups;
-  };
-
-  const formatDateHeader = (dateString: string) => {
-    const date = new Date(dateString);
-    const today = new Date().toDateString();
-    const yesterday = new Date(Date.now() - 86400000).toDateString();
-    
-    if (dateString === today) return 'Today';
-    if (dateString === yesterday) return 'Yesterday';
-    
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const messageGroups = groupMessagesByDate(messages);
-
   return (
-    <div className="flex flex-col h-full">
-      {/* Chat Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
-        <div className="flex items-center min-w-0 flex-1">
-          <div className="flex-shrink-0 mr-3">
-            {getRoomIcon(room)}
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      {/* Header */}
+      <div
+        style={{
+          padding: "16px 24px",
+          borderBottom: "1px solid var(--ft-rule)",
+          background: "var(--ft-paper)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 16,
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div
+            className="mono"
+            style={{
+              fontSize: 10,
+              color: "var(--ft-steel)",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+            }}
+          >
+            Messages
           </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 truncate">
-              {room.name}
-            </h3>
-            <p className="text-sm text-gray-600">
-              {getRoomStatus()} • {getParticipantNames()}
-            </p>
+          <div style={{ fontSize: 12, color: "var(--ft-steel)", marginTop: 4 }}>
+            {channel.participants?.length ?? 0} members
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
-            <Phone className="w-5 h-5" />
-          </button>
-          <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
-            <Video className="w-5 h-5" />
-          </button>
-          <button 
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-            onClick={() => setShowRoomInfo(!showRoomInfo)}
+        {/* Presence: avatar stack + N online */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          {onlineList.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center" }}>
+              {onlineList.slice(0, 4).map((uid, i) => {
+                const isSelf = uid === currentUserId;
+                return (
+                  <div
+                    key={uid}
+                    title={isSelf ? "You" : nameLookup.get(uid) || "online"}
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 24,
+                      background: colorFor(uid),
+                      color: "#fff",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 9,
+                      fontWeight: 600,
+                      border: isSelf
+                        ? "2px solid var(--ft-hi-vis)"
+                        : "2px solid var(--ft-paper)",
+                      marginLeft: i === 0 ? 0 : -7,
+                      position: "relative",
+                    }}
+                  >
+                    {isSelf ? "YOU" : initialsForId(uid, nameLookup)}
+                  </div>
+                );
+              })}
+              {onlineList.length > 4 && (
+                <span
+                  className="mono"
+                  style={{
+                    fontSize: 10,
+                    color: "var(--ft-steel)",
+                    marginLeft: 4,
+                  }}
+                >
+                  +{onlineList.length - 4}
+                </span>
+              )}
+            </div>
+          )}
+          <span
+            className="mono"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 10,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              padding: "5px 9px",
+              borderRadius: 100,
+              background:
+                onlineList.length > 0
+                  ? "var(--ft-hi-vis-soft)"
+                  : "var(--ft-paper-2)",
+              color:
+                onlineList.length > 0
+                  ? "var(--ft-hi-vis-deep)"
+                  : "var(--ft-steel)",
+              border: `1px solid ${
+                onlineList.length > 0
+                  ? "var(--ft-hi-vis-soft)"
+                  : "var(--ft-rule)"
+              }`,
+            }}
           >
-            <Users className="w-5 h-5" />
-          </button>
-          <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
-            <MoreVertical className="w-5 h-5" />
-          </button>
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 6,
+                background:
+                  onlineList.length > 0
+                    ? "var(--ft-yellow)"
+                    : "var(--ft-steel-2)",
+                boxShadow:
+                  onlineList.length > 0
+                    ? "0 0 0 3px rgba(255,218,41,0.28)"
+                    : "none",
+              }}
+            />
+            {onlineList.length} online
+          </span>
         </div>
       </div>
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4">
-        {Object.entries(messageGroups).map(([date, dayMessages]) => (
-          <div key={date}>
-            {/* Date Header */}
-            <div className="flex items-center justify-center my-4">
-              <div className="bg-white border border-gray-200 rounded-full px-4 py-1">
-                <span className="text-xs font-medium text-gray-600">
-                  {formatDateHeader(date)}
-                </span>
-              </div>
+      {/* Messages */}
+      <div
+        style={{
+          flex: 1,
+          overflow: "auto",
+          padding: 24,
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+          background: "var(--ft-paper-2)",
+        }}
+      >
+        {!messagesReady ? (
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--ft-steel-2)",
+            }}
+          >
+            <span
+              className="mono"
+              style={{ fontSize: 10, letterSpacing: "0.12em" }}
+            >
+              LOADING MESSAGES…
+            </span>
+          </div>
+        ) : messages.length === 0 ? (
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--ft-steel)",
+              gap: 6,
+            }}
+          >
+            <div className="mono" style={{ fontSize: 10, letterSpacing: "0.12em" }}>
+              NO MESSAGES YET
             </div>
-
-            {/* Messages for this date */}
-            <div className="space-y-4">
-              {dayMessages.map((message, index) => {
-                const prevMessage = index > 0 ? dayMessages[index - 1] : null;
-                const showAvatar = !prevMessage || 
-                                  prevMessage.user_id !== message.user_id ||
-                                  (new Date(message.created_at).getTime() - 
-                                   new Date(prevMessage.created_at).getTime()) > 300000; // 5 minutes
-
+            <div style={{ fontSize: 14 }}>
+              Start the conversation — anything here is searchable across the project.
+            </div>
+          </div>
+        ) : (
+          groups.map((g) => (
+            <div key={g.date} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div
+                className="mono"
+                style={{
+                  alignSelf: "center",
+                  fontSize: 11,
+                  color: "var(--ft-steel)",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                — {formatDateLabel(g.date)} —
+              </div>
+              {g.messages.map((m, idx) => {
+                const prev = idx > 0 ? g.messages[idx - 1] : null;
+                const showHeader =
+                  !prev ||
+                  prev.userId !== m.userId ||
+                  new Date(m.createdAt).getTime() -
+                    new Date(prev.createdAt).getTime() >
+                    5 * 60 * 1000;
+                const resolvedUser =
+                  m.user.fullName || m.user.email
+                    ? m.user
+                    : members.get(m.userId) ?? m.user;
                 return (
                   <MessageBubble
-                    key={message.id}
-                    message={message}
-                    isOwnMessage={message.user_id === currentUserId}
-                    showAvatar={showAvatar}
-                    showTimestamp={showAvatar}
+                    key={m.id}
+                    message={{ ...m, user: resolvedUser }}
+                    isOwnMessage={m.userId === currentUserId}
+                    showHeader={showHeader}
+                    readers={readersByMessageId.get(m.id) ?? []}
+                    onEdit={onEditMessage}
+                    onDelete={onDeleteMessage}
                   />
                 );
               })}
             </div>
-          </div>
-        ))}
-        
-        {messages.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              {getRoomIcon(room)}
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Welcome to {room.name}
-            </h3>
-            <p className="text-gray-600">
-              This is the beginning of your conversation.
-              {room.type === 'project' && ' Share updates, photos, and coordinate work here.'}
-            </p>
-          </div>
+          ))
         )}
-        
-        <div ref={messagesEndRef} />
+        <div ref={endRef} />
       </div>
 
-      {/* Message Input */}
-      <div className="border-t border-gray-200 bg-white">
-        <MessageInput 
-          onSendMessage={onSendMessage}
-          placeholder={`Message ${room.type === 'direct' ? room.name : '#' + room.name}`}
-          roomType={room.type}
-        />
-      </div>
+      <MessageInput onSendMessage={onSendMessage} />
     </div>
   );
 }

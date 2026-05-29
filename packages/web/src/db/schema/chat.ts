@@ -5,6 +5,7 @@ import {
   text,
   timestamp,
   jsonb,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { projects } from "./projects";
@@ -15,8 +16,8 @@ export const chatChannels = pgTable("chat_channels", {
     .references(() => projects.id, { onDelete: "cascade" })
     .notNull(),
   name: varchar("name", { length: 255 }).notNull(),
-  type: varchar("type", { length: 20 }).default("project"), // project, team, client
-  participants: uuid("participants").array().default([]), // Array of user IDs
+  type: varchar("type", { length: 20 }).default("project"),
+  participants: uuid("participants").array().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -30,9 +31,25 @@ export const chatMessages = pgTable("chat_messages", {
     .references(() => users.id)
     .notNull(),
   content: text("content").notNull(),
-  type: varchar("type", { length: 20 }).default("text"), // text, image, file, system
+  type: varchar("type", { length: 20 }).default("text"),
   attachments: jsonb("attachments").default("[]"),
-  replyTo: uuid("reply_to"), // References chat_messages.id
+  replyTo: uuid("reply_to"),
+  editedAt: timestamp("edited_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const chatChannelReads = pgTable(
+  "chat_channel_reads",
+  {
+    channelId: uuid("channel_id")
+      .references(() => chatChannels.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    lastReadAt: timestamp("last_read_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.channelId, t.userId] })]
+);

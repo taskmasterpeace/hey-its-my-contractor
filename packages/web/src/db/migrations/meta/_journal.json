@@ -8,6 +8,13 @@
       "when": 1779668345829,
       "tag": "0000_rainy_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780015939557,
+      "tag": "0001_square_deathstrike",
+      "breakpoints": true
     }
   ]
 }

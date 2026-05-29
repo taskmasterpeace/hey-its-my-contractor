@@ -75,7 +75,7 @@ export function ProjectWorkspaceLayout({
           icon: FileText,
         },
         {
-          name: "Chat",
+          name: "Messages",
           href: `/project/${project.id}/chat`,
           icon: MessageSquare,
         },
@@ -317,6 +317,8 @@ export function ProjectWorkspaceLayout({
               >
                 {pathname.endsWith("/dashboard")
                   ? "Today"
+                  : pathname.endsWith("/chat")
+                  ? "Messages"
                   : pathname.split("/").pop()?.replace("-", " ") || "Today"}
               </h2>
             </div>
