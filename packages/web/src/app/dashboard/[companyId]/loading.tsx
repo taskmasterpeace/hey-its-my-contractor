@@ -1,78 +1,148 @@
 export default function DashboardLoading() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="h-8 w-48 bg-gray-200 animate-pulse rounded"></div>
-            <div className="h-6 w-32 bg-gray-200 animate-pulse rounded"></div>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--ft-paper-2)",
+      }}
+    >
+      {/* Top bar */}
+      <div
+        style={{
+          padding: "16px 28px",
+          background: "var(--ft-paper)",
+          borderBottom: "1px solid var(--ft-rule)",
+          boxShadow: "inset 0 -3px 0 var(--ft-sky-soft)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div
+            className="ft-skel"
+            style={{ width: 36, height: 36, borderRadius: 4 }}
+          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div className="ft-skel" style={{ height: 16, width: 180 }} />
+            <div className="ft-skel" style={{ height: 11, width: 120 }} />
           </div>
-          <div className="h-10 w-32 bg-gray-200 animate-pulse rounded"></div>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div className="ft-skel" style={{ height: 32, width: 90, borderRadius: 4 }} />
+          <div className="ft-skel" style={{ height: 32, width: 110, borderRadius: 4 }} />
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Company Selector */}
-        <div className="mb-8">
-          <div className="h-6 w-40 bg-gray-200 animate-pulse rounded mb-4"></div>
-          <div className="h-12 w-80 bg-gray-200 animate-pulse rounded"></div>
+      {/* Main content */}
+      <div
+        style={{
+          maxWidth: 1300,
+          margin: "0 auto",
+          padding: "28px 28px 40px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 24,
+        }}
+      >
+        {/* Heading row */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="ft-skel" style={{ height: 10, width: 70 }} />
+            <div className="ft-skel" style={{ height: 26, width: 200 }} />
+          </div>
+          <div className="ft-skel" style={{ height: 36, width: 140, borderRadius: 4 }} />
         </div>
 
-        {/* Projects Section */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="h-8 w-32 bg-gray-200 animate-pulse rounded"></div>
-            <div className="h-10 w-36 bg-gray-200 animate-pulse rounded"></div>
-          </div>
-
-          {/* Project Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
+        {/* Project cards grid */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: 16,
+          }}
+        >
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              style={{
+                background: "var(--ft-paper)",
+                border: "1px solid var(--ft-rule)",
+                borderRadius: 6,
+                padding: 18,
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
+              {/* Title + status */}
               <div
-                key={i}
-                className="bg-white rounded-lg border border-gray-200 p-6 space-y-4"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  gap: 10,
+                }}
               >
-                {/* Project Header */}
-                <div className="space-y-2">
-                  <div className="h-6 w-48 bg-gray-200 animate-pulse rounded"></div>
-                  <div className="h-4 w-64 bg-gray-200 animate-pulse rounded"></div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    flex: 1,
+                  }}
+                >
+                  <div className="ft-skel" style={{ height: 16, width: "75%" }} />
+                  <div className="ft-skel" style={{ height: 11, width: "55%" }} />
                 </div>
-
-                {/* Project Details */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 bg-gray-200 animate-pulse rounded"></div>
-                    <div className="h-4 w-32 bg-gray-200 animate-pulse rounded"></div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 bg-gray-200 animate-pulse rounded"></div>
-                    <div className="h-4 w-24 bg-gray-200 animate-pulse rounded"></div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 bg-gray-200 animate-pulse rounded"></div>
-                    <div className="h-4 w-28 bg-gray-200 animate-pulse rounded"></div>
-                  </div>
-                </div>
-
-                {/* Status Badge */}
-                <div className="pt-2">
-                  <div className="h-6 w-20 bg-gray-200 animate-pulse rounded-full"></div>
-                </div>
-
-                {/* Action Button */}
-                <div className="pt-4">
-                  <div className="h-10 w-full bg-gray-200 animate-pulse rounded"></div>
-                </div>
+                <div
+                  className="ft-skel"
+                  style={{ height: 20, width: 64, borderRadius: 100 }}
+                />
               </div>
-            ))}
-          </div>
 
-          {/* Loading message */}
-          <div className="text-center py-8">
-            <div className="h-4 w-48 bg-gray-200 animate-pulse rounded mx-auto"></div>
-          </div>
+              {/* Detail rows */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {[0, 1, 2].map((n) => (
+                  <div
+                    key={n}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <div
+                      className="ft-skel"
+                      style={{ width: 14, height: 14, borderRadius: 2 }}
+                    />
+                    <div className="ft-skel" style={{ height: 11, width: `${60 + n * 8}%` }} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginTop: 6,
+                  paddingTop: 10,
+                  borderTop: "1px solid var(--ft-rule)",
+                }}
+              >
+                <div className="ft-skel" style={{ height: 10, width: 80 }} />
+                <div
+                  className="ft-skel"
+                  style={{ height: 28, width: 80, borderRadius: 3 }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

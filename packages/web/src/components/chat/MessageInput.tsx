@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  KeyboardEvent,
+  ClipboardEvent,
+  DragEvent,
+} from "react";
 import { Paperclip, Send, X, FileText } from "lucide-react";
 
 interface MessageInputProps {
@@ -27,7 +35,9 @@ export function MessageInput({
   const [files, setFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragDepth = useRef(0);
 
   // Build blob URLs for image previews and clean them up when files change.
   const previewUrls = useMemo(
@@ -94,14 +104,95 @@ export function MessageInput({
     }
   };
 
+  const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const collected: File[] = [];
+    for (const item of Array.from(items)) {
+      if (item.kind === "file") {
+        const f = item.getAsFile();
+        if (f) collected.push(f);
+      }
+    }
+    if (collected.length === 0) return;
+    e.preventDefault();
+    const dt = new DataTransfer();
+    for (const f of collected) dt.items.add(f);
+    addFiles(dt.files);
+  };
+
+  const onDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    e.preventDefault();
+    dragDepth.current += 1;
+    setDragOver(true);
+  };
+
+  const onDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    e.preventDefault();
+  };
+
+  const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    e.preventDefault();
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragOver(false);
+  };
+
+  const onDrop = (e: DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDragOver(false);
+    addFiles(e.dataTransfer.files);
+  };
+
   return (
     <div
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
       style={{
         padding: "14px 24px",
         borderTop: "1px solid var(--ft-rule)",
         background: "var(--ft-paper-2)",
+        position: "relative",
       }}
     >
+      {dragOver && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 8,
+            zIndex: 5,
+            background: "rgba(230,238,251,0.92)",
+            border: "2px dashed var(--ft-hi-vis)",
+            borderRadius: 4,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--ft-hi-vis-deep)",
+            pointerEvents: "none",
+            gap: 4,
+          }}
+        >
+          <div
+            className="mono"
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+            }}
+          >
+            Drop to attach
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>Images or documents · up to 25 MB each</div>
+        </div>
+      )}
+
       {/* Staging area — clearly indicates files are queued but not yet sent */}
       {files.length > 0 && (
         <div
@@ -266,6 +357,7 @@ export function MessageInput({
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}
+          onPaste={onPaste}
           placeholder={
             files.length > 0
               ? "Add a caption (optional)…"

@@ -24,9 +24,15 @@ export interface ChatAttachment {
 export interface Channel {
   id: string;
   name: string;
-  type: string;
+  type: string; // 'project' | 'group' | 'direct'
   participants?: string[];
-  lastMessage?: { content: string | null; createdAt: string } | null;
+  createdBy?: string | null;
+  lastMessage?: {
+    content: string | null;
+    createdAt: string;
+    userId?: string;
+  } | null;
+  unreadCount?: number;
   updatedAt: string;
 }
 
@@ -46,6 +52,18 @@ export interface ReadReceipt {
   lastReadAt: string;
 }
 
+interface CreateChannelInput {
+  type: "group" | "direct";
+  participants: string[]; // user ids (creator gets auto-added)
+  name?: string;
+}
+
+interface UpdateChannelInput {
+  channelId: string;
+  name?: string;
+  participants?: string[];
+}
+
 interface UseChatRealtimeReturn {
   channels: Channel[];
   activeChannel: Channel | null;
@@ -55,6 +73,10 @@ interface UseChatRealtimeReturn {
   editMessage: (messageId: string, content: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
   selectChannel: (channelId: string) => void;
+  createChannel: (input: CreateChannelInput) => Promise<Channel | null>;
+  updateChannel: (input: UpdateChannelInput) => Promise<Channel | null>;
+  deleteChannel: (channelId: string) => Promise<boolean>;
+  refreshChannels: () => Promise<void>;
   onlineUserIds: Set<string>;
   reads: Map<string, string>;
   loading: boolean;
@@ -76,11 +98,39 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
   const [messagesReady, setMessagesReady] = useState(false);
 
   const realtimeRef = useRef<RealtimeChannel | null>(null);
+  const railRtRef = useRef<RealtimeChannel | null>(null);
   const supabaseRef = useRef(createClient());
   const membersRef = useRef<Map<string, ChatUser>>(new Map());
+  const activeChannelIdRef = useRef<string | null>(null);
 
-  // Keep ref in sync so realtime callbacks see the latest map without re-subscribing.
+  // Keep refs in sync so realtime callbacks see the latest state without re-subscribing.
   membersRef.current = members;
+  activeChannelIdRef.current = activeChannel?.id ?? null;
+
+  const fetchChannels = useCallback(async (): Promise<Channel[]> => {
+    if (!projectId) return [];
+    const res = await fetch(`/api/project/${projectId}/chat`);
+    if (!res.ok) return [];
+    const body = await res.json();
+    const list: Channel[] = (body.channels ?? []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      type: c.type ?? "project",
+      participants: c.participants ?? [],
+      createdBy: c.createdBy ?? c.created_by ?? null,
+      lastMessage: c.lastMessage
+        ? {
+            content: c.lastMessage.content,
+            createdAt: c.lastMessage.createdAt ?? c.lastMessage.created_at,
+            userId: c.lastMessage.userId ?? c.lastMessage.user_id,
+          }
+        : null,
+      unreadCount: c.unreadCount ?? 0,
+      updatedAt: c.updatedAt ?? c.updated_at ?? new Date().toISOString(),
+    }));
+    setChannels(list);
+    return list;
+  }, [projectId]);
 
   // ---------- 1. Fetch channels + members on mount ----------
   useEffect(() => {
@@ -90,16 +140,12 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
     (async () => {
       setLoading(true);
       try {
-        const [chRes, teamRes] = await Promise.all([
-          fetch(`/api/project/${projectId}/chat`),
+        const [list, teamRes] = await Promise.all([
+          fetchChannels(),
           fetch(`/api/project/${projectId}/team`),
         ]);
 
-        if (!chRes.ok) throw new Error("Failed to fetch channels");
-        const chBody = await chRes.json();
-        const list: Channel[] = chBody.channels ?? [];
         if (cancelled) return;
-        setChannels(list);
         if (list.length > 0) setActiveChannel((prev) => prev ?? list[0]);
 
         if (teamRes.ok) {
@@ -120,7 +166,7 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
           if (!cancelled) setMembers(map);
         }
       } catch (err) {
-        console.error("[useChatRealtime] fetchChannels:", err);
+        console.error("[useChatRealtime] init:", err);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -129,7 +175,7 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, fetchChannels]);
 
   // ---------- 2. Fetch messages + reads when active channel changes ----------
   useEffect(() => {
@@ -189,7 +235,7 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
     };
   }, [projectId, activeChannel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---------- 3. Realtime subscription: messages + presence + reads ----------
+  // ---------- 3. Realtime subscription: messages + presence + reads (per active channel) ----------
   useEffect(() => {
     if (!activeChannel || !user) return;
 
@@ -253,14 +299,18 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
       .on(
         "postgres_changes",
         {
+          // No filter: Postgres only includes the primary key in DELETE payloads
+          // (unless REPLICA IDENTITY FULL is set), so a `channel_id=eq.X` filter
+          // never matches. Match by id in the handler instead.
           event: "DELETE",
           schema: "public",
           table: "chat_messages",
-          filter: `channel_id=eq.${channelId}`,
         },
         (payload) => {
           const r = payload.old as Record<string, any>;
-          setMessages((prev) => prev.filter((m) => m.id !== r.id));
+          const id = r?.id;
+          if (!id) return;
+          setMessages((prev) => prev.filter((m) => m.id !== id));
         }
       )
       .on(
@@ -312,9 +362,151 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
     };
   }, [activeChannel?.id, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ---------- 3b. Rail-level realtime: update last message + unread for ALL channels in the project ----------
+  useEffect(() => {
+    if (!user || channels.length === 0) return;
+    const supabase = supabaseRef.current;
+    const channelIds = channels.map((c) => c.id);
+
+    const rc = supabase.channel(`chat-rail:${projectId}`);
+
+    for (const cid of channelIds) {
+      rc.on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `channel_id=eq.${cid}`,
+        },
+        (payload) => {
+          const r = payload.new as Record<string, any>;
+          const isOwn = r.user_id === user.id;
+          const isActive = activeChannelIdRef.current === cid;
+          setChannels((prev) =>
+            prev.map((c) =>
+              c.id === cid
+                ? {
+                    ...c,
+                    lastMessage: {
+                      content: r.content,
+                      createdAt: r.created_at,
+                      userId: r.user_id,
+                    },
+                    // Don't bump unread for own sends or for the currently-open channel.
+                    unreadCount:
+                      isOwn || isActive ? c.unreadCount ?? 0 : (c.unreadCount ?? 0) + 1,
+                  }
+                : c
+            )
+          );
+        }
+      );
+      rc.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_channel_reads",
+          filter: `channel_id=eq.${cid}`,
+        },
+        (payload) => {
+          const r = (payload.new ?? payload.old) as Record<string, any>;
+          if (r?.user_id !== user.id) return;
+          // Our own read marker moved — zero out unread for that channel.
+          setChannels((prev) =>
+            prev.map((c) => (c.id === cid ? { ...c, unreadCount: 0 } : c))
+          );
+        }
+      );
+    }
+
+    rc.subscribe();
+    railRtRef.current = rc;
+
+    return () => {
+      supabase.removeChannel(rc);
+      railRtRef.current = null;
+    };
+  }, [user?.id, projectId, channels.map((c) => c.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------- 3c. Realtime: chat_channels CRUD at project scope ----------
+  useEffect(() => {
+    if (!user || !projectId) return;
+    const supabase = supabaseRef.current;
+    const rc = supabase.channel(`chat-channels:${projectId}`);
+
+    const refreshAndSwitchIfGone = async (deletedId?: string) => {
+      const list = await fetchChannels();
+      if (deletedId && activeChannelIdRef.current === deletedId) {
+        const fallback =
+          list.find((c) => c.type === "project") ?? list[0] ?? null;
+        setActiveChannel(fallback);
+      }
+    };
+
+    rc.on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "chat_channels",
+        filter: `project_id=eq.${projectId}`,
+      },
+      () => {
+        fetchChannels();
+      }
+    );
+    rc.on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "chat_channels",
+        filter: `project_id=eq.${projectId}`,
+      },
+      () => {
+        fetchChannels();
+      }
+    );
+    rc.on(
+      "postgres_changes",
+      {
+        // No project_id filter: DELETE payloads only carry the primary key
+        // (REPLICA IDENTITY DEFAULT). Match locally — we already only know
+        // about channels in this project so an unknown id is a no-op.
+        event: "DELETE",
+        schema: "public",
+        table: "chat_channels",
+      },
+      (payload) => {
+        const row = payload.old as Record<string, unknown> | undefined;
+        const id = (row?.id as string | undefined) ?? undefined;
+        if (!id) return;
+        refreshAndSwitchIfGone(id);
+      }
+    );
+
+    rc.subscribe();
+    return () => {
+      supabase.removeChannel(rc);
+    };
+  }, [user?.id, projectId, fetchChannels]);
+
   // ---------- 4. Mark channel read on open + on new message ----------
   useEffect(() => {
     if (!projectId || !activeChannel || !user) return;
+
+    // Clear the local unread badge immediately so the user sees instant feedback.
+    setChannels((prev) =>
+      prev.map((c) =>
+        c.id === activeChannel.id && (c.unreadCount ?? 0) !== 0
+          ? { ...c, unreadCount: 0 }
+          : c
+      )
+    );
+
+    // Debounce the POST a touch so rapid channel switching doesn't hammer the server.
     const timer = setTimeout(() => {
       fetch(
         `/api/project/${projectId}/chat/${activeChannel.id}/reads`,
@@ -330,10 +522,153 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
   const selectChannel = useCallback(
     (channelId: string) => {
       const found = channels.find((c) => c.id === channelId) ?? null;
+      if (!found) return;
       setActiveChannel(found);
+      // Zero the unread badge on click so it never visually lingers, regardless
+      // of when the read POST commits or the chat_channel_reads broadcast lands.
+      setChannels((prev) =>
+        prev.map((c) =>
+          c.id === channelId && (c.unreadCount ?? 0) !== 0
+            ? { ...c, unreadCount: 0 }
+            : c
+        )
+      );
     },
     [channels]
   );
+
+  // ---------- 5b. createChannel ----------
+  const createChannel = useCallback(
+    async (input: CreateChannelInput): Promise<Channel | null> => {
+      if (!projectId) return null;
+      try {
+        const res = await fetch(`/api/project/${projectId}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          console.error("[createChannel]", body.error || res.statusText);
+          return null;
+        }
+        const body = await res.json();
+        const raw = body.channel;
+        const created: Channel = {
+          id: raw.id,
+          name: raw.name,
+          type: raw.type ?? "group",
+          participants: raw.participants ?? [],
+          lastMessage: null,
+          unreadCount: 0,
+          updatedAt: raw.updatedAt ?? raw.updated_at ?? new Date().toISOString(),
+        };
+
+        setChannels((prev) => {
+          const existing = prev.find((c) => c.id === created.id);
+          if (existing) return prev;
+          return [...prev, created];
+        });
+        setActiveChannel(created);
+        return created;
+      } catch (err) {
+        console.error("[createChannel]", err);
+        return null;
+      }
+    },
+    [projectId]
+  );
+
+  // ---------- 5c. updateChannel ----------
+  const updateChannel = useCallback(
+    async (input: UpdateChannelInput): Promise<Channel | null> => {
+      if (!projectId) return null;
+      const body: Record<string, unknown> = {};
+      if (input.name !== undefined) body.name = input.name;
+      if (input.participants !== undefined) body.participants = input.participants;
+
+      try {
+        const res = await fetch(
+          `/api/project/${projectId}/chat/${input.channelId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }
+        );
+        if (!res.ok) {
+          const b = await res.json().catch(() => ({}));
+          console.error("[updateChannel]", b.error || res.statusText);
+          return null;
+        }
+        const b = await res.json();
+        const raw = b.channel;
+        const updated: Channel = {
+          id: raw.id,
+          name: raw.name,
+          type: raw.type ?? "group",
+          participants: raw.participants ?? [],
+          createdBy: raw.createdBy ?? raw.created_by ?? null,
+          updatedAt:
+            raw.updatedAt ?? raw.updated_at ?? new Date().toISOString(),
+        };
+        setChannels((prev) =>
+          prev.map((c) =>
+            c.id === updated.id
+              ? { ...c, name: updated.name, participants: updated.participants }
+              : c
+          )
+        );
+        setActiveChannel((prev) =>
+          prev && prev.id === updated.id
+            ? { ...prev, name: updated.name, participants: updated.participants }
+            : prev
+        );
+        return updated;
+      } catch (err) {
+        console.error("[updateChannel]", err);
+        return null;
+      }
+    },
+    [projectId]
+  );
+
+  // ---------- 5d. deleteChannel ----------
+  const deleteChannel = useCallback(
+    async (channelId: string): Promise<boolean> => {
+      if (!projectId) return false;
+      try {
+        const res = await fetch(
+          `/api/project/${projectId}/chat/${channelId}`,
+          { method: "DELETE" }
+        );
+        if (!res.ok) {
+          const b = await res.json().catch(() => ({}));
+          console.error("[deleteChannel]", b.error || res.statusText);
+          return false;
+        }
+        setChannels((prev) => {
+          const next = prev.filter((c) => c.id !== channelId);
+          // If we just deleted the active channel, fall back to the project channel.
+          if (activeChannelIdRef.current === channelId) {
+            const fallback =
+              next.find((c) => c.type === "project") ?? next[0] ?? null;
+            setActiveChannel(fallback);
+          }
+          return next;
+        });
+        return true;
+      } catch (err) {
+        console.error("[deleteChannel]", err);
+        return false;
+      }
+    },
+    [projectId]
+  );
+
+  const refreshChannels = useCallback(async () => {
+    await fetchChannels();
+  }, [fetchChannels]);
 
   // ---------- 6. sendMessage ----------
   const sendMessage = useCallback(
@@ -501,6 +836,10 @@ export function useChatRealtime(projectId: string): UseChatRealtimeReturn {
     editMessage,
     deleteMessage,
     selectChannel,
+    createChannel,
+    updateChannel,
+    deleteChannel,
+    refreshChannels,
     onlineUserIds,
     reads,
     loading,

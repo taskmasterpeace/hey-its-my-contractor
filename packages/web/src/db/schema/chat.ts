@@ -18,6 +18,9 @@ export const chatChannels = pgTable("chat_channels", {
   name: varchar("name", { length: 255 }).notNull(),
   type: varchar("type", { length: 20 }).default("project"),
   participants: uuid("participants").array().default([]),
+  createdBy: uuid("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

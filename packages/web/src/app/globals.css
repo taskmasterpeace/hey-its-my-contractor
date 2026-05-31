@@ -321,3 +321,38 @@
   border-top-right-radius: 0.375rem !important;
   border-bottom-right-radius: 0.375rem !important;
 }
+/* ===================== Skeleton shimmer ===================== */
+@keyframes ft-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.ft-skel {
+  background: linear-gradient(
+    90deg,
+    var(--ft-paper-2) 0%,
+    rgba(197, 204, 215, 0.55) 50%,
+    var(--ft-paper-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: ft-shimmer 1.4s ease-in-out infinite;
+  border-radius: 3px;
+  display: block;
+}
+
+.ft-skel-dark {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: ft-shimmer 1.4s ease-in-out infinite;
+  border-radius: 3px;
+  display: block;
+}

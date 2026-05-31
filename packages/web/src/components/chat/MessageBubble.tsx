@@ -8,12 +8,16 @@ import {
   X,
   Download,
   FileText,
+  Image as ImageIcon,
+  FileSpreadsheet,
+  FileType2,
 } from "lucide-react";
 import type {
   Message,
   ChatUser,
   ChatAttachment,
 } from "@/hooks/useChatRealtime";
+import { Lightbox } from "./Lightbox";
 
 interface ReadViewer {
   id: string;
@@ -24,7 +28,7 @@ interface MessageBubbleProps {
   message: Message;
   isOwnMessage: boolean;
   showHeader: boolean;
-  readers: ReadViewer[]; // only populated for last own message
+  readers: ReadViewer[];
   onEdit?: (messageId: string, content: string) => void | Promise<void>;
   onDelete?: (messageId: string) => void | Promise<void>;
 }
@@ -67,45 +71,215 @@ function fileExt(filename: string) {
   return i >= 0 ? filename.slice(i + 1).toUpperCase() : "FILE";
 }
 
-function AttachmentView({
+function fileBadge(mime: string, filename: string) {
+  const ext = fileExt(filename);
+  if (mime === "application/pdf" || ext === "PDF") {
+    return { tint: "#C9472D", soft: "#FBE8E2", icon: FileType2 };
+  }
+  if (
+    ext === "XLS" || ext === "XLSX" || ext === "CSV" ||
+    mime.includes("spreadsheet") || mime === "text/csv"
+  ) {
+    return { tint: "#1E6E3A", soft: "#E2F0E6", icon: FileSpreadsheet };
+  }
+  if (ext === "DOC" || ext === "DOCX" || mime.includes("word")) {
+    return { tint: "#1B4FA8", soft: "#E6EEFB", icon: FileText };
+  }
+  return { tint: "#54607A", soft: "#EEF2F8", icon: FileText };
+}
+
+function formatTime(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+// =================== Image grid + file list ===================
+
+function ImageTile({
+  attachment,
+  width,
+  height,
+  onOpen,
+  overlayCount,
+}: {
+  attachment: ChatAttachment;
+  width: number;
+  height: number;
+  onOpen: () => void;
+  overlayCount?: number;
+}) {
+  return (
+    <button
+      onClick={onOpen}
+      title={attachment.filename}
+      style={{
+        position: "relative",
+        width,
+        height,
+        border: "1px solid var(--ft-rule)",
+        padding: 0,
+        background: "var(--ft-paper-2)",
+        cursor: "pointer",
+        borderRadius: 3,
+        overflow: "hidden",
+        fontFamily: "inherit",
+      }}
+    >
+      <img
+        src={attachment.url}
+        alt={attachment.filename}
+        style={{
+          display: "block",
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+        }}
+      />
+      {overlayCount && overlayCount > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(8,12,22,0.55)",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 20,
+            fontWeight: 700,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          +{overlayCount}
+        </div>
+      )}
+    </button>
+  );
+}
+
+function ImageGrid({
+  images,
+  onOpen,
+}: {
+  images: ChatAttachment[];
+  onOpen: (index: number) => void;
+}) {
+  if (images.length === 0) return null;
+
+  // 1 image: single, contain-style up to 320 wide
+  if (images.length === 1) {
+    const a = images[0];
+    return (
+      <button
+        onClick={() => onOpen(0)}
+        title={a.filename}
+        style={{
+          padding: 0,
+          border: "1px solid var(--ft-rule)",
+          background: "var(--ft-paper-2)",
+          cursor: "pointer",
+          borderRadius: 3,
+          overflow: "hidden",
+          maxWidth: 360,
+          fontFamily: "inherit",
+        }}
+      >
+        <img
+          src={a.url}
+          alt={a.filename}
+          style={{
+            display: "block",
+            maxWidth: 360,
+            maxHeight: 360,
+            width: "100%",
+            height: "auto",
+            objectFit: "cover",
+          }}
+        />
+      </button>
+    );
+  }
+
+  if (images.length === 2) {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, maxWidth: 360 }}>
+        {images.map((a, i) => (
+          <ImageTile
+            key={a.id}
+            attachment={a}
+            width={178}
+            height={178}
+            onOpen={() => onOpen(i)}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (images.length === 3) {
+    // 1 large left + 2 stacked right
+    return (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "236px 116px",
+          gap: 4,
+          maxWidth: 360,
+        }}
+      >
+        <ImageTile
+          attachment={images[0]}
+          width={236}
+          height={236}
+          onOpen={() => onOpen(0)}
+        />
+        <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 4 }}>
+          <ImageTile attachment={images[1]} width={116} height={116} onOpen={() => onOpen(1)} />
+          <ImageTile attachment={images[2]} width={116} height={116} onOpen={() => onOpen(2)} />
+        </div>
+      </div>
+    );
+  }
+
+  // 4+ images: 2x2; if more than 4 show +N on the last tile
+  const visible = images.slice(0, 4);
+  const extra = images.length - 4;
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 4,
+        maxWidth: 360,
+      }}
+    >
+      {visible.map((a, i) => (
+        <ImageTile
+          key={a.id}
+          attachment={a}
+          width={178}
+          height={178}
+          onOpen={() => onOpen(i)}
+          overlayCount={i === 3 && extra > 0 ? extra : undefined}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FileCard({
   attachment,
   isOwnMessage,
 }: {
   attachment: ChatAttachment;
   isOwnMessage: boolean;
 }) {
-  if (attachment.type === "image") {
-    return (
-      <a
-        href={attachment.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          display: "inline-block",
-          borderRadius: 3,
-          overflow: "hidden",
-          border: "1px solid var(--ft-rule)",
-          maxWidth: 320,
-          background: "var(--ft-paper)",
-        }}
-        title={attachment.filename}
-      >
-        <img
-          src={attachment.url}
-          alt={attachment.filename}
-          style={{
-            display: "block",
-            maxWidth: 320,
-            maxHeight: 320,
-            width: "100%",
-            height: "auto",
-            objectFit: "cover",
-          }}
-        />
-      </a>
-    );
-  }
-
+  const { tint, soft, icon: Icon } = fileBadge(attachment.mime, attachment.filename);
+  const ext = fileExt(attachment.filename);
   return (
     <a
       href={attachment.url}
@@ -114,35 +288,45 @@ function AttachmentView({
       download={attachment.filename}
       style={{
         display: "inline-flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "8px 12px",
+        alignItems: "stretch",
+        gap: 0,
         background: isOwnMessage ? "var(--ft-ink-soft)" : "var(--ft-paper)",
         color: isOwnMessage ? "var(--ft-paper)" : "var(--ft-ink)",
-        border: `1px solid ${
-          isOwnMessage ? "var(--ft-ink-soft)" : "var(--ft-rule)"
-        }`,
-        borderRadius: 3,
+        border: `1px solid ${isOwnMessage ? "var(--ft-ink-soft)" : "var(--ft-rule)"}`,
+        borderRadius: 4,
         textDecoration: "none",
-        maxWidth: 320,
+        maxWidth: 360,
+        overflow: "hidden",
       }}
     >
       <div
         style={{
-          width: 32,
-          height: 32,
-          borderRadius: 3,
-          background: isOwnMessage ? "var(--ft-ink)" : "var(--ft-paper-2)",
-          color: isOwnMessage ? "var(--ft-paper)" : "var(--ft-steel)",
+          width: 44,
+          background: isOwnMessage ? "var(--ft-ink)" : soft,
+          color: tint,
           display: "inline-flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
+          padding: "8px 6px",
         }}
       >
-        <FileText size={16} />
+        <Icon size={18} />
+        <span
+          className="mono"
+          style={{
+            fontSize: 8,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            marginTop: 4,
+            color: isOwnMessage ? "var(--ft-paper)" : tint,
+          }}
+        >
+          {ext}
+        </span>
       </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
+      <div style={{ minWidth: 0, flex: 1, padding: "8px 12px" }}>
         <div
           style={{
             fontSize: 13,
@@ -163,28 +347,25 @@ function AttachmentView({
             marginTop: 2,
           }}
         >
-          {fileExt(attachment.filename)} · {formatSize(attachment.size)}
+          {formatSize(attachment.size)}
         </div>
       </div>
-      <Download
-        size={14}
+      <div
         style={{
-          flexShrink: 0,
+          padding: "8px 12px",
+          display: "inline-flex",
+          alignItems: "center",
           color: isOwnMessage ? "var(--ft-paper)" : "var(--ft-steel)",
+          flexShrink: 0,
         }}
-      />
+      >
+        <Download size={14} />
+      </div>
     </a>
   );
 }
 
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
+// =================== Bubble ===================
 
 export function MessageBubble({
   message,
@@ -197,6 +378,7 @@ export function MessageBubble({
   const [hover, setHover] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isOptimistic = message.id.startsWith("optimistic-");
 
@@ -244,6 +426,10 @@ export function MessageBubble({
     if (!confirm("Delete this message?")) return;
     await onDelete?.(message.id);
   };
+
+  const images = (message.attachments ?? []).filter((a) => a.type === "image");
+  const files = (message.attachments ?? []).filter((a) => a.type !== "image");
+  const lightboxImages = images.map((a) => ({ url: a.url, filename: a.filename }));
 
   return (
     <div
@@ -427,13 +613,25 @@ export function MessageBubble({
                   {message.content}
                 </div>
               )}
-              {message.attachments?.map((a) => (
-                <AttachmentView
-                  key={a.id}
-                  attachment={a}
-                  isOwnMessage={isOwnMessage}
+
+              {images.length > 0 && (
+                <ImageGrid
+                  images={images}
+                  onOpen={(idx) => setLightboxIndex(idx)}
                 />
-              ))}
+              )}
+
+              {files.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", alignItems: isOwnMessage ? "flex-end" : "flex-start" }}>
+                  {files.map((a) => (
+                    <FileCard
+                      key={a.id}
+                      attachment={a}
+                      isOwnMessage={isOwnMessage}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -547,6 +745,14 @@ export function MessageBubble({
           </div>
         )}
       </div>
+
+      {lightboxIndex !== null && lightboxImages.length > 0 && (
+        <Lightbox
+          images={lightboxImages}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </div>
   );
 }

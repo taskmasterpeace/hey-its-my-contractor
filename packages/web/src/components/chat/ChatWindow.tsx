@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useMemo } from "react";
+import { Hash, Users as UsersIcon, AtSign } from "lucide-react";
 import type { Channel, Message, ChatUser } from "@/hooks/useChatRealtime";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
@@ -49,7 +50,7 @@ interface ChatWindowProps {
   onlineUserIds: Set<string>;
   reads: Map<string, string>; // userId -> lastReadAt ISO
   messagesReady: boolean;
-  onSendMessage: (content: string) => void | Promise<void>;
+  onSendMessage: (content: string, files?: File[]) => void | Promise<void>;
   onEditMessage: (messageId: string, content: string) => void | Promise<void>;
   onDeleteMessage: (messageId: string) => void | Promise<void>;
 }
@@ -72,7 +73,7 @@ export function ChatWindow({
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
-  // userId -> name (project members first, supplemented by names seen in messages)
+  // userId -> display name (members + names seen in messages)
   const nameLookup = useMemo(() => {
     const m = new Map<string, string>();
     for (const [id, info] of members.entries()) {
@@ -87,13 +88,54 @@ export function ChatWindow({
     return m;
   }, [members, messages]);
 
-  // Online members (self first, then others)
+  // Resolve title / subtitle / kind based on channel type
+  const { title, subtitle, kindLabel, KindIcon, memberIds } = useMemo(() => {
+    const participants = channel.participants ?? [];
+    if (channel.type === "direct") {
+      const otherId = participants.find((p) => p !== currentUserId);
+      const other = otherId ? members.get(otherId) : undefined;
+      const otherName =
+        other?.fullName || other?.email?.split("@")[0] || "Direct message";
+      const otherEmail = other?.email || "";
+      const isOnline = otherId ? onlineUserIds.has(otherId) : false;
+      return {
+        title: otherName,
+        subtitle: isOnline ? "Online now" : otherEmail || "Direct message",
+        kindLabel: "DIRECT",
+        KindIcon: AtSign,
+        memberIds: participants,
+      };
+    }
+    if (channel.type === "group") {
+      return {
+        title: channel.name || "Group",
+        subtitle: `${participants.length} members`,
+        kindLabel: "GROUP",
+        KindIcon: UsersIcon,
+        memberIds: participants,
+      };
+    }
+    // 'project' (or fallback)
+    // For project type, participants stores everyone-on-project; if empty, fall back to known members.
+    const ids = participants.length > 0 ? participants : Array.from(members.keys());
+    return {
+      title: channel.name || "Project chat",
+      subtitle: `${ids.length} members · project channel`,
+      kindLabel: "CHANNEL",
+      KindIcon: Hash,
+      memberIds: ids,
+    };
+  }, [channel, currentUserId, members, onlineUserIds]);
+
+  // Online list scoped to channel membership (self first, then others)
   const onlineList = useMemo(() => {
-    const others = Array.from(onlineUserIds).filter((id) => id !== currentUserId);
-    return onlineUserIds.has(currentUserId)
+    const set = new Set(memberIds);
+    const onlineInChannel = Array.from(onlineUserIds).filter((id) => set.has(id));
+    const others = onlineInChannel.filter((id) => id !== currentUserId);
+    return onlineInChannel.includes(currentUserId)
       ? [currentUserId, ...others]
       : others;
-  }, [onlineUserIds, currentUserId]);
+  }, [memberIds, onlineUserIds, currentUserId]);
 
   // Find the last own message and compute who's read it
   const lastOwnMessageId = useMemo(() => {
@@ -148,29 +190,78 @@ export function ChatWindow({
       {/* Header */}
       <div
         style={{
-          padding: "16px 24px",
+          padding: "14px 24px",
           borderBottom: "1px solid var(--ft-rule)",
           background: "var(--ft-paper)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           gap: 16,
+          flexShrink: 0,
         }}
       >
-        <div style={{ minWidth: 0 }}>
+        <div style={{ minWidth: 0, display: "flex", gap: 12, alignItems: "center" }}>
           <div
-            className="mono"
             style={{
-              fontSize: 10,
-              color: "var(--ft-steel)",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
+              width: 36,
+              height: 36,
+              borderRadius: 4,
+              background: "var(--ft-paper-2)",
+              border: "1px solid var(--ft-rule)",
+              color: "var(--ft-ink)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
             }}
           >
-            Messages
+            <KindIcon size={16} />
           </div>
-          <div style={{ fontSize: 12, color: "var(--ft-steel)", marginTop: 4 }}>
-            {channel.participants?.length ?? 0} members
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h2
+                style={{
+                  fontSize: 17,
+                  fontWeight: 600,
+                  color: "var(--ft-ink)",
+                  letterSpacing: "-0.005em",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  margin: 0,
+                }}
+              >
+                {title}
+              </h2>
+              <span
+                className="mono"
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: "0.12em",
+                  padding: "2px 6px",
+                  background: "var(--ft-paper-2)",
+                  color: "var(--ft-steel)",
+                  border: "1px solid var(--ft-rule)",
+                  borderRadius: 3,
+                  flexShrink: 0,
+                }}
+              >
+                {kindLabel}
+              </span>
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--ft-steel)",
+                marginTop: 2,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {subtitle}
+            </div>
           </div>
         </div>
 
@@ -280,22 +371,7 @@ export function ChatWindow({
         }}
       >
         {!messagesReady ? (
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--ft-steel-2)",
-            }}
-          >
-            <span
-              className="mono"
-              style={{ fontSize: 10, letterSpacing: "0.12em" }}
-            >
-              LOADING MESSAGES…
-            </span>
-          </div>
+          <MessagesLoadingSkeleton />
         ) : messages.length === 0 ? (
           <div
             style={{
@@ -311,23 +387,38 @@ export function ChatWindow({
             <div className="mono" style={{ fontSize: 10, letterSpacing: "0.12em" }}>
               NO MESSAGES YET
             </div>
-            <div style={{ fontSize: 14 }}>
-              Start the conversation — anything here is searchable across the project.
+            <div style={{ fontSize: 14, maxWidth: 360, textAlign: "center" }}>
+              {channel.type === "direct"
+                ? `Say hi to ${title}. Anything here stays between the two of you.`
+                : "Start the conversation — anything here is searchable across the project."}
             </div>
           </div>
         ) : (
           groups.map((g) => (
             <div key={g.date} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div
-                className="mono"
                 style={{
                   alignSelf: "center",
-                  fontSize: 11,
-                  color: "var(--ft-steel)",
-                  letterSpacing: "0.08em",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  width: "100%",
+                  maxWidth: 480,
                 }}
               >
-                — {formatDateLabel(g.date)} —
+                <div style={{ flex: 1, height: 1, background: "var(--ft-rule)" }} />
+                <span
+                  className="mono"
+                  style={{
+                    fontSize: 10,
+                    color: "var(--ft-steel)",
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {formatDateLabel(g.date)}
+                </span>
+                <div style={{ flex: 1, height: 1, background: "var(--ft-rule)" }} />
               </div>
               {g.messages.map((m, idx) => {
                 const prev = idx > 0 ? g.messages[idx - 1] : null;
@@ -359,7 +450,106 @@ export function ChatWindow({
         <div ref={endRef} />
       </div>
 
-      <MessageInput onSendMessage={onSendMessage} />
+      <MessageInput
+        onSendMessage={onSendMessage}
+        placeholder={
+          channel.type === "direct"
+            ? `Message ${title}`
+            : `Message #${channel.name || "channel"}`
+        }
+      />
+    </div>
+  );
+}
+
+function MessagesLoadingSkeleton() {
+  // Mix of own + other bubbles, varied widths, so the loading state looks like a real conversation.
+  const layout: Array<{ mine: boolean; widths: number[]; header: boolean }> = [
+    { mine: false, widths: [62, 40], header: true },
+    { mine: true, widths: [52], header: true },
+    { mine: false, widths: [70, 48, 30], header: true },
+    { mine: true, widths: [44], header: true },
+  ];
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        gap: 18,
+        opacity: 0.9,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          maxWidth: 360,
+          width: "100%",
+          alignSelf: "center",
+        }}
+      >
+        <div style={{ flex: 1, height: 1, background: "var(--ft-rule)" }} />
+        <div className="ft-skel" style={{ height: 10, width: 60 }} />
+        <div style={{ flex: 1, height: 1, background: "var(--ft-rule)" }} />
+      </div>
+      {layout.map((row, i) => (
+        <div
+          key={i}
+          style={{
+            display: "flex",
+            flexDirection: row.mine ? "row-reverse" : "row",
+            gap: 10,
+            alignItems: "flex-end",
+          }}
+        >
+          <div style={{ width: 28, flexShrink: 0 }}>
+            {row.header && (
+              <div
+                className="ft-skel"
+                style={{ width: 28, height: 28, borderRadius: 28 }}
+              />
+            )}
+          </div>
+          <div style={{ maxWidth: 480, minWidth: 220, flex: "0 1 480px" }}>
+            {row.header && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  justifyContent: row.mine ? "flex-end" : "flex-start",
+                  marginBottom: 6,
+                }}
+              >
+                <div className="ft-skel" style={{ height: 10, width: 78 }} />
+                <div className="ft-skel" style={{ height: 10, width: 36 }} />
+              </div>
+            )}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                alignItems: row.mine ? "flex-end" : "flex-start",
+              }}
+            >
+              {row.widths.map((w, j) => (
+                <div
+                  key={j}
+                  className="ft-skel"
+                  style={{
+                    height: 36,
+                    width: `${w}%`,
+                    borderRadius: 3,
+                    minWidth: 70,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
