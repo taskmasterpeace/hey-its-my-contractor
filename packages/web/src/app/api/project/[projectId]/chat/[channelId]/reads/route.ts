@@ -64,7 +64,13 @@ export async function POST(_request: NextRequest, { params }: Params) {
       .returning();
 
     return NextResponse.json({ read });
-  } catch (error) {
+  } catch (error: unknown) {
+    // Race: channel was deleted between the client deciding to mark-read and
+    // this POST landing. The read marker is meaningless now — return quietly.
+    const cause = (error as { cause?: { code?: string } })?.cause;
+    if (cause?.code === "23503") {
+      return NextResponse.json({ ok: true, skipped: "channel_gone" });
+    }
     console.error("Error marking channel read:", error);
     return NextResponse.json(
       { error: "Internal server error" },
