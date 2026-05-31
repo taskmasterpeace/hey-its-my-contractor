@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db } from '@/db'
 import { meetings } from '@/db/schema/meetings'
 import { eq } from 'drizzle-orm'
+import { enqueueProcess } from '@/lib/services/meeting-worker-client'
 import console from "console"
 
 const updateMeetingSchema = z.object({
@@ -87,6 +88,12 @@ export async function POST(request: NextRequest) {
       .set(updateData)
       .where(eq(meetings.id, meetingId))
       .returning()
+
+    // When a meeting completes, enqueue transcript processing on the worker.
+    // Fire-and-forget: failures are non-fatal (the worker's cron sweep retries).
+    if (status === 'completed' && updatedMeeting.transcript?.trim()) {
+      await enqueueProcess(meetingId)
+    }
 
     return NextResponse.json(
       {

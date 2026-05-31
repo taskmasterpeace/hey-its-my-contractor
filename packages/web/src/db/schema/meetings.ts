@@ -5,6 +5,7 @@ import {
   text,
   timestamp,
   boolean,
+  integer,
   pgEnum,
   jsonb,
 } from "drizzle-orm/pg-core";
@@ -26,6 +27,15 @@ export const meetingStatusEnum = pgEnum("meeting_status", [
   "cancelled",
 ]);
 
+// Transcript processing lifecycle, driven by the meeting-worker service
+// (separate from the meeting lifecycle above).
+export const transcriptStatusEnum = pgEnum("transcript_status", [
+  "pending",
+  "processing",
+  "done",
+  "failed",
+]);
+
 export const meetings = pgTable("meetings", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id")
@@ -45,6 +55,9 @@ export const meetings = pgTable("meetings", {
   transcript: text("transcript"),
   consentGiven: boolean("consent_given").default(false),
   status: meetingStatusEnum("status").default("scheduled"),
+  // Transcript processing state (owned by the meeting-worker).
+  transcriptStatus: transcriptStatusEnum("transcript_status").default("pending"),
+  processingAttempts: integer("processing_attempts").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -60,7 +73,6 @@ export const transcripts = pgTable("transcripts", {
   segments: jsonb("segments").default("[]"), // Array of transcript segments with timestamps
   summary: text("summary"),
   actionItems: text("action_items").array(),
-  textEmbeddings: text("text_embeddings"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -1,0 +1,30 @@
+# Fly.io config for the meeting worker.
+# Qdrant runs as a SEPARATE Fly app (official qdrant/qdrant image) — set
+# QDRANT_URL to its private address, e.g. http://<qdrant-app>.internal:6333
+#
+# Deploy:
+#   fly secrets set DATABASE_URL=... OPENROUTER_API_KEY=... QDRANT_URL=... \
+#     QDRANT_API_KEY=... WORKER_SHARED_SECRET=...
+#   fly deploy
+app = "fieldtime-meeting-worker"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  QDRANT_COLLECTION = "meeting_transcripts"
+  SWEEP_ENABLED = "true"
+  SWEEP_CRON = "*/5 * * * *"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false   # keep warm so the embedding model stays loaded
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"   # embedding model + onnxruntime need headroom
