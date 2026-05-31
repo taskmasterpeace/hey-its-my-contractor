@@ -27,7 +27,7 @@ const useRecorder = ({
     const socket = useRef<WebSocket | null>(null);
     const audioContext = useRef<AudioContext | null>(null);
     const mediaStream = useRef<MediaStream | null>(null);
-    const scriptProcessor = useRef<ScriptProcessorNode | null>(null);
+    const workletNode = useRef<AudioWorkletNode | null>(null);
     const [status, setStatus] = useState<TranscriptionStatusType>(TRANSCRIPTION_STATUS.IDLE)
     const [isRecording, setIsRecording] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -395,7 +395,6 @@ const useRecorder = ({
                     audio: {
                         echoCancellation: true,
                         noiseSuppression: true,
-                        sampleRate: 44100,
                     }
                 });
 
@@ -418,47 +417,48 @@ const useRecorder = ({
                     console.error("Failed to start audio recording service:", error);
                 }
 
-                audioContext.current = new AudioContext({ sampleRate: 16000 });
-
-                const source = audioContext.current.createMediaStreamSource(
-                    mediaStream.current
-                );
-
                 try {
-                    // Try to use ScriptProcessorNode (deprecated but widely supported)
-                    scriptProcessor.current = audioContext.current.createScriptProcessor(
-                        4096,
-                        1,
-                        1
+                    // Use the browser's native sample rate; the worklet resamples to 16k.
+                    // (Forcing AudioContext to 16000 fails on Safari.)
+                    audioContext.current = new AudioContext();
+                    // Safari/iOS require an explicit resume after the user gesture.
+                    if (audioContext.current.state === "suspended") {
+                        await audioContext.current.resume();
+                    }
+
+                    // AudioWorklet works in Chrome, Edge, Firefox, and Safari 14.1+.
+                    await audioContext.current.audioWorklet.addModule("/pcm16-worklet.js");
+
+                    const source = audioContext.current.createMediaStreamSource(
+                        mediaStream.current
                     );
 
-                    source.connect(scriptProcessor.current);
-                    scriptProcessor.current.connect(audioContext.current.destination);
+                    workletNode.current = new AudioWorkletNode(
+                        audioContext.current,
+                        "pcm16-worklet",
+                        { processorOptions: { targetSampleRate: 16000 } }
+                    );
 
-                    // Check muted/paused state and send silence when muted or paused
-                    scriptProcessor.current.onaudioprocess = (event) => {
+                    // The worklet posts 16k Int16 PCM blocks; forward to AssemblyAI,
+                    // sending silence while muted/paused to keep the session alive.
+                    workletNode.current.port.onmessage = (event) => {
                         if (!socket.current || socket.current.readyState !== WebSocket.OPEN)
                             return;
-
-                        const input = event.inputBuffer.getChannelData(0);
-                        const buffer = new Int16Array(input.length);
-
+                        const pcm = event.data as ArrayBuffer;
                         if (isMutedRef.current || isPausedRef.current) {
-                            // Muted or Paused: send silence (zeros) to keep session alive
-                            // Buffer is already initialized with zeros, no loop needed
+                            socket.current.send(new Int16Array(pcm.byteLength / 2).buffer);
                         } else {
-                            // Not muted/paused: send actual audio
-                            for (let i = 0; i < input.length; i++) {
-                                buffer[i] = Math.max(-1, Math.min(1, input[i])) * 0x7fff;
-                            }
+                            socket.current.send(pcm);
                         }
-
-                        socket.current.send(buffer.buffer);
                     };
+
+                    source.connect(workletNode.current);
+                    // Connect to destination so the worklet runs; it outputs silence.
+                    workletNode.current.connect(audioContext.current.destination);
                 } catch (error) {
                     console.error("Failed to create audio processor:", error);
                     setStatus(TRANSCRIPTION_STATUS.ERROR);
-                    alert("Audio processing not supported in this browser. Please try Chrome or Edge.");
+                    alert("Microphone access or audio processing failed. Check mic permissions and try again.");
                     stopRecording();
                     return;
                 }
@@ -658,9 +658,10 @@ const useRecorder = ({
         const transcriptsToSave = { ...transcriptBufferRef.current };
         console.log("💾 Saving transcripts:", transcriptsToSave);
 
-        if (scriptProcessor.current) {
-            scriptProcessor.current.disconnect();
-            scriptProcessor.current = null;
+        if (workletNode.current) {
+            workletNode.current.port.onmessage = null;
+            workletNode.current.disconnect();
+            workletNode.current = null;
         }
 
         if (audioContext.current) {

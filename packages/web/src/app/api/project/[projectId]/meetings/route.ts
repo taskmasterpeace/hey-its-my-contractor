@@ -69,6 +69,7 @@ export async function GET(
         recording_url: meeting.recordingUrl,
         consent_given: meeting.consentGiven || false,
         status: meeting.status,
+        transcript_status: meeting.transcriptStatus,
         tags: meeting.tags || [],
         transcript: meeting.transcript || "",
         created_at: meeting.createdAt.toISOString(),

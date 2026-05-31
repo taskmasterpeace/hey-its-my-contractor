@@ -1,25 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Play, Pause, Check } from "lucide-react";
+import { Mic, Loader2, CheckCircle2, Calendar } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { MeetingAsk } from "@/components/meetings/MeetingAsk";
+import { MeetingRecorderPanel } from "@/components/meetings/MeetingRecorderPanel";
+import { MeetingAudioPlayer } from "@/components/meetings/MeetingAudioPlayer";
 
 interface TranscriptSegment {
   start: number;
-  end: number;
   speaker: string;
   text: string;
-  confidence: number;
 }
 
 interface MeetingData {
   id: string;
   title: string;
   startsAt: string;
-  endsAt: string | null;
   type: string;
   status: string;
+  recordingUrl: string | null;
+  transcriptStatus: string | null;
 }
 
 interface TranscriptData {
@@ -29,334 +34,294 @@ interface TranscriptData {
   actionItems: string[];
 }
 
-const AVATAR_COLORS: Record<string, string> = {
-  "Andrea Johnson": "#7A4E2A",
-  "Sam": "#2D5A6A",
-  "Rob": "#4F6E2A",
-};
+function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
+  if (status === "completed") return "default";
+  if (status === "cancelled") return "destructive";
+  return "secondary";
+}
 
-function getInitials(name: string) {
-  return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+function formatDateTime(d: string) {
+  return (
+    new Date(d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) +
+    " · " +
+    new Date(d).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+  );
 }
 
 export default function ProjectMeetingsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
+
+  const [meetings, setMeetings] = useState<MeetingData[]>([]);
   const [meeting, setMeeting] = useState<MeetingData | null>(null);
   const [transcript, setTranscript] = useState<TranscriptData | null>(null);
-  const [meetings, setMeetings] = useState<MeetingData[]>([]);
-  const [selectedIdx, setSelectedIdx] = useState(2);
-  const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showRecorder, setShowRecorder] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
+  const fetchTranscript = useCallback(
+    async (meetingId: string): Promise<TranscriptData | null> => {
+      const res = await fetch(`/api/project/${projectId}/meetings/${meetingId}/transcript`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.transcript || null;
+    },
+    [projectId]
+  );
+
+  // Load meetings + the selected (newest) meeting's transcript.
   useEffect(() => {
-    async function load() {
+    let active = true;
+    (async () => {
       try {
         const res = await fetch(`/api/project/${projectId}/meetings`);
         if (!res.ok) return;
         const json = await res.json();
         const raw = json.data || json.meetings || [];
-        const mtgs: MeetingData[] = raw.map((m: any) => ({
-          id: m.id,
-          title: m.title,
-          startsAt: m.starts_at || m.startsAt,
-          endsAt: m.ends_at || m.endsAt || null,
-          type: m.type,
-          status: m.status,
-        }));
+        const mtgs: MeetingData[] = raw
+          .map((m: any) => ({
+            id: m.id,
+            title: m.title,
+            startsAt: m.starts_at || m.startsAt,
+            type: m.type,
+            status: m.status,
+            recordingUrl: m.recording_url || m.recordingUrl || null,
+            transcriptStatus: m.transcript_status || m.transcriptStatus || null,
+          }))
+          .sort((a: MeetingData, b: MeetingData) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
+        if (!active) return;
         setMeetings(mtgs);
 
-        const completed = mtgs.filter(m => m.status === "completed");
-        if (completed.length > 0) {
-          const latest = completed[0];
-          setMeeting(latest);
-
-          const tRes = await fetch(`/api/project/${projectId}/meetings/${latest.id}/transcript`);
-          if (tRes.ok) {
-            const tData = await tRes.json();
-            setTranscript(tData.transcript || null);
-          }
+        // Keep current selection if it still exists; otherwise pick the newest.
+        const next = (meeting && mtgs.find((m) => m.id === meeting.id)) || mtgs[0] || null;
+        if (next) {
+          setMeeting(next);
+          const t = await fetchTranscript(next.id);
+          if (active) setTranscript(t);
         }
       } catch (e) {
         console.error("Failed to load meetings:", e);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
-    }
-    load();
-  }, [projectId]);
+    })();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, reloadKey]);
 
-  const segments = transcript?.segments || [];
-  const actionItems = transcript?.actionItems || [];
-  const summary = transcript?.summary || "";
+  // Poll while the selected meeting is still processing, so it updates live.
+  useEffect(() => {
+    if (!meeting || meeting.transcriptStatus === "done") return;
+    let active = true;
+    const interval = setInterval(async () => {
+      const t = await fetchTranscript(meeting.id);
+      if (active && t && (t.summary || t.text)) {
+        setTranscript(t);
+        setMeeting((prev) => (prev && prev.id === meeting.id ? { ...prev, transcriptStatus: "done" } : prev));
+        setMeetings((prev) => prev.map((m) => (m.id === meeting.id ? { ...m, transcriptStatus: "done" } : m)));
+      }
+    }, 4000);
+    const stop = setTimeout(() => clearInterval(interval), 120000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      clearTimeout(stop);
+    };
+  }, [meeting?.id, meeting?.transcriptStatus, fetchTranscript]);
 
-  const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) +
-    " · " +
-    new Date(d).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const selectMeeting = async (m: MeetingData) => {
+    setMeeting(m);
+    setTranscript(null);
+    setTranscript(await fetchTranscript(m.id));
+  };
 
-  if (loading) {
-    return (
-      <div style={{ padding: "44px 48px 56px" }} className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-3" style={{ borderColor: "var(--ft-hi-vis)" }} />
-          <p className="text-sm" style={{ color: "var(--ft-steel)" }}>Loading meetings…</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!meeting || !transcript) {
-    return (
-      <div style={{ padding: "44px 48px 56px", maxWidth: 1400 }}>
-        <div className="font-mono text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: "var(--ft-steel)" }}>
-          Meetings
-        </div>
-        <h1 className="font-display mt-1.5" style={{ fontWeight: 800, fontSize: 36, color: "var(--ft-ink)" }}>
-          No meetings with transcripts yet
-        </h1>
-        <p className="mt-3 text-sm" style={{ color: "var(--ft-steel)" }}>
-          Record a meeting from the calendar to see transcripts and AI insights here.
-        </p>
-      </div>
-    );
-  }
-
-  const titleWords = meeting.title.split(" ");
+  const processing =
+    meeting != null &&
+    meeting.transcriptStatus !== "done" &&
+    !transcript?.summary &&
+    !transcript?.text;
 
   return (
-    <div style={{ padding: "44px 48px 56px", display: "flex", flexDirection: "column", gap: 32, maxWidth: 1400 }}>
-      {/* ── HEADER ── */}
-      <div className="flex justify-between items-end gap-4">
+    <div className="mx-auto max-w-7xl space-y-6 p-6 md:p-8">
+      {showRecorder && (
+        <MeetingRecorderPanel
+          projectId={projectId}
+          onClose={() => setShowRecorder(false)}
+          onComplete={() => setReloadKey((k) => k + 1)}
+        />
+      )}
+
+      {/* ── HEADER (page-level actions — separate from the meeting shown below) ── */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-6">
         <div>
-          <div
-            className="font-mono text-[11px] font-bold uppercase tracking-[0.18em]"
-            style={{ color: "var(--ft-steel)" }}
-          >
-            Meeting · {formatDate(meeting.startsAt)}
-          </div>
-          <h1
-            className="font-display"
-            style={{ fontWeight: 800, fontSize: 48, letterSpacing: "-0.025em", margin: "14px 0 12px", lineHeight: 1.06, color: "var(--ft-ink)" }}
-          >
-            {titleWords.map((w, i) => (
-              <span key={i} style={{ fontStyle: i === 1 ? "italic" : "normal", color: i === 1 ? "var(--ft-steel)" : "var(--ft-ink)" }}>
-                {w}{" "}
-              </span>
-            ))}
-          </h1>
-          <div className="flex items-center gap-3.5" style={{ color: "var(--ft-steel)", fontSize: 14 }}>
-            <span>{meeting.type.replace("_", " ")}</span>
-            <span style={{ width: 1, height: 12, background: "var(--ft-rule-2)", display: "inline-block" }} />
-            <div className="flex">
-              {Array.from(new Set(segments.map(s => s.speaker))).map((speaker, i) => (
-                <div
-                  key={speaker}
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold"
-                  style={{
-                    background: AVATAR_COLORS[speaker] || "#6B6D63",
-                    color: "#fff",
-                    marginLeft: i === 0 ? 0 : -6,
-                    border: "2px solid var(--ft-paper)",
-                    zIndex: 10 - i,
-                    position: "relative",
-                  }}
-                >
-                  {getInitials(speaker)}
-                </div>
-              ))}
-            </div>
-            <span>{new Set(segments.map(s => s.speaker)).size} speakers</span>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Meetings</h1>
+          <p className="text-sm text-muted-foreground">Record, transcribe, and ask questions about your meetings.</p>
         </div>
-        <div className="flex gap-2 flex-shrink-0">
-          <button
-            className="px-3.5 py-2 text-[13px] font-medium rounded"
-            style={{ border: "1px solid var(--ft-rule)", color: "var(--ft-ink)", background: "var(--ft-paper)" }}
-          >
-            Share clip
-          </button>
-          <Link
-            href={`/project/${projectId}/change-orders`}
-            className="px-3.5 py-2 text-[13px] font-medium rounded"
-            style={{ background: "var(--ft-hi-vis)", color: "#fff", textDecoration: "none" }}
-          >
-            Draft change order →
-          </Link>
-        </div>
+        <Button onClick={() => setShowRecorder(true)} size="lg">
+          <Mic className="h-4 w-4" /> Record a new meeting
+        </Button>
       </div>
 
-      {/* ── WAVEFORM PLAYER ── */}
-      <div className="rounded overflow-hidden" style={{ border: "1px solid var(--ft-rule)" }}>
-        <div className="flex items-stretch">
-          <button
-            onClick={() => setPlaying(!playing)}
-            className="flex items-center justify-center flex-shrink-0"
-            style={{ width: 68, background: "var(--ft-ink)", color: "var(--ft-paper)", border: "none", cursor: "pointer" }}
-          >
-            {playing ? (
-              <Pause className="w-[18px] h-[18px]" fill="currentColor" />
-            ) : (
-              <Play className="w-[18px] h-[18px]" fill="currentColor" />
-            )}
-          </button>
-          <div className="flex-1 px-[18px] py-3 flex flex-col gap-1.5">
-            <div className="flex justify-between">
-              <span className="font-mono text-[11px]" style={{ color: "var(--ft-steel)" }}>
-                00:{String(22 + Math.floor(selectedIdx * 1.5)).padStart(2, "0")}:38
-              </span>
-              <span className="font-mono text-[11px]" style={{ color: "var(--ft-steel)" }}>
-                1.0× · {new Set(segments.map(s => s.speaker)).size} speakers detected
-              </span>
-            </div>
-            <svg viewBox="0 0 800 36" style={{ width: "100%", height: 36 }}>
-              {Array.from({ length: 120 }).map((_, i) => {
-                const h = 4 + Math.abs(Math.sin(i * 0.6) * Math.cos(i * 0.3)) * 24 + (i % 3) * 2;
-                const x = i * 7;
-                const past = i < (selectedIdx + 1) * 14;
-                return <rect key={i} x={x} y={(36 - h) / 2} width="4" height={h} fill={past ? "var(--ft-ink)" : "var(--ft-rule-2)"} />;
-              })}
-            </svg>
-          </div>
+      {loading ? (
+        <div className="flex min-h-[300px] items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </div>
-
-      {/* ── TWO COLUMNS: Transcript + AI panel ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 20 }}>
-        {/* Transcript */}
-        <div className="rounded" style={{ background: "var(--ft-paper)", border: "1px solid var(--ft-rule)" }}>
-          <div className="flex justify-between items-baseline px-5 py-3.5" style={{ borderBottom: "1px solid var(--ft-rule)" }}>
-            <h2 className="font-display text-[15px] font-semibold" style={{ color: "var(--ft-ink)" }}>Transcript</h2>
-            <span className="text-[12px]" style={{ color: "var(--ft-steel)" }}>tap a line to play · 99% confidence</span>
-          </div>
-          <div className="flex flex-col">
-            {segments.map((seg, i) => {
-              const sel = i === selectedIdx;
+      ) : meetings.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Mic className="h-6 w-6 text-muted-foreground" />
+            </span>
+            <div>
+              <p className="font-medium text-foreground">No meetings yet</p>
+              <p className="text-sm text-muted-foreground">Record your first meeting to see transcripts and AI insights.</p>
+            </div>
+            <Button onClick={() => setShowRecorder(true)}>
+              <Mic className="h-4 w-4" /> Record a new meeting
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+          {/* ── HISTORY LIST ── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">History</h2>
+              <span className="text-xs text-muted-foreground">{meetings.length}</span>
+            </div>
+            {meetings.map((m) => {
+              const selected = m.id === meeting?.id;
               return (
                 <button
-                  key={i}
-                  onClick={() => setSelectedIdx(i)}
-                  className="flex items-start gap-3 text-left transition-colors"
-                  style={{
-                    padding: "10px 16px",
-                    background: sel ? "var(--ft-paper-2)" : "transparent",
-                    borderLeft: sel ? "3px solid var(--ft-hi-vis)" : "3px solid transparent",
-                    border: "none",
-                    borderBottom: "none",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
+                  key={m.id}
+                  onClick={() => selectMeeting(m)}
+                  className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                    selected ? "border-primary bg-accent" : "bg-card hover:bg-accent/50"
+                  }`}
                 >
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5"
-                    style={{ background: AVATAR_COLORS[seg.speaker] || "#6B6D63", color: "#fff" }}
-                  >
-                    {getInitials(seg.speaker)}
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="line-clamp-1 text-sm font-medium text-foreground">{m.title}</span>
+                    <Badge variant={statusVariant(m.status)} className="shrink-0 capitalize">
+                      {m.status.replace("_", " ")}
+                    </Badge>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2.5">
-                      <span className="text-[13px] font-semibold" style={{ color: "var(--ft-ink)" }}>{seg.speaker.split(" ")[0]}</span>
-                      <span className="font-mono text-[10px]" style={{ color: "var(--ft-steel)" }}>
-                        {String(Math.floor(seg.start / 60)).padStart(2, "0")}:{String(seg.start % 60).padStart(2, "0")}
-                      </span>
-                    </div>
-                    <div className="text-[14px] mt-0.5" style={{ color: "var(--ft-ink-soft)", lineHeight: 1.55 }}>
-                      {seg.text}
-                    </div>
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Calendar className="h-3 w-3" />
+                    {formatDate(m.startsAt)}
+                    <span>·</span>
+                    <span className="capitalize">{m.type.replace("_", " ")}</span>
                   </div>
                 </button>
               );
             })}
           </div>
-        </div>
 
-        {/* What FieldTime heard */}
-        <div className="rounded" style={{ background: "var(--ft-paper)", border: "1px solid var(--ft-rule)" }}>
-          <div className="flex justify-between items-center px-5 py-3.5" style={{ borderBottom: "1px solid var(--ft-rule)" }}>
-            <h2 className="font-display text-[15px] font-semibold" style={{ color: "var(--ft-ink)" }}>What FieldTime heard</h2>
-            <span
-              className="px-2 py-0.5 text-[10px] font-medium rounded uppercase tracking-wide"
-              style={{ background: "var(--ft-paper-2)", color: "var(--ft-steel)" }}
-            >
-              AI · cited
-            </span>
-          </div>
-          <div className="px-5 py-4">
-            {summary && (
-              <p className="text-[12px] mb-4" style={{ color: "var(--ft-steel)", lineHeight: 1.5 }}>
-                {summary}
-              </p>
-            )}
-
-            {/* Action items as decisions */}
-            {actionItems.map((item, i) => (
-              <div
-                key={i}
-                className="flex gap-3 items-start"
-                style={{
-                  padding: "12px 0",
-                  borderTop: i === 0 ? "1px solid var(--ft-rule)" : "1px dashed var(--ft-rule)",
-                }}
-              >
-                <div
-                  className="w-[18px] h-[18px] rounded-sm flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: "var(--ft-hi-vis)", color: "#fff" }}
-                >
-                  <Check className="w-[11px] h-[11px]" strokeWidth={3} />
-                </div>
-                <div className="flex-1">
-                  <div className="text-[13px] font-medium" style={{ color: "var(--ft-ink)" }}>{item}</div>
-                  <div className="font-mono text-[10px] mt-1" style={{ color: "var(--ft-steel)" }}>
-                    follow-up · from transcript
+          {/* ── DETAIL ── */}
+          {meeting && (
+            <div className="space-y-6">
+              {/* Meeting header */}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {formatDateTime(meeting.startsAt)}
+                  </div>
+                  <h2 className="mt-1 text-xl font-semibold text-foreground">{meeting.title}</h2>
+                  <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className="capitalize">{meeting.type.replace("_", " ")}</span>
+                    <Badge variant={statusVariant(meeting.status)} className="capitalize">
+                      {meeting.status.replace("_", " ")}
+                    </Badge>
                   </div>
                 </div>
+                <Button asChild variant="outline">
+                  <Link href={`/project/${projectId}/change-orders`}>Draft change order</Link>
+                </Button>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      {/* ── OTHER MEETINGS LIST ── */}
-      {meetings.length > 1 && (
-        <div>
-          <div className="flex justify-between items-baseline pb-3.5 mb-1" style={{ borderBottom: "1px solid var(--ft-rule)" }}>
-            <h2 className="font-display text-[22px]" style={{ fontWeight: 600, letterSpacing: "-0.01em", color: "var(--ft-ink)" }}>
-              All meetings
-            </h2>
-            <span className="font-mono text-[12px]" style={{ color: "var(--ft-steel)" }}>{meetings.length}</span>
-          </div>
-          {meetings.map((m, i) => (
-            <div
-              key={m.id}
-              className="flex items-center gap-5 py-3.5 transition-colors hover:bg-[var(--ft-hi-vis-soft)] -mx-3 px-3 rounded cursor-pointer"
-              style={{
-                borderBottom: i < meetings.length - 1 ? "1px solid var(--ft-rule)" : "none",
-              }}
-              onClick={() => {
-                setMeeting(m);
-                fetch(`/api/project/${projectId}/meetings/${m.id}/transcript`)
-                  .then(r => r.ok ? r.json() : null)
-                  .then(d => setTranscript(d?.transcript || null));
-              }}
-            >
-              <div className="font-mono text-[12px] w-24 flex-shrink-0" style={{ color: "var(--ft-steel)" }}>
-                {new Date(m.startsAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-              </div>
-              <div className="flex-1">
-                <div className="text-[15px] font-medium" style={{ color: m.id === meeting.id ? "var(--ft-hi-vis)" : "var(--ft-ink)" }}>
-                  {m.title}
+              {/* Audio player */}
+              {meeting.recordingUrl && <MeetingAudioPlayer url={meeting.recordingUrl} />}
+
+              {processing && (
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Transcript is being processed — this updates automatically.
                 </div>
-                <div className="text-[12px] mt-0.5" style={{ color: "var(--ft-steel)" }}>
-                  {m.type.replace("_", " ")} · {m.status}
-                </div>
-              </div>
-              {m.id === meeting.id && (
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded" style={{ background: "var(--ft-hi-vis-soft)", color: "var(--ft-hi-vis)" }}>
-                  viewing
-                </span>
               )}
+
+              {/* Transcript + AI summary */}
+              <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Transcript</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {transcript?.segments && transcript.segments.length > 0 ? (
+                      <div className="space-y-4">
+                        {transcript.segments.map((seg, i) => (
+                          <div key={i} className="space-y-0.5">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm font-semibold text-foreground">{seg.speaker}</span>
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {String(Math.floor(seg.start / 60)).padStart(2, "0")}:{String(seg.start % 60).padStart(2, "0")}
+                              </span>
+                            </div>
+                            <p className="text-sm leading-relaxed text-muted-foreground">{seg.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : transcript?.text ? (
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{transcript.text}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {processing ? "Processing…" : "No transcript available."}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-base">AI summary</CardTitle>
+                    <Badge variant="outline">AI</Badge>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {!transcript?.summary && (!transcript?.actionItems || transcript.actionItems.length === 0) ? (
+                      <p className="text-sm text-muted-foreground">
+                        Summary &amp; action items appear here once processing finishes.
+                      </p>
+                    ) : (
+                      <>
+                        {transcript?.summary && (
+                          <p className="text-sm leading-relaxed text-muted-foreground">{transcript.summary}</p>
+                        )}
+                        {transcript?.actionItems && transcript.actionItems.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Action items
+                            </div>
+                            {transcript.actionItems.map((item, i) => (
+                              <div key={i} className="flex items-start gap-2">
+                                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                <span className="text-sm text-foreground">{item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Ask box */}
+              <MeetingAsk projectId={projectId} meetingId={meeting.id} />
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

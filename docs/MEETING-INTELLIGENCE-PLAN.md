@@ -160,14 +160,33 @@ Migration: `db:generate` a Drizzle migration for the `transcripts` reshape; back
 - Source of truth for "needs processing" is the DB `transcript_status` field, not the enqueue call.
 - In-run retries (embed/Qdrant/LLM) via `withRetry`; cross-run retries via the cron sweep
   (`pending`/`failed` with `attempts < 3`). Idempotent re-processing (delete vectors + transcript row first).
-- Result delivery reuses existing infra: worker writes to Postgres → **Supabase Realtime** updates open
-  pages; a row in the existing **`notifications`** table covers users who navigated away. *(Notification
-  insert + UI hookup still TODO — see remaining.)*
+- Result delivery: the meetings page **polls** the transcript every 4s while a meeting is
+  `pending`/`processing` and updates in place when it lands (stops at `done`, 2-min cap). Chosen over
+  Supabase Realtime because realtime isn't guaranteed to be enabled on the `transcripts` table.
 
-**Remaining (not built yet):**
+**Done (frontend + recording):**
 
-- [ ] Apply the migration (`db:migrate`).
-- [ ] Worker inserts a `notifications` row on completion; wire `NotificationSystem` toast.
-- [ ] **Phase 1** — cross-browser AudioWorklet recording (Safari/Firefox).
-- [ ] **Phase 3** — meeting history UI fed by real processed data.
-- [ ] **Phase 4 UI** — "Ask about your meetings" chat box calling `/api/meetings/ask`.
+- Migration **applied** to Supabase (`db:migrate`).
+- **Phase 1 — cross-browser recording**: replaced the deprecated `ScriptProcessorNode` +
+  forced-16k AudioContext with an **AudioWorklet** (`public/pcm16-worklet.js`) that resamples the
+  browser's native rate down to 16k Int16 PCM. Works in Chrome, Edge, Firefox, Safari 14.1+
+  (with `audioContext.resume()` for the iOS/Safari gesture requirement).
+- **Phase 3 — meeting UI**: rebuilt the meetings page on the app theme (shadcn `Button`/`Card`/`Badge`)
+  with a page header + **Record a new meeting** button, a **history list**, a **detail** view, and a
+  **wavesurfer.js** audio player. Mock/demo rendering removed.
+- **Phase 4 UI**: `MeetingAsk` "Ask about your meetings" box (this-meeting / all-meetings scope) wired
+  to `/api/meetings/ask`.
+
+**Remaining (deferred — agreed for later):**
+
+- [ ] **(2) Speaker diarization** — real recordings store plain transcript text with no per-speaker
+  segments. Would come from running AssemblyAI's async API on the stored audio post-meeting.
+- [ ] **(3) Completion notification** — worker inserts a `notifications` row on `done` and wire the
+  existing `NotificationSystem` toast, for users who navigated away from the page.
+- [ ] **(4) Deploy to Fly.io** — currently local Docker only. Deploy the worker + a separate Qdrant
+  Fly app; set prod secrets (`WORKER_URL`/`WORKER_SHARED_SECRET` on Vercel, etc.).
+- [ ] **(5) Stop/upload UX** — the recorder shows a single "Saving & uploading…" spinner while the
+  audio file uploads to Supabase + the meeting is saved (the worker hand-off is fire-and-forget, so
+  this is not waiting on processing). For large recordings we may want a clearer message or actual
+  upload progress. Fine as-is for now.
+- [x] **Config:** Supabase `recordings` bucket is **public** — audio playback confirmed working.
