@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
   const code = searchParams.get("code"); // For OAuth flows
-  const next = "/account";
+  const next = searchParams.get("redirectTo") || "/dashboard";
 
   // Create redirect link without the secret tokens
   const redirectTo = request.nextUrl.clone();
@@ -59,7 +59,15 @@ export async function GET(request: NextRequest) {
         const invitationToken =
           authData.user.user_metadata?.invitation_token ||
           authData.user.user_metadata?.pending_invitation_token;
-        let systemRole = "homeowner"; // Default
+        // Check if this email is the designated super admin
+        const superAdminEmail = process.env.SUPER_ADMIN_EMAIL;
+        let systemRole = superAdminEmail && authData.user.email === superAdminEmail
+          ? "super_admin"
+          : "homeowner";
+
+        if (systemRole === "super_admin") {
+          console.log("🔑 Auth: Super admin email detected, granting super_admin role");
+        }
 
         if (invitationToken) {
           console.log(
@@ -125,6 +133,19 @@ export async function GET(request: NextRequest) {
         console.log("Created user record:", newUser);
       } else {
         console.log("User record already exists");
+
+        // Upgrade existing user to super_admin if they match the env email
+        const superAdminEmail = process.env.SUPER_ADMIN_EMAIL;
+        if (superAdminEmail && authData.user.email === superAdminEmail) {
+          const currentRole = existingUser[0].systemRole;
+          if (currentRole !== "super_admin") {
+            console.log("🔑 Auth: Upgrading existing user to super_admin");
+            await db
+              .update(users)
+              .set({ systemRole: "super_admin" })
+              .where(eq(users.id, authData.user.id));
+          }
+        }
       }
 
       // Check for invitation token and process if found
